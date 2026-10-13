@@ -9,6 +9,7 @@ import { GrowPortal } from './portals/grow/GrowPortal';
 import { PrintLabelPage } from './portals/grow/PrintLabelPage';
 import { MovePortal } from './portals/move/MovePortal';
 import { HubPortal } from './portals/hub/HubPortal';
+import { ShelfPortal } from './portals/shelf/ShelfPortal';
 
 const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout } = useAuth();
@@ -30,23 +31,7 @@ const AppContent: React.FC = () => {
           <Route path="/print/:bagId" element={<PrintLabelPage />} />
           <Route path="/move" element={<MovePortal />} />
           <Route path="/hub" element={<HubPortal />} />
-          <Route
-            path="/shelf"
-            element={
-              <div className="max-w-md mx-auto p-8 text-center bg-white rounded-2xl shadow mt-8">
-                <h2 className="text-xl font-bold text-purple-700">🏪 Shelf Portal</h2>
-                <p className="text-xs text-gray-500 mt-2">
-                  Welcome, Retailer {userProfile?.firstName}! Milestone M5 (Receiving from mandi & shelf list).
-                </p>
-                <button
-                  onClick={() => navigate('/')}
-                  className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold"
-                >
-                  Back Home
-                </button>
-              </div>
-            }
-          />
+          <Route path="/shelf" element={<ShelfPortal />} />
           <Route
             path="/table"
             element={
