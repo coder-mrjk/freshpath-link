@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { EntrancePage } from './portals/entrance/EntrancePage';
@@ -10,10 +10,11 @@ import { PrintLabelPage } from './portals/grow/PrintLabelPage';
 import { MovePortal } from './portals/move/MovePortal';
 import { HubPortal } from './portals/hub/HubPortal';
 import { ShelfPortal } from './portals/shelf/ShelfPortal';
+import { TablePortal } from './portals/table/TablePortal';
+import { PublicBagPage } from './portals/table/PublicBagPage';
 
 const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout } = useAuth();
-  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col bg-sandBg">
@@ -32,23 +33,8 @@ const AppContent: React.FC = () => {
           <Route path="/move" element={<MovePortal />} />
           <Route path="/hub" element={<HubPortal />} />
           <Route path="/shelf" element={<ShelfPortal />} />
-          <Route
-            path="/table"
-            element={
-              <div className="max-w-md mx-auto p-8 text-center bg-white rounded-2xl shadow mt-8">
-                <h2 className="text-xl font-bold text-tomato-600">🥗 Table Portal</h2>
-                <p className="text-xs text-gray-500 mt-2">
-                  Welcome, Shopper {userProfile?.firstName}! Milestone M6 (Provenance journey, confirm purchase & ratings).
-                </p>
-                <button
-                  onClick={() => navigate('/')}
-                  className="mt-4 px-4 py-2 bg-tomato-500 text-white rounded-xl text-xs font-bold"
-                >
-                  Back Home
-                </button>
-              </div>
-            }
-          />
+          <Route path="/table" element={<TablePortal />} />
+          <Route path="/b/:bagId" element={<PublicBagPage />} />
 
           <Route
             path="*"
