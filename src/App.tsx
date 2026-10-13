@@ -5,6 +5,8 @@ import { Navbar } from './components/Navbar';
 import { EntrancePage } from './portals/entrance/EntrancePage';
 import { AuthPage } from './portals/entrance/AuthPage';
 import { ControlPortal } from './portals/control/ControlPortal';
+import { GrowPortal } from './portals/grow/GrowPortal';
+import { PrintLabelPage } from './portals/grow/PrintLabelPage';
 
 const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout } = useAuth();
@@ -22,25 +24,8 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<EntrancePage />} />
           <Route path="/auth/:role" element={<AuthPage />} />
           <Route path="/control" element={<ControlPortal />} />
-
-          {/* Placeholder routes for portals to be fleshed out in subsequent milestones */}
-          <Route
-            path="/grow"
-            element={
-              <div className="max-w-md mx-auto p-8 text-center bg-white rounded-2xl shadow mt-8">
-                <h2 className="text-xl font-bold text-emerald-700">🌱 Grow Portal</h2>
-                <p className="text-xs text-gray-500 mt-2">
-                  Welcome, Farmer {userProfile?.firstName}! Milestone M2 (Bag creation, fields & printable QR labels).
-                </p>
-                <button
-                  onClick={() => navigate('/')}
-                  className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
-                >
-                  Back Home
-                </button>
-              </div>
-            }
-          />
+          <Route path="/grow" element={<GrowPortal />} />
+          <Route path="/print/:bagId" element={<PrintLabelPage />} />
           <Route
             path="/move"
             element={
