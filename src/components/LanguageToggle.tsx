@@ -1,15 +1,29 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n/config';
+import { useAuth } from '../context/AuthContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { Languages } from 'lucide-react';
 
 export const LanguageToggle: React.FC = () => {
   const { i18n } = useTranslation();
+  const { currentUser } = useAuth();
   const currentLang = i18n.language || 'en';
 
-  const toggle = () => {
+  const toggle = async () => {
     const next = currentLang.startsWith('ta') ? 'en' : 'ta';
     changeLanguage(next);
+
+    if (currentUser) {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          preferredLang: next,
+        });
+      } catch (e) {
+        // Non-blocking preference sync
+      }
+    }
   };
 
   return (
