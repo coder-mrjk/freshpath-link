@@ -331,7 +331,7 @@ service cloud.firestore {
       // Telemetry readings subcollection (DHT22 temp & humidity)
       match /readings/{readingId} {
         allow read: if signedIn();
-        allow create: if isDevice(unitId, 'storage') || isOwner();
+        allow create: if isDevice(unitId, 'storage') || isOwner() || isApproved('mandi');
         allow update, delete: if false;
       }
     }
