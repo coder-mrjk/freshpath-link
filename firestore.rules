@@ -1,18 +1,378 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{uid}
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - role: string (required, 'farmer'|'driver'|'mandi'|'shop'|'consumer')
+    //   - status: string (required, 'pending'|'approved'|'suspended'|'rejected')
+    //   - firstName: string (required)
+    //   - fullName: string (private)
+    //   - phone: string (private)
+    //   - addressText: string (private)
+    //   - preferredLang: string ('en'|'ta')
+    //   - passId: string (optional, issued by owner on approval)
+    //   - createdAt: timestamp (creation time)
+    //   - approvedAt: timestamp (optional, set only by owner)
+    //   - approvedBy: string (optional, set only by owner)
+    //
+    // Collection: owners/{uid}
+    // Document ID: Firebase Auth UID of authorized system owners
+    // Fields:
+    //   - uid: string (required)
+    //   - role: string (optional, 'owner')
+    //
+    // Collection: counters/{role}
+    // Document ID: Role name ('farmer'|'driver'|'mandi'|'shop'|'consumer')
+    // Fields:
+    //   - next: number (required) - Next sequential pass number
+    //
+    // Collection: devices/{uid}
+    // Document ID: Device auth UID
+    // Fields:
+    //   - type: string ('gps'|'storage')
+    //   - unitId: string (hardware unit identifier)
+    //
+    // Collection: products/{prodId}
+    // Document ID: Product identifier (e.g. 'tomato')
+    // Fields:
+    //   - name: string (required)
+    //   - ratePerKg: number (required)
+    //   - active: bool (required)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: config/{docId}
+    // Document ID: Config key (e.g. 'freshness')
+    // Fields:
+    //   - perHourSinceHarvest: number
+    //   - perHourStoredAbove30C: number
+    //   - freshMin: number
+    //   - sellSoonMin: number
+    //
+    // Collection: fields/{fieldId}
+    // Document ID: Auto-generated or custom field ID
+    // Fields:
+    //   - farmerUid: string (required, creator UID)
+    //   - name: string (required)
+    //   - village: string (required)
+    //   - district: string (optional)
+    //   - lat: number (optional)
+    //   - lng: number (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: vehicles/{vehicleId}
+    // Document ID: Uppercase registration number without spaces
+    // Fields:
+    //   - driverUid: string (required, creator UID)
+    //   - regNumber: string (required)
+    //   - vehicleType: string (required)
+    //   - capacityKg: number (required)
+    //   - gpsUnitId: string (optional, linked by owner)
+    //   - status: string (e.g. 'PENDING_GPS'|'ACTIVE')
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: gpsUnits/{gpsId}
+    // Document ID: GPS unit ID (e.g. 'GPS-01')
+    // Fields:
+    //   - vehicleId: string (optional)
+    //   - latest: map (lat, lng, speedKmph, sats, hdop, valid, fixAt)
+    //   - receivedAt: timestamp (optional)
+    //
+    // Collection: trips/{tripId}
+    // Document ID: Trip ID (e.g. 'TRP-YYMMDD-XXXX')
+    // Fields:
+    //   - driverUid: string (required, creator UID)
+    //   - vehicleId: string (required)
+    //   - gpsUnitId: string (required)
+    //   - originText: string (required)
+    //   - destinationMandiId: string (required)
+    //   - status: string ('DRAFT'|'IN_TRANSIT'|'ENDED')
+    //   - bagIds: list (optional)
+    //   - start: map (optional)
+    //   - end: map (optional)
+    //   - startedAt: timestamp (optional)
+    //   - endedAt: timestamp (optional)
+    //   - distanceKmStraight: number (optional)
+    //   - durationMin: number (optional)
+    //
+    // Collection: mandis/{mandiId}
+    // Document ID: Mandi document ID
+    // Fields:
+    //   - mandiPersonUid: string (required)
+    //   - name: string (required)
+    //   - area: string (required)
+    //   - lat: number (optional)
+    //   - lng: number (optional)
+    //
+    // Collection: storageUnits/{unitId}
+    // Document ID: Storage unit ID (e.g. 'STORE-01')
+    // Fields:
+    //   - mandiId: string (required)
+    //   - name: string (required)
+    //   - nodeUnitId: string (required)
+    //   - latest: map (tempC, humidityPct, at)
+    //
+    // Subcollection: storageUnits/{unitId}/readings/{readingId}
+    // Document ID: Auto-generated reading ID
+    // Fields:
+    //   - tempC: number (required)
+    //   - humidityPct: number (required)
+    //   - at: timestamp (required)
+    //
+    // Collection: shops/{shopId}
+    // Document ID: Shop document ID
+    // Fields:
+    //   - shopPersonUid: string (required)
+    //   - name: string (required)
+    //   - area: string (required)
+    //   - lat: number (optional)
+    //   - lng: number (optional)
+    //
+    // Collection: bags/{bagId}
+    // Document ID: Bag ID (e.g. 'FP-TOM-YYMMDD-XXXXXX')
+    // Fields:
+    //   - product: string ('tomato')
+    //   - farmerUid: string (required)
+    //   - farmerPassId: string (required)
+    //   - farmerFirstName: string (required)
+    //   - fieldId: string (required)
+    //   - fieldName: string (required)
+    //   - village: string (required)
+    //   - weightKg: number (required)
+    //   - pieces: number (required)
+    //   - pricePerKg: number (required)
+    //   - totalPrice: number (required)
+    //   - status: string ('CREATED'|'LOADED'|'IN_TRANSIT'|'IN_STORAGE'|'DISPATCHED_TO_SHOP'|'AT_SHOP'|'SOLD')
+    //   - tripId: string (optional)
+    //   - storageUnitId: string (optional)
+    //   - mandiId: string (optional)
+    //   - shopId: string (optional)
+    //   - holderUid: string (optional)
+    //   - handlerUids: list (optional)
+    //   - createdAt: timestamp (optional)
+    //   - updatedAt: timestamp (optional)
+    //   - soldTo: map (optional)
+    //   - rating: map (optional)
+    //
+    // Collection: events/{eventId}
+    // Document ID: Event document ID
+    // Fields:
+    //   - bagId: string (required)
+    //   - type: string (required)
+    //   - byUid: string (required, creator UID)
+    //   - byRole: string (required)
+    //   - byPassId: string (required)
+    //   - at: timestamp (required)
+    //   - place: map (optional)
+    //   - tripId: string (optional)
+    //   - note: string (optional)
+    //
+    // Collection: purchases/{purchaseId}
+    // Document ID: Purchase document ID
+    // Fields:
+    //   - bagId: string (required)
+    //   - consumerUid: string (required)
+    //   - consumerPassId: string (optional)
+    //   - price: number (required)
+    //   - at: timestamp (required)
+    //   - paymentStatus: string ('NOT_ENABLED')
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return signedIn() && exists(/databases/$(database)/documents/owners/$(request.auth.uid));
+    }
+
+    function getUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isApproved(role) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUser().status == 'approved' &&
+        getUser().role == role;
+    }
+
+    function isDevice(unitId, type) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/devices/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/devices/$(request.auth.uid)).data.unitId == unitId &&
+        get(/databases/$(database)/documents/devices/$(request.auth.uid)).data.type == type;
+    }
+
+    // Helper for bag state transitions across the supply chain
+    function isValidBagStatusTransition() {
+      let prev = resource.data.status;
+      let next = request.resource.data.status;
+      return (isApproved('driver') && prev == 'CREATED' && next == 'LOADED') ||
+             (isApproved('driver') && prev == 'LOADED' && next == 'IN_TRANSIT') ||
+             (isApproved('mandi') && prev == 'IN_TRANSIT' && next == 'IN_STORAGE') ||
+             (isApproved('mandi') && prev == 'IN_STORAGE' && next == 'DISPATCHED_TO_SHOP') ||
+             (isApproved('shop') && prev == 'DISPATCHED_TO_SHOP' && next == 'AT_SHOP') ||
+             ((isApproved('consumer') || signedIn()) && prev == 'AT_SHOP' && next == 'SOLD');
+    }
+
+    // Helper for consumer rating update on a sold bag
+    function isValidBagRatingUpdate() {
+      return resource.data.status == 'SOLD' &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating']);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Users collection: Strict PII boundary (phone, address, full name).
+    // Self-registration allowed with initial pending status (or approved for consumer).
+    // Privilege elevation fields (approvedBy, approvedAt) are strictly prohibited on user create.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow create: if signedIn() &&
+        request.auth.uid == uid &&
+        request.resource.data.role in ['farmer', 'driver', 'mandi', 'shop', 'consumer'] &&
+        (request.resource.data.role == 'consumer' ? request.resource.data.status == 'approved' : request.resource.data.status == 'pending') &&
+        !('approvedBy' in request.resource.data) &&
+        !('approvedAt' in request.resource.data);
+      allow update: if isOwner() || (
+        signedIn() &&
+        request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['preferredLang'])
+      );
+      allow delete: if false;
+    }
+
+    // System owners: Root administrators
+    match /owners/{uid} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+
+    // Role-specific pass ID counters (atomic increments by owner)
+    match /counters/{role} {
+      allow read, write: if isOwner();
+    }
+
+    // Device credentials & bindings
+    match /devices/{deviceId} {
+      allow read: if signedIn() && (request.auth.uid == deviceId || isOwner());
+      allow write: if isOwner();
+    }
+
+    // Products catalog & pricing
+    match /products/{prodId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+
+    // System configuration (e.g. freshness decay parameters)
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+
+    // Farm fields registered by approved farmers
+    match /fields/{fieldId} {
+      allow read: if signedIn();
+      allow create, update: if isApproved('farmer') && request.resource.data.farmerUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Transport vehicles registered by drivers, hardware-linked by owner
+    match /vehicles/{vehicleId} {
+      allow read: if signedIn();
+      allow create: if isApproved('driver') && request.resource.data.driverUid == request.auth.uid;
+      allow update: if isOwner() || (isApproved('driver') && resource.data.driverUid == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // GPS hardware units telemetry
+    match /gpsUnits/{gpsId} {
+      allow read: if signedIn();
+      allow write: if isOwner() || isDevice(gpsId, 'gps');
+    }
+
+    // Transit trips managed by drivers
+    match /trips/{tripId} {
+      allow read: if signedIn();
+      allow create: if isApproved('driver') && request.resource.data.driverUid == request.auth.uid;
+      allow update: if isApproved('driver') && resource.data.driverUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Mandi warehouse locations
+    match /mandis/{mandiId} {
+      allow read: if signedIn();
+      allow create, update: if isApproved('mandi') || isOwner();
+      allow delete: if false;
+    }
+
+    // Cold storage units within mandis
+    match /storageUnits/{unitId} {
+      allow read: if signedIn();
+      allow create, update: if isApproved('mandi') || isOwner() || isDevice(unitId, 'storage');
+      allow delete: if false;
+
+      // Telemetry readings subcollection (DHT22 temp & humidity)
+      match /readings/{readingId} {
+        allow read: if signedIn();
+        allow create: if isDevice(unitId, 'storage') || isOwner();
+        allow update, delete: if false;
+      }
+    }
+
+    // Retail shops
+    match /shops/{shopId} {
+      allow read: if signedIn();
+      allow create, update: if isApproved('shop') || isOwner();
+      allow delete: if false;
+    }
+
+    // Produce bags: Public read for consumer QR tracing (/b/<bagId>)
+    // Strict status lifecycle machine enforcement
+    match /bags/{bagId} {
+      allow read: if true;
+      allow create: if isApproved('farmer') &&
+        request.resource.data.farmerUid == request.auth.uid &&
+        request.resource.data.status == 'CREATED';
+      allow update: if isOwner() ||
+        isValidBagRatingUpdate() ||
+        isValidBagStatusTransition();
+      allow delete: if false;
+    }
+
+    // Append-only tamper-evident audit ledger
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.byUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Consumer purchases
+    match /purchases/{purchaseId} {
+      allow read: if signedIn() && (request.auth.uid == resource.data.consumerUid || isOwner());
+      allow create: if (isApproved('consumer') || signedIn()) && request.resource.data.consumerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Default deny all other requests
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 11, 12);
+      allow read, write: if false;
     }
   }
 }
