@@ -8,6 +8,7 @@ import { ControlPortal } from './portals/control/ControlPortal';
 import { GrowPortal } from './portals/grow/GrowPortal';
 import { PrintLabelPage } from './portals/grow/PrintLabelPage';
 import { MovePortal } from './portals/move/MovePortal';
+import { HubPortal } from './portals/hub/HubPortal';
 
 const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout } = useAuth();
@@ -28,23 +29,7 @@ const AppContent: React.FC = () => {
           <Route path="/grow" element={<GrowPortal />} />
           <Route path="/print/:bagId" element={<PrintLabelPage />} />
           <Route path="/move" element={<MovePortal />} />
-          <Route
-            path="/hub"
-            element={
-              <div className="max-w-md mx-auto p-8 text-center bg-white rounded-2xl shadow mt-8">
-                <h2 className="text-xl font-bold text-amber-700">🏢 Hub Portal</h2>
-                <p className="text-xs text-gray-500 mt-2">
-                  Welcome, Mandi Manager {userProfile?.firstName}! Milestone M4 (Crate reception, storage DHT22 telemetry & dispatch).
-                </p>
-                <button
-                  onClick={() => navigate('/')}
-                  className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold"
-                >
-                  Back Home
-                </button>
-              </div>
-            }
-          />
+          <Route path="/hub" element={<HubPortal />} />
           <Route
             path="/shelf"
             element={
