@@ -41,7 +41,18 @@
   },
   "auth": {
     "providers": {
-      "emailPassword": true
+      "emailPassword": true,
+      "phone": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "FreshPath Link",
+        "supportEmail": "tonightgamermrjk@gmail.com",
+        "authorizedRedirectUris": [
+          "https://freshpath-link.firebaseapp.com/__/auth/handler",
+          "https://freshpath-link.web.app/__/auth/handler",
+          "http://localhost:5173",
+          "http://localhost:4000"
+        ]
+      }
     }
   },
   "emulators": {
