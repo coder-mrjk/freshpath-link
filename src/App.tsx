@@ -4,6 +4,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { EntrancePage } from './portals/entrance/EntrancePage';
 import { AuthPage } from './portals/entrance/AuthPage';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import {
+  ShieldCheck,
+  Sprout,
+  Printer,
+  Truck,
+  Warehouse,
+  Store,
+} from 'lucide-react';
 import { ControlPortal } from './portals/control/ControlPortal';
 import { GrowPortal } from './portals/grow/GrowPortal';
 import { PrintLabelPage } from './portals/grow/PrintLabelPage';
@@ -27,12 +36,103 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<EntrancePage />} />
           <Route path="/auth/:role" element={<AuthPage />} />
-          <Route path="/control" element={<ControlPortal />} />
-          <Route path="/grow" element={<GrowPortal />} />
-          <Route path="/print/:bagId" element={<PrintLabelPage />} />
-          <Route path="/move" element={<MovePortal />} />
-          <Route path="/hub" element={<HubPortal />} />
-          <Route path="/shelf" element={<ShelfPortal />} />
+
+          <Route
+            path="/control"
+            element={
+              <ProtectedRoute
+                allowedRoles={[]}
+                allowOwner={true}
+                portalName="Control Portal"
+                portalDescription="Central administrative control plane to review role approval requests, monitor registered supply chain entities, and manage system datasets."
+                portalIcon={ShieldCheck}
+                targetRole="control"
+              >
+                <ControlPortal />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/grow"
+            element={
+              <ProtectedRoute
+                allowedRoles={['farmer']}
+                allowOwner={true}
+                portalName="Farmer Grow Portal"
+                portalDescription="Log daily tomato harvests, generate traceable tamper-evident crate IDs, print physical QR labels, and view cold storage status and buyer reviews."
+                portalIcon={Sprout}
+                targetRole="farmer"
+              >
+                <GrowPortal />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/print/:bagId"
+            element={
+              <ProtectedRoute
+                allowedRoles={['farmer']}
+                allowOwner={true}
+                portalName="Crate Label Printer"
+                portalDescription="Generate and print physical high-contrast QR labels for agricultural produce crates."
+                portalIcon={Printer}
+                targetRole="farmer"
+              >
+                <PrintLabelPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/move"
+            element={
+              <ProtectedRoute
+                allowedRoles={['driver']}
+                allowOwner={true}
+                portalName="Driver Move Portal"
+                portalDescription="Scan farm crates into your transport vehicle, manage live GPS waypoint tracking between farms and Mandi yards, and log transit milestones."
+                portalIcon={Truck}
+                targetRole="driver"
+              >
+                <MovePortal />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/hub"
+            element={
+              <ProtectedRoute
+                allowedRoles={['mandi']}
+                allowOwner={true}
+                portalName="Mandi Hub Portal"
+                portalDescription="Check in incoming crates, manage cold room bays, monitor live DHT22 temperature and humidity telemetry charts, and dispatch to retail stores."
+                portalIcon={Warehouse}
+                targetRole="mandi"
+              >
+                <HubPortal />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/shelf"
+            element={
+              <ProtectedRoute
+                allowedRoles={['shop']}
+                allowOwner={true}
+                portalName="Retail Shelf Portal"
+                portalDescription="Scan delivered crates into store inventory, monitor freshness decay and temperature penalties, and manage on-shelf stock."
+                portalIcon={Store}
+                targetRole="shop"
+              >
+                <ShelfPortal />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/table" element={<TablePortal />} />
           <Route path="/b/:bagId" element={<PublicBagPage />} />
 

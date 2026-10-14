@@ -2,7 +2,8 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LanguageToggle } from './LanguageToggle';
-import { Sprout, LogOut, User } from 'lucide-react';
+import { FreshPathLogo } from './FreshPathLogo';
+import { LogOut, User } from 'lucide-react';
 
 interface Props {
   portalName?: string;
@@ -19,13 +20,13 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
       <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Brand / Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 rounded-xl bg-tomato-500 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
-            <Sprout className="w-6 h-6" />
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <div className="group-hover:scale-105 transition-transform drop-shadow-xs">
+            <FreshPathLogo className="w-9 h-9" />
           </div>
           <div className="flex flex-col">
             <span className="font-extrabold text-lg leading-tight tracking-tight text-charcoal flex items-center gap-1.5">
-              FreshPath <span className="text-tomato-500 font-bold text-xs uppercase px-1.5 py-0.5 bg-tomato-50 rounded">Link</span>
+              FreshPath <span className="text-tomato-600 font-bold text-xs uppercase px-1.5 py-0.5 bg-tomato-50 rounded">Link</span>
             </span>
             {portalName && (
               <span className="text-xs font-semibold text-leaf-600">

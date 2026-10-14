@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   doc,
@@ -29,6 +30,8 @@ import {
   AlertCircle,
   CreditCard,
   Layers,
+  LogIn,
+  UserCheck,
 } from 'lucide-react';
 
 interface BagData {
@@ -599,34 +602,58 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
         {/* Purchase Action Box */}
         {bag.status === 'AT_SHOP' && (
           <div className="p-6 bg-sandBg border-t border-gray-200">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <h4 className="font-bold text-sm text-charcoal">Available for Purchase</h4>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Confirm produce purchase to lock tamper-evident provenance ownership.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                {/* Disabled Digital Payment as per spec */}
-                <button
-                  disabled
-                  className="px-3 py-2.5 bg-gray-200 text-gray-400 rounded-xl text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
-                  title="Coming in future release"
+            {!currentUser ? (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-bold text-sm text-charcoal flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-tomato-600" />
+                    <span>Ready for Purchase ({formatRupees(bag.totalPrice)})</span>
+                  </h4>
+                  <p className="text-xs text-gray-600 mt-1 max-w-md">
+                    Sign in or create a consumer account to confirm this purchase, save it in your personal history, and unlock direct farmer reviews.
+                  </p>
+                </div>
+                <Link
+                  to={`/auth/consumer?redirect=${encodeURIComponent(`/b/${bag.id}`)}`}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-tomato-600 hover:bg-tomato-700 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target inline-flex items-center justify-center gap-2 whitespace-nowrap"
                 >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Digital Pay (Soon)</span>
-                </button>
-
-                <button
-                  onClick={handleConfirmPurchase}
-                  disabled={isPurchasing}
-                  className="flex-1 sm:flex-none px-6 py-2.5 bg-tomato-600 hover:bg-tomato-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
-                >
-                  {isPurchasing ? 'Processing...' : 'Confirm Purchase'}
-                </button>
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In to Buy & Save</span>
+                </Link>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-bold text-sm text-charcoal flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Purchase as Verified Consumer</span>
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Logged in as <strong>{userProfile?.firstName || 'Consumer'}</strong> ({userProfile?.passId || 'Verified'}). Confirm purchase to lock provenance.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  {/* Disabled Digital Payment as per spec */}
+                  <button
+                    disabled
+                    className="px-3 py-2.5 bg-gray-200 text-gray-400 rounded-xl text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
+                    title="Coming in future release"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Digital Pay (Soon)</span>
+                  </button>
+
+                  <button
+                    onClick={handleConfirmPurchase}
+                    disabled={isPurchasing}
+                    className="flex-1 sm:flex-none px-6 py-2.5 bg-tomato-600 hover:bg-tomato-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+                  >
+                    {isPurchasing ? 'Processing...' : 'Confirm Purchase'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -5,7 +5,8 @@ import { db } from '../../lib/firebase';
 import { formatIST } from '../../lib/time';
 import { formatRupees } from '../../lib/price';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer, Download, ArrowLeft, AlertCircle, Sprout } from 'lucide-react';
+import { FreshPathLogo } from '../../components/FreshPathLogo';
+import { Printer, Download, ArrowLeft, AlertCircle } from 'lucide-react';
 
 interface BagData {
   id: string;
@@ -175,9 +176,7 @@ export const PrintLabelPage: React.FC = () => {
             {/* Header */}
             <div className="border-b-2 border-charcoal pb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-tomato-500 text-white rounded-lg flex items-center justify-center font-black">
-                  <Sprout className="w-4 h-4" />
-                </div>
+                <FreshPathLogo className="w-8 h-8 shrink-0" />
                 <div>
                   <h1 className="text-lg font-black tracking-tight leading-none">
                     FreshPath Link

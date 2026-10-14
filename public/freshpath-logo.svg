@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Background / Tomato Gradient -->
+    <linearGradient id="fpTomatoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4D4D"/>
+      <stop offset="45%" stop-color="#E62E2E"/>
+      <stop offset="100%" stop-color="#C51616"/>
+    </linearGradient>
+
+    <!-- Leaf / Stem Gradient -->
+    <linearGradient id="fpLeafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <!-- Tech Link Glow -->
+    <linearGradient id="fpLinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FFF0F0"/>
+    </linearGradient>
+
+    <filter id="fpShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#7A0000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Tomato Body -->
+  <g filter="url(#fpShadow)">
+    <path d="M60 26 C36 26 20 40 20 66 C20 92 38 106 60 106 C82 106 100 92 100 66 C100 40 84 26 60 26 Z" 
+          fill="url(#fpTomatoGrad)"/>
+    
+    <!-- Subtle 3D Highlight Curve -->
+    <path d="M30 46 C34 38 44 32 55 30 C51 34 46 42 45 52 C45 55 42 55 40 54 C35 52 32 49 30 46 Z" 
+          fill="#FFFFFF" opacity="0.3"/>
+  </g>
+
+  <!-- Intertwined Digital Chain Link / Provenance Path -->
+  <g fill="none" stroke="url(#fpLinkGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Top-left link segment -->
+    <path d="M46 54 L54 46 C58 42 64 42 68 46 L70 48 C74 52 74 58 70 62 L66 66"/>
+    <!-- Bottom-right link segment -->
+    <path d="M74 74 L66 82 C62 86 56 86 52 82 L50 80 C46 76 46 70 50 66 L54 62"/>
+    <!-- Center data nodes -->
+    <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" stroke="none"/>
+    <circle cx="70" cy="78" r="2.5" fill="#FFFFFF" stroke="none"/>
+    <circle cx="60" cy="64" r="3" fill="#FFFFFF" stroke="#E62E2E" stroke-width="2"/>
+  </g>
+
+  <!-- Organic Stem & Calyx Leaves -->
+  <g fill="url(#fpLeafGrad)">
+    <!-- Central Stem -->
+    <path d="M57 14 C58 8 64 6 68 8 C65 13 63 17 62 26 C60 26 59 26 57 26 C57 20 56 16 57 14 Z"/>
+    <!-- Left Leaf -->
+    <path d="M60 26 C48 24 36 17 32 24 C36 29 46 29 60 28 Z"/>
+    <!-- Right Leaf -->
+    <path d="M60 26 C72 23 85 17 88 23 C84 29 74 29 60 28 Z"/>
+    <!-- Center Droplet Leaf -->
+    <path d="M60 26 C57 32 55 38 60 41 C64 38 63 32 60 26 Z"/>
+  </g>
+</svg>

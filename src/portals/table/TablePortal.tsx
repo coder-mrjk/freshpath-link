@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   collection,
@@ -21,6 +22,8 @@ import {
   ShoppingBag,
   Star,
   ChevronRight,
+  LogIn,
+  History,
 } from 'lucide-react';
 
 interface PurchaseRecord {
@@ -44,6 +47,28 @@ export const TablePortal: React.FC = () => {
   const [selectedBagId, setSelectedBagId] = useState<string | null>(null);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(false);
+
+  // Recent scans in localStorage
+  const [recentScans, setRecentScans] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('freshpath_recent_scans');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const recordRecentScan = (bagId: string) => {
+    setRecentScans((prev) => {
+      const updated = [bagId, ...prev.filter((id) => id !== bagId)].slice(0, 6);
+      try {
+        localStorage.setItem('freshpath_recent_scans', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
 
   // Scanner modal
   const [showScanner, setShowScanner] = useState(false);
@@ -107,6 +132,7 @@ export const TablePortal: React.FC = () => {
     const bagId = parseScannedBagId(scannedValue);
     if (bagId) {
       setShowScanner(false);
+      recordRecentScan(bagId);
       setSelectedBagId(bagId);
     }
   };
@@ -115,6 +141,7 @@ export const TablePortal: React.FC = () => {
     e.preventDefault();
     const bagId = parseScannedBagId(manualBagId);
     if (bagId) {
+      recordRecentScan(bagId);
       setSelectedBagId(bagId);
     }
   };
@@ -137,18 +164,32 @@ export const TablePortal: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-tomato-100 mt-0.5">
-              Consumer: <strong>{userProfile?.firstName || 'FreshPath Shopper'}</strong>
+              Consumer:{' '}
+              <strong>{userProfile?.firstName || 'Guest Shopper'}</strong>
+              {!currentUser && ' • Sign in to save your history'}
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setShowScanner(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-100 text-tomato-800 rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
-        >
-          <QrCode className="w-4 h-4" />
-          <span>Scan Crate QR</span>
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {!currentUser ? (
+            <Link
+              to="/auth/consumer?redirect=/table"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-tomato-700 hover:bg-tomato-800 text-white rounded-xl text-xs font-bold border border-tomato-500 shadow-xs transition-colors touch-target"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In / Register</span>
+            </Link>
+          ) : null}
+
+          <button
+            onClick={() => setShowScanner(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-100 text-tomato-800 rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
+          >
+            <QrCode className="w-4 h-4" />
+            <span>Scan Crate QR</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -234,16 +275,56 @@ export const TablePortal: React.FC = () => {
               </button>
             </form>
           </div>
+
+          {/* Recently Inspected Crates */}
+          {recentScans.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-1.5">
+                <History className="w-4 h-4 text-tomato-500" />
+                <span>Recently Inspected Crates</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {recentScans.map((rId) => (
+                  <button
+                    key={rId}
+                    type="button"
+                    onClick={() => setSelectedBagId(rId)}
+                    className="px-3 py-1.5 bg-sandBg hover:bg-tomato-50 hover:text-tomato-700 text-charcoal border border-gray-200 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 touch-target"
+                  >
+                    <span>{rId}</span>
+                    <ChevronRight className="w-3 h-3 text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Purchase History Tab */
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
           <h3 className="font-bold text-sm text-charcoal mb-4 flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 text-tomato-600" />
-            <span>My Purchased Crates ({purchases.length})</span>
+            <span>My Purchased Crates {currentUser ? `(${purchases.length})` : ''}</span>
           </h3>
 
-          {loadingPurchases ? (
+          {!currentUser ? (
+            <div className="py-12 px-6 text-center bg-sandBg/50 rounded-2xl border border-dashed border-gray-200">
+              <div className="w-12 h-12 bg-tomato-100 text-tomato-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-charcoal">Save Your Produce History</h4>
+              <p className="text-xs text-gray-500 mt-1 mb-5 max-w-sm mx-auto leading-relaxed">
+                Create a free consumer account to automatically track your fresh produce purchases, retain digital farm provenance receipts, and leave direct ratings for farmers.
+              </p>
+              <Link
+                to="/auth/consumer?redirect=/table"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-tomato-600 hover:bg-tomato-700 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Create Consumer Account / Sign In</span>
+              </Link>
+            </div>
+          ) : loadingPurchases ? (
             <div className="py-12 text-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-tomato-600 mx-auto mb-2"></div>
               <p className="text-xs text-gray-400">Loading your purchase ledger...</p>

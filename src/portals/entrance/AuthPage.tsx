@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import {
@@ -18,6 +18,8 @@ import {
 
 export const AuthPage: React.FC = () => {
   const { role = 'consumer' } = useParams<{ role: string }>();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get('redirect');
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { currentUser, userProfile, isOwner, login, register, logout } = useAuth();
@@ -69,10 +71,14 @@ export const AuthPage: React.FC = () => {
   // Redirect if approved
   React.useEffect(() => {
     if (isOwner) {
-      navigate('/control');
+      navigate(redirectUrl || '/control');
       return;
     }
     if (userProfile && userProfile.status === 'approved') {
+      if (redirectUrl) {
+        navigate(redirectUrl);
+        return;
+      }
       switch (userProfile.role) {
         case 'farmer':
           navigate('/grow');
@@ -91,7 +97,7 @@ export const AuthPage: React.FC = () => {
           break;
       }
     }
-  }, [userProfile, isOwner, navigate]);
+  }, [userProfile, isOwner, navigate, redirectUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
