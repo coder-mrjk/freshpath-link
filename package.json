@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "seed": "vite-node scripts/seedDemoData.ts",
     "emulators": "firebase emulators:start --only firestore,auth"
   },
   "dependencies": {

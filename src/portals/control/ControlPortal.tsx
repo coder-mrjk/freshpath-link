@@ -26,7 +26,9 @@ import {
   DollarSign,
   RefreshCw,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
+import { seedFreshPathDemoData } from '../../lib/seed';
 
 export const ControlPortal: React.FC = () => {
   const { isOwner, currentUser, logout } = useAuth();
@@ -50,6 +52,20 @@ export const ControlPortal: React.FC = () => {
 
   // Config State
   const [ratePerKg, setRatePerKg] = useState(60);
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedData = async () => {
+    if (!window.confirm('Seed complete FreshPath demo dataset with 7 produce stages, demo accounts, and 24h IoT telemetry?')) return;
+    setSeeding(true);
+    const res = await seedFreshPathDemoData();
+    setSeeding(false);
+    if (res.success) {
+      setMessage({ text: 'Master demo dataset seeded successfully!', type: 'success' });
+      await loadData();
+    } else {
+      setMessage({ text: res.message, type: 'error' });
+    }
+  };
 
   useEffect(() => {
     if (!loading && !isOwner) {
@@ -302,6 +318,15 @@ export const ControlPortal: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSeedData}
+            disabled={seeding}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-700 text-xs font-bold transition-colors shadow-sm"
+            title="Seed full demo dataset across all 7 stages"
+          >
+            <Sparkles className="w-4 h-4 text-emerald-200" />
+            <span>{seeding ? 'Seeding...' : 'Seed Demo Data'}</span>
+          </button>
           <button
             onClick={loadData}
             className="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
