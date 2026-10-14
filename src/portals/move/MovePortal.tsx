@@ -67,7 +67,7 @@ interface Trip {
 }
 
 export const MovePortal: React.FC = () => {
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, isOwner } = useAuth();
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [mandis, setMandis] = useState<Mandi[]>([]);
@@ -235,7 +235,7 @@ export const MovePortal: React.FC = () => {
         type: 'LOADED',
         byUid: currentUser.uid,
         byRole: 'driver',
-        byPassId: userProfile?.passId || 'FP-D-0001',
+        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
         at: serverTimestamp(),
         place: { text: activeTrip.originText },
         note: `Loaded into vehicle ${vehicle?.regNumber || 'Truck'}.`,
@@ -301,7 +301,7 @@ export const MovePortal: React.FC = () => {
           type: 'TRIP_STARTED',
           byUid: currentUser.uid,
           byRole: 'driver',
-          byPassId: userProfile?.passId || 'FP-D-0001',
+          byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
           at: serverTimestamp(),
           place: {
             lat: startFix.lat,
@@ -370,7 +370,7 @@ export const MovePortal: React.FC = () => {
           type: 'TRIP_ENDED',
           byUid: currentUser.uid,
           byRole: 'driver',
-          byPassId: userProfile?.passId || 'FP-D-0001',
+          byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
           at: serverTimestamp(),
           place: {
             lat: endFix.lat,

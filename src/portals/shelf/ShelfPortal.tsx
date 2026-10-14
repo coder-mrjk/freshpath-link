@@ -175,7 +175,7 @@ export const ShelfPortal: React.FC = () => {
         type: 'RECEIVED_SHOP',
         byUid: currentUser.uid,
         byRole: 'shop',
-        byPassId: userProfile?.passId || 'FP-S-0001',
+        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
         at: serverTimestamp(),
         place: {
           text: `${selectedShop.name} (${selectedShop.area})`,

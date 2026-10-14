@@ -12,6 +12,7 @@ import {
   Truck,
   Warehouse,
   Store,
+  ShoppingBasket,
 } from 'lucide-react';
 import { ControlPortal } from './portals/control/ControlPortal';
 import { GrowPortal } from './portals/grow/GrowPortal';
@@ -145,7 +146,21 @@ const AppContent: React.FC = () => {
             }
           />
 
-          <Route path="/table" element={<TablePortal />} />
+          <Route
+            path="/table"
+            element={
+              <ProtectedRoute
+                allowedRoles={['consumer']}
+                allowOwner={true}
+                portalName="Table Consumer Portal"
+                portalDescription="Inspect verified farm-to-table provenance, review grower field logs, and confirm produce purchases."
+                portalIcon={ShoppingBasket}
+                targetRole="consumer"
+              >
+                <TablePortal />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/b/:bagId" element={<PublicBagPage />} />
 
           <Route

@@ -104,7 +104,7 @@ interface BagProvenanceViewProps {
 }
 
 export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onBack }) => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, isOwner } = useAuth();
 
   const [bag, setBag] = useState<BagData | null>(null);
   const [trip, setTrip] = useState<TripData | null>(null);
@@ -275,7 +275,7 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
         type: 'RATED',
         byUid: currentUser.uid,
         byRole: 'consumer',
-        byPassId: userProfile?.passId || 'FP-C-0001',
+        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'FP-C-VERIFIED'),
         at: serverTimestamp(),
         note: `Rated ${selectedStars} stars: "${ratingComment.trim() || 'No comment'}"`,
       });

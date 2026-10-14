@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, UserProfile, UserRole } from '../../context/AuthContext';
+import { useAuth, UserProfile, UserRole, OWNER_EMAIL } from '../../context/AuthContext';
 import {
   collection,
   query,
@@ -18,7 +18,6 @@ import { formatIST } from '../../lib/time';
 import {
   ShieldCheck,
   CheckCircle,
-  XCircle,
   Radio,
   Cpu,
   Users,
@@ -26,15 +25,25 @@ import {
   DollarSign,
   RefreshCw,
   LogOut,
-  Sparkles,
+  Smartphone,
+  Lock,
 } from 'lucide-react';
-import { seedFreshPathDemoData } from '../../lib/seed';
 
 export const ControlPortal: React.FC = () => {
-  const { isOwner, currentUser, logout } = useAuth();
+  const {
+    isOwner,
+    currentUser,
+    loading: authLoading,
+    logout,
+    enrolledMfaFactors,
+    setupRecaptcha,
+    sendPhoneVerificationForMfa,
+    enrollPhoneMfa,
+    unenrollMfa,
+  } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'approvals' | 'users' | 'hardware' | 'config'>('approvals');
+  const [activeTab, setActiveTab] = useState<'approvals' | 'users' | 'hardware' | 'security' | 'config'>('approvals');
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [vehicles, setVehicles] = useState<Array<{ id: string; driverUid: string; regNumber: string; gpsUnitId?: string }>>([]);
@@ -52,27 +61,19 @@ export const ControlPortal: React.FC = () => {
 
   // Config State
   const [ratePerKg, setRatePerKg] = useState(60);
-  const [seeding, setSeeding] = useState(false);
 
-  const handleSeedData = async () => {
-    if (!window.confirm('Seed complete FreshPath demo dataset with 7 produce stages, demo accounts, and 24h IoT telemetry?')) return;
-    setSeeding(true);
-    const res = await seedFreshPathDemoData();
-    setSeeding(false);
-    if (res.success) {
-      setMessage({ text: 'Master demo dataset seeded successfully!', type: 'success' });
-      await loadData();
-    } else {
-      setMessage({ text: res.message, type: 'error' });
-    }
-  };
+  // MFA Enrollment State
+  const [mfaPhone, setMfaPhone] = useState('+91');
+  const [mfaVerificationId, setMfaVerificationId] = useState<string | null>(null);
+  const [mfaOtp, setMfaOtp] = useState('');
+  const [mfaActionLoading, setMfaActionLoading] = useState(false);
 
   useEffect(() => {
-    if (!loading && !isOwner) {
-      // If not owner, redirect
+    if (!authLoading && !isOwner) {
+      // If not owner, redirect to owner login
       navigate('/auth/control');
     }
-  }, [isOwner, loading, navigate]);
+  }, [isOwner, authLoading, navigate]);
 
   const loadData = async () => {
     setLoading(true);
@@ -153,180 +154,232 @@ export const ControlPortal: React.FC = () => {
         const counterDoc = await transaction.get(counterRef);
         let nextNum = 1;
         if (counterDoc.exists()) {
-          nextNum = (counterDoc.data().next || 1);
+          nextNum = counterDoc.data().next || 1;
         }
 
         const prefix = getRolePrefix(role);
         const passId = `${prefix}${String(nextNum).padStart(4, '0')}`;
 
-        // Increment counter
         transaction.set(counterRef, { next: nextNum + 1 }, { merge: true });
-
-        // Update user
         transaction.update(userRef, {
           status: 'approved',
           passId,
           approvedAt: serverTimestamp(),
-          approvedBy: currentUser?.uid || 'owner',
+          approvedBy: currentUser?.uid || 'OWNER',
         });
       });
 
       setMessage({
-        text: `Approved ${userToApprove.firstName} successfully! Pass ID assigned.`,
+        text: `Approved ${userToApprove.firstName} (${userToApprove.role}) with new Pass ID!`,
         type: 'success',
       });
       await loadData();
     } catch (err: unknown) {
-      const msg = (err as Error)?.message || 'Failed to approve user.';
-      setMessage({ text: msg, type: 'error' });
+      setMessage({
+        text: `Approval failed: ${(err as Error)?.message || 'Database error'}`,
+        type: 'error',
+      });
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleReject = async (uid: string) => {
+  // Suspend/Reject
+  const handleUpdateStatus = async (uid: string, status: 'suspended' | 'rejected') => {
     setActionLoading(uid);
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'rejected',
-        updatedAt: serverTimestamp(),
-      });
-      setMessage({ text: 'User application rejected.', type: 'success' });
+      await updateDoc(doc(db, 'users', uid), { status });
+      setMessage({ text: `Account status updated to ${status}.`, type: 'success' });
       await loadData();
     } catch (err: unknown) {
-      setMessage({ text: (err as Error)?.message || 'Error rejecting user.', type: 'error' });
+      setMessage({ text: `Status update failed: ${(err as Error)?.message}`, type: 'error' });
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleSuspend = async (uid: string) => {
-    setActionLoading(uid);
-    try {
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'suspended',
-        updatedAt: serverTimestamp(),
-      });
-      setMessage({ text: 'User access suspended.', type: 'success' });
-      await loadData();
-    } catch (err: unknown) {
-      setMessage({ text: (err as Error)?.message || 'Error suspending user.', type: 'error' });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleReactivate = async (uid: string) => {
-    setActionLoading(uid);
-    try {
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'approved',
-        updatedAt: serverTimestamp(),
-      });
-      setMessage({ text: 'User access reinstated.', type: 'success' });
-      await loadData();
-    } catch (err: unknown) {
-      setMessage({ text: (err as Error)?.message || 'Error reinstating user.', type: 'error' });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Hardware linking
+  // Bind GPS unit to vehicle
   const handleLinkGps = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVehicleId || !gpsUnitIdInput.trim()) return;
+
     try {
-      await updateDoc(doc(db, 'vehicles', selectedVehicleId), {
+      const vRef = doc(db, 'vehicles', selectedVehicleId);
+      await updateDoc(vRef, {
         gpsUnitId: gpsUnitIdInput.trim().toUpperCase(),
         status: 'ACTIVE',
-        updatedAt: serverTimestamp(),
       });
+
+      const gpsRef = doc(db, 'gpsUnits', gpsUnitIdInput.trim().toUpperCase());
       await setDoc(
-        doc(db, 'gpsUnits', gpsUnitIdInput.trim().toUpperCase()),
+        gpsRef,
         {
           vehicleId: selectedVehicleId,
-          linkedAt: serverTimestamp(),
+          receivedAt: serverTimestamp(),
         },
         { merge: true }
       );
-      setMessage({ text: `Linked ${gpsUnitIdInput} to vehicle ${selectedVehicleId}!`, type: 'success' });
+
+      setMessage({
+        text: `Vehicle ${selectedVehicleId} linked to ${gpsUnitIdInput.trim().toUpperCase()}!`,
+        type: 'success',
+      });
       await loadData();
     } catch (err: unknown) {
-      setMessage({ text: (err as Error)?.message || 'Failed to link GPS.', type: 'error' });
+      setMessage({ text: `GPS linking failed: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
+  // Bind Sensor Node to Storage Unit
   const handleLinkSensor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStorageId || !sensorNodeIdInput.trim()) return;
+
     try {
-      await updateDoc(doc(db, 'storageUnits', selectedStorageId), {
+      const sRef = doc(db, 'storageUnits', selectedStorageId);
+      await updateDoc(sRef, {
         nodeUnitId: sensorNodeIdInput.trim().toUpperCase(),
-        updatedAt: serverTimestamp(),
       });
-      setMessage({ text: `Linked ${sensorNodeIdInput} to storage unit!`, type: 'success' });
+
+      setMessage({
+        text: `Storage unit linked to sensor node ${sensorNodeIdInput.trim().toUpperCase()}!`,
+        type: 'success',
+      });
       await loadData();
     } catch (err: unknown) {
-      setMessage({ text: (err as Error)?.message || 'Failed to link sensor.', type: 'error' });
+      setMessage({ text: `Sensor node linking failed: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
+  // Update base rate
   const handleUpdatePrice = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await setDoc(
         doc(db, 'products', 'tomato'),
         {
-          name: 'Tomato',
+          name: 'Fresh Tomatoes',
           ratePerKg: Number(ratePerKg),
           active: true,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
-      setMessage({ text: `Tomato rate updated to ₹${ratePerKg}/kg!`, type: 'success' });
+      setMessage({ text: `Base tomato rate updated to ₹${ratePerKg}/kg!`, type: 'success' });
     } catch (err: unknown) {
-      setMessage({ text: (err as Error)?.message || 'Failed to update rate.', type: 'error' });
+      setMessage({ text: `Failed to update rate: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
-  const filteredUsers = allUsers.filter((u) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      u.firstName?.toLowerCase().includes(q) ||
-      u.fullName?.toLowerCase().includes(q) ||
-      u.passId?.toLowerCase().includes(q) ||
-      u.role?.toLowerCase().includes(q) ||
-      u.phone?.includes(q)
-    );
-  });
+  // Send SMS MFA Enrollment Code
+  const handleSendMfaEnrollCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    setMfaActionLoading(true);
+
+    try {
+      const rv = setupRecaptcha('mfa-recaptcha-container');
+      const vId = await sendPhoneVerificationForMfa(mfaPhone.trim(), rv);
+      setMfaVerificationId(vId);
+      setMessage({
+        text: `Verification code sent to ${mfaPhone.trim()}! Please enter the 6-digit SMS code below.`,
+        type: 'success',
+      });
+    } catch (err: unknown) {
+      setMessage({
+        text: `Failed to send SMS code: ${(err as Error)?.message || 'Recaptcha/SMS error'}`,
+        type: 'error',
+      });
+    } finally {
+      setMfaActionLoading(false);
+    }
+  };
+
+  // Confirm SMS MFA Enrollment
+  const handleConfirmMfaEnroll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaVerificationId || !mfaOtp.trim()) return;
+    setMessage(null);
+    setMfaActionLoading(true);
+
+    try {
+      await enrollPhoneMfa(mfaVerificationId, mfaOtp.trim());
+      setMessage({
+        text: 'SMS Multi-Factor Authentication successfully enrolled on your Owner account!',
+        type: 'success',
+      });
+      setMfaVerificationId(null);
+      setMfaOtp('');
+    } catch (err: unknown) {
+      setMessage({
+        text: `Enrollment failed: ${(err as Error)?.message || 'Invalid code'}`,
+        type: 'error',
+      });
+    } finally {
+      setMfaActionLoading(false);
+    }
+  };
+
+  // Remove MFA factor
+  const handleUnenrollMfa = async (uid: string) => {
+    if (!window.confirm('Are you sure you want to disable SMS 2FA on this phone number?')) return;
+    setMfaActionLoading(true);
+    try {
+      await unenrollMfa(uid);
+      setMessage({ text: 'SMS 2FA factor removed.', type: 'success' });
+    } catch (err: unknown) {
+      setMessage({ text: `Unenroll failed: ${(err as Error)?.message}`, type: 'error' });
+    } finally {
+      setMfaActionLoading(false);
+    }
+  };
+
+  const filteredUsers = allUsers.filter(
+    (u) =>
+      u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.passId && u.passId.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      {/* Top Banner - Red Gradient Glass */}
-      <div className="bg-gradient-to-r from-red-900/60 to-red-800/40 backdrop-blur-xl border border-red-500/20 rounded-3xl p-6 shadow-2xl mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="relative min-h-[calc(100vh-4rem)] bg-[#0F172A] text-slate-100 overflow-hidden max-w-6xl mx-auto px-4 py-8">
+      <div id="mfa-recaptcha-container" />
+      {/* Background radial gradients */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full blur-[120px] opacity-20 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(193,18,31,0.5) 0%, transparent 70%)',
+          }}
+        />
+        <div
+          className="absolute -bottom-32 -left-32 w-[600px] h-[600px] rounded-full blur-[120px] opacity-15 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(2,132,199,0.5) 0%, transparent 70%)',
+          }}
+        />
+      </div>
+
+      {/* Top Banner */}
+      <div className="relative backdrop-blur-2xl bg-slate-900/80 border border-white/10 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-2xl shadow-[0_0_20px_0_rgba(193,18,31,0.2)]">
             <ShieldCheck className="w-8 h-8 text-red-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white">Control Portal</h1>
-            <p className="text-xs text-slate-300">
-              Master administration, user verification, pass issuance & IoT hardware binding
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black tracking-tight text-white">Control Portal</h1>
+              <span className="text-[10px] font-mono font-bold bg-red-500/20 border border-red-400/40 text-red-300 px-2.5 py-0.5 rounded-full">
+                ROOT OWNER
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Administered by: <strong>{currentUser?.email || OWNER_EMAIL}</strong> • Hardware Binding & Verification
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleSeedData}
-            disabled={seeding}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-[0_4px_16px_rgba(74,222,128,0.3)]"
-            title="Seed full demo dataset across all 7 stages"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-200" />
-            <span>{seeding ? 'Seeding...' : 'Seed Demo Data'}</span>
-          </button>
           <button
             onClick={loadData}
             className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors"
@@ -402,6 +455,18 @@ export const ControlPortal: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('security')}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'security'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+          }`}
+        >
+          <Lock className="w-4 h-4" />
+          <span>Security & SMS MFA</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('config')}
           className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'config'
@@ -413,6 +478,13 @@ export const ControlPortal: React.FC = () => {
           <span>Rates & Configuration</span>
         </button>
       </div>
+
+      {loading && (
+        <div className="py-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+          <RefreshCw className="w-4 h-4 animate-spin text-red-400" />
+          <span>Synchronizing portal datasets...</span>
+        </div>
+      )}
 
       {/* Tab 1: Approvals Queue */}
       {activeTab === 'approvals' && (
@@ -451,27 +523,28 @@ export const ControlPortal: React.FC = () => {
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-base text-white">{u.firstName}</h3>
-                    <p className="text-xs text-slate-300">Full Name: {u.fullName}</p>
-                    <p className="text-xs text-slate-300">Phone: {u.phone}</p>
-                    <p className="text-xs text-slate-300">Location: {u.addressText}</p>
+                    <h3 className="font-extrabold text-base text-white">{u.firstName}</h3>
+                    <p className="text-xs text-slate-300 mt-0.5">{u.fullName}</p>
+                    <p className="text-xs text-slate-400 mt-2">
+                      📍 {u.addressText || 'Location not specified'} • 📞 {u.phone || 'No phone'}
+                    </p>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-white/[0.08] flex items-center gap-2">
+                  <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/10">
                     <button
                       onClick={() => handleApprove(u)}
                       disabled={actionLoading === u.uid}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-[0_4px_16px_rgba(74,222,128,0.3)] touch-target transition-all"
+                      className="flex-1 py-2 px-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_4px_16px_rgba(74,222,128,0.25)] touch-target"
                     >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Approve & Issue Pass</span>
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>{actionLoading === u.uid ? 'Approving...' : 'Approve & Issue Pass'}</span>
                     </button>
                     <button
-                      onClick={() => handleReject(u.uid)}
+                      onClick={() => handleUpdateStatus(u.uid, 'rejected')}
                       disabled={actionLoading === u.uid}
-                      className="px-3 py-2.5 bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-300 rounded-xl text-xs font-bold transition-colors"
+                      className="py-2 px-3 bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-300 rounded-xl text-xs font-semibold transition-colors"
                     >
-                      <XCircle className="w-4 h-4" />
+                      Reject
                     </button>
                   </div>
                 </div>
@@ -481,89 +554,68 @@ export const ControlPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: User Directory */}
+      {/* Tab 2: All Users Directory */}
       {activeTab === 'users' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, pass ID, phone..."
-                className="w-full pl-9 pr-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-red-500/50 focus:outline-none"
-              />
-            </div>
-            <span className="text-xs text-slate-400">
-              Showing {filteredUsers.length} of {allUsers.length} users
-            </span>
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, Pass ID, or role..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-white/10 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50 shadow-inner"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           </div>
 
-          <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] overflow-hidden shadow-2xl">
+          <div className="backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] overflow-hidden shadow-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-white/[0.02] text-slate-400 border-b border-white/[0.08]">
+                <thead className="bg-white/[0.04] border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                   <tr>
-                    <th className="p-3">Pass ID</th>
-                    <th className="p-3">Name</th>
-                    <th className="p-3">Role</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Phone</th>
-                    <th className="p-3 text-right">Actions</th>
+                    <th className="px-4 py-3">Pass ID</th>
+                    <th className="px-4 py-3">User</th>
+                    <th className="px-4 py-3">Role</th>
+                    <th className="px-4 py-3">Location</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.05]">
+                <tbody className="divide-y divide-white/[0.06]">
                   {filteredUsers.map((u) => (
-                    <tr key={u.uid} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="p-3 font-mono font-bold text-white">
-                        {u.passId || '–'}
+                    <tr key={u.uid} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-red-400">
+                        {u.passId || '—'}
                       </td>
-                      <td className="p-3">
+                      <td className="px-4 py-3">
                         <div className="font-bold text-white">{u.firstName}</div>
-                        <div className="text-[11px] text-slate-400">{u.addressText}</div>
+                        <div className="text-[11px] text-slate-400">{u.fullName}</div>
                       </td>
-                      <td className="p-3 capitalize font-semibold text-slate-300">{u.role}</td>
-                      <td className="p-3">
+                      <td className="px-4 py-3 capitalize text-slate-300">{u.role}</td>
+                      <td className="px-4 py-3 text-slate-400">{u.addressText || '—'}</td>
+                      <td className="px-4 py-3">
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                          className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
                             u.status === 'approved'
-                              ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
+                              ? 'bg-emerald-500/15 border border-emerald-400/30 text-emerald-300'
                               : u.status === 'pending'
-                              ? 'bg-amber-500/15 border-amber-400/30 text-amber-300'
-                              : 'bg-red-500/15 border-red-400/30 text-red-300'
+                              ? 'bg-amber-500/15 border border-amber-400/30 text-amber-300'
+                              : 'bg-red-500/15 border border-red-400/30 text-red-300'
                           }`}
                         >
                           {u.status}
                         </span>
                       </td>
-                      <td className="p-3 font-mono text-slate-300">{u.phone}</td>
-                      <td className="p-3 text-right">
-                        {u.status === 'approved' ? (
+                      <td className="px-4 py-3 text-right">
+                        {u.status === 'approved' && (
                           <button
-                            onClick={() => handleSuspend(u.uid)}
+                            onClick={() => handleUpdateStatus(u.uid, 'suspended')}
                             disabled={actionLoading === u.uid}
-                            className="px-2.5 py-1 text-[11px] font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                            className="text-[11px] text-red-400 hover:text-red-300 underline font-semibold"
                           >
                             Suspend
                           </button>
-                        ) : u.status === 'suspended' ? (
-                          <button
-                            onClick={() => handleReactivate(u.uid)}
-                            disabled={actionLoading === u.uid}
-                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                          >
-                            Reinstate
-                          </button>
-                        ) : u.status === 'pending' ? (
-                          <button
-                            onClick={() => handleApprove(u)}
-                            disabled={actionLoading === u.uid}
-                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                          >
-                            Approve
-                          </button>
-                        ) : null}
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -574,35 +626,35 @@ export const ControlPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Hardware Binding */}
+      {/* Tab 3: Hardware Linking */}
       {activeTab === 'hardware' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Link GPS to Vehicle */}
-          <div className="relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          {/* Link Vehicle to GPS */}
+          <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-500/15 border border-blue-400/30 text-blue-400 rounded-xl">
+              <div className="p-2.5 bg-sky-500/15 border border-sky-400/30 text-sky-400 rounded-xl">
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">Bind GPS Node to Vehicle</h3>
-                <p className="text-xs text-slate-400">Link ESP32 NEO-M8N hardware unit to a driver truck</p>
+                <h3 className="font-bold text-sm text-white">Vehicle GPS Pairing</h3>
+                <p className="text-xs text-slate-400">Bind physical GPS tracker to driver vehicle</p>
               </div>
             </div>
 
-            <form onSubmit={handleLinkGps} className="space-y-3">
+            <form onSubmit={handleLinkGps} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Registered Driver Vehicle
+                  Select Registered Vehicle
                 </label>
                 <select
                   value={selectedVehicleId}
                   onChange={(e) => setSelectedVehicleId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/50"
                 >
-                  {vehicles.length === 0 && <option value="" className="bg-slate-900 text-white">No registered vehicles found</option>}
+                  {vehicles.length === 0 && <option value="" className="bg-slate-900 text-white">No vehicles registered</option>}
                   {vehicles.map((v) => (
                     <option key={v.id} value={v.id} className="bg-slate-900 text-white">
-                      {v.regNumber} ({v.gpsUnitId ? `Linked: ${v.gpsUnitId}` : 'Unlinked'})
+                      {v.regNumber} ({v.gpsUnitId ? `GPS: ${v.gpsUnitId}` : 'Unlinked'})
                     </option>
                   ))}
                 </select>
@@ -610,43 +662,43 @@ export const ControlPortal: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Hardware Unit ID
+                  GPS Hardware Unit ID
                 </label>
                 <input
                   type="text"
                   value={gpsUnitIdInput}
                   onChange={(e) => setGpsUnitIdInput(e.target.value)}
                   placeholder="e.g. GPS-01"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={vehicles.length === 0}
-                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(59,130,246,0.3)]"
+                className="w-full py-2.5 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(2,132,199,0.3)]"
               >
-                Bind GPS Unit
+                Pair Vehicle GPS Unit
               </button>
             </form>
           </div>
 
-          {/* Link Sensor Node to Storage Unit */}
-          <div className="relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          {/* Link Cold Storage to DHT22 Node */}
+          <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
                 <Cpu className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">Bind Environmental Node</h3>
-                <p className="text-xs text-slate-400">Link Arduino/ESP32 DHT22 sensor to mandi storage</p>
+                <h3 className="font-bold text-sm text-white">Storage Sensor Pairing</h3>
+                <p className="text-xs text-slate-400">Bind DHT22 telemetry node to Mandi bay</p>
               </div>
             </div>
 
-            <form onSubmit={handleLinkSensor} className="space-y-3">
+            <form onSubmit={handleLinkSensor} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Mandi Storage Unit
+                  Select Cold Storage Unit
                 </label>
                 <select
                   value={selectedStorageId}
@@ -687,7 +739,169 @@ export const ControlPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Configuration */}
+      {/* Tab 4: Security & SMS MFA */}
+      {activeTab === 'security' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Owner Account Status */}
+          <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 bg-red-500/15 border border-red-400/30 text-red-400 rounded-xl">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white">System Owner Verification</h3>
+                <p className="text-xs text-slate-400">Designated administrative account</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs bg-slate-900/60 p-4 rounded-2xl border border-white/10">
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Owner Email:</span>
+                <span className="font-mono font-bold text-white">{currentUser?.email || OWNER_EMAIL}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Account UID:</span>
+                <span className="font-mono text-slate-300 text-[11px] truncate max-w-[180px]">{currentUser?.uid}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Pass ID:</span>
+                <span className="font-mono font-bold text-red-400">FP-OWNER-0001</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Google Sign-In:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" /> Enabled
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-400">SMS MFA Status:</span>
+                <span className={`font-bold flex items-center gap-1 ${enrolledMfaFactors.length > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {enrolledMfaFactors.length > 0 ? (
+                    <>
+                      <CheckCircle className="w-3.5 h-3.5" /> Active ({enrolledMfaFactors.length} Factor)
+                    </>
+                  ) : (
+                    'Not Enrolled (Configure below)'
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* SMS Multi-Factor Enrollment */}
+          <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white">SMS MFA Phone Enrollment</h3>
+                <p className="text-xs text-slate-400">Two-factor authentication with SMS OTP</p>
+              </div>
+            </div>
+
+            {enrolledMfaFactors.length > 0 ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs">
+                  <p className="font-bold text-emerald-300 mb-2 flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    SMS 2FA is currently active on this account
+                  </p>
+                  {enrolledMfaFactors.map((factor) => (
+                    <div key={factor.uid} className="flex items-center justify-between py-2 border-t border-emerald-500/20 text-slate-300">
+                      <div>
+                        <span className="font-semibold">{factor.displayName || 'SMS Factor'}</span>
+                        <div className="text-[11px] text-slate-400 font-mono">{(factor as any).phoneNumber || 'Registered mobile'}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleUnenrollMfa(factor.uid)}
+                        disabled={mfaActionLoading}
+                        className="text-xs text-red-400 hover:text-red-300 underline font-semibold"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : !mfaVerificationId ? (
+              <form onSubmit={handleSendMfaEnrollCode} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Mobile Phone Number (with Country Code)
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={mfaPhone}
+                    onChange={(e) => setMfaPhone(e.target.value)}
+                    placeholder="+919876543210"
+                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Example: +91 98765 43210. A 6-digit SMS verification code will be sent.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={mfaActionLoading || mfaPhone.length < 10}
+                  className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_16px_rgba(217,119,6,0.3)] touch-target flex items-center justify-center gap-2"
+                >
+                  {mfaActionLoading ? (
+                    <span>Sending SMS Code...</span>
+                  ) : (
+                    <>
+                      <Smartphone className="w-4 h-4" />
+                      <span>Send SMS Verification Code</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleConfirmMfaEnroll} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Enter 6-Digit SMS Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={mfaOtp}
+                    onChange={(e) => setMfaOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="w-full px-4 py-2.5 bg-slate-800/80 border border-amber-500/40 text-center font-mono text-lg tracking-[0.4em] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={mfaActionLoading || mfaOtp.length < 6}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md touch-target flex items-center justify-center gap-2"
+                  >
+                    {mfaActionLoading ? 'Verifying...' : 'Complete SMS MFA Enrollment'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMfaVerificationId(null);
+                      setMfaOtp('');
+                    }}
+                    className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Configuration */}
       {activeTab === 'config' && (
         <div className="max-w-md relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
           <div className="flex items-center gap-3 mb-4">

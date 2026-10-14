@@ -73,7 +73,7 @@ interface StorageUnitInfo {
 }
 
 export const GrowPortal: React.FC = () => {
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, isOwner } = useAuth();
 
   const [bags, setBags] = useState<Bag[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
@@ -231,8 +231,8 @@ export const GrowPortal: React.FC = () => {
       const bagData = {
         product: 'tomato',
         farmerUid: currentUser.uid,
-        farmerPassId: userProfile.passId || 'FP-F-0001',
-        farmerFirstName: userProfile.firstName,
+        farmerPassId: userProfile.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
+        farmerFirstName: userProfile.firstName || (isOwner ? 'Owner' : 'Farmer'),
         fieldId: currentField?.id || 'default-field',
         fieldName: currentField?.name || 'Main Farm',
         village: currentField?.village || userProfile.addressText || 'Tamil Nadu',
@@ -258,7 +258,7 @@ export const GrowPortal: React.FC = () => {
         type: 'BAG_CREATED',
         byUid: currentUser.uid,
         byRole: 'farmer',
-        byPassId: userProfile.passId || 'FP-F-0001',
+        byPassId: userProfile.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
         at: serverTimestamp(),
         place: {
           text: `${currentField?.name || 'Farm'}, ${currentField?.village || 'Village'}`,

@@ -301,7 +301,7 @@ export const HubPortal: React.FC = () => {
         type: 'RECEIVED_STORAGE',
         byUid: currentUser.uid,
         byRole: 'mandi',
-        byPassId: userProfile?.passId || 'FP-M-0001',
+        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
         at: serverTimestamp(),
         place: {
           text: `${selectedMandi.name} - ${selectedUnit.name}`,
@@ -348,7 +348,7 @@ export const HubPortal: React.FC = () => {
         type: 'DISPATCHED_TO_SHOP',
         byUid: currentUser.uid,
         byRole: 'mandi',
-        byPassId: userProfile?.passId || 'FP-M-0001',
+        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
         at: serverTimestamp(),
         place: {
           text: `${selectedMandi.name} → ${shopName}`,
