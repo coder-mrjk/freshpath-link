@@ -9,6 +9,7 @@ import {
   runTransaction,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   setDoc,
   getDoc,
@@ -88,7 +89,19 @@ export const ControlPortal: React.FC = () => {
       // 2. All Users
       const allSnap = await getDocs(collection(db, 'users'));
       const allList: UserProfile[] = [];
-      allSnap.forEach((d) => allList.push({ ...d.data(), uid: d.id } as UserProfile));
+      allSnap.forEach((d) => {
+        const data = d.data() as UserProfile;
+        const isThisOwner =
+          data.role === 'owner' ||
+          d.id === currentUser?.uid ||
+          (data as any).email === OWNER_EMAIL;
+        if (isThisOwner) {
+          data.role = 'owner';
+          data.status = 'approved';
+          data.passId = data.passId || 'FP-OWNER-0001';
+        }
+        allList.push({ ...data, uid: d.id });
+      });
       setAllUsers(allList);
 
       // 3. Vehicles
@@ -184,8 +197,13 @@ export const ControlPortal: React.FC = () => {
     }
   };
 
-  // Suspend/Reject
-  const handleUpdateStatus = async (uid: string, status: 'suspended' | 'rejected') => {
+  // Suspend/Restore/Reject
+  const handleUpdateStatus = async (uid: string, status: 'suspended' | 'rejected' | 'approved') => {
+    const targetUser = allUsers.find((u) => u.uid === uid);
+    if (targetUser?.role === 'owner' || uid === currentUser?.uid) {
+      setMessage({ text: 'Root System Owner status is protected and cannot be altered.', type: 'error' });
+      return;
+    }
     setActionLoading(uid);
     try {
       await updateDoc(doc(db, 'users', uid), { status });
@@ -193,6 +211,25 @@ export const ControlPortal: React.FC = () => {
       await loadData();
     } catch (err: unknown) {
       setMessage({ text: `Status update failed: ${(err as Error)?.message}`, type: 'error' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Delete user from directory
+  const handleDeleteUser = async (uid: string, role: string) => {
+    if (role === 'owner' || uid === currentUser?.uid) {
+      setMessage({ text: 'Root System Owner cannot be deleted.', type: 'error' });
+      return;
+    }
+    if (!window.confirm('Are you sure you want to permanently delete this user from the directory?')) return;
+    setActionLoading(uid);
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+      setMessage({ text: 'User removed from directory.', type: 'success' });
+      await loadData();
+    } catch (err: unknown) {
+      setMessage({ text: `Failed to delete user: ${(err as Error)?.message}`, type: 'error' });
     } finally {
       setActionLoading(null);
     }
@@ -278,6 +315,9 @@ export const ControlPortal: React.FC = () => {
     setMfaActionLoading(true);
 
     try {
+      if (currentUser) {
+        await currentUser.reload();
+      }
       const rv = setupRecaptcha('mfa-recaptcha-container');
       const vId = await sendPhoneVerificationForMfa(mfaPhone.trim(), rv);
       setMfaVerificationId(vId);
@@ -582,43 +622,87 @@ export const ControlPortal: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.06]">
-                  {filteredUsers.map((u) => (
-                    <tr key={u.uid} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3 font-mono font-bold text-red-400">
-                        {u.passId || '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-white">{u.firstName}</div>
-                        <div className="text-[11px] text-slate-400">{u.fullName}</div>
-                      </td>
-                      <td className="px-4 py-3 capitalize text-slate-300">{u.role}</td>
-                      <td className="px-4 py-3 text-slate-400">{u.addressText || '—'}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
-                            u.status === 'approved'
-                              ? 'bg-emerald-500/15 border border-emerald-400/30 text-emerald-300'
-                              : u.status === 'pending'
-                              ? 'bg-amber-500/15 border border-amber-400/30 text-amber-300'
-                              : 'bg-red-500/15 border border-red-400/30 text-red-300'
-                          }`}
-                        >
-                          {u.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {u.status === 'approved' && (
-                          <button
-                            onClick={() => handleUpdateStatus(u.uid, 'suspended')}
-                            disabled={actionLoading === u.uid}
-                            className="text-[11px] text-red-400 hover:text-red-300 underline font-semibold"
+                  {filteredUsers.map((u) => {
+                    const isRootOwner =
+                      u.role === 'owner' ||
+                      u.uid === currentUser?.uid ||
+                      (u as any).email === OWNER_EMAIL;
+                    return (
+                      <tr key={u.uid} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-3 font-mono font-bold text-red-400">
+                          {u.passId || '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-white flex items-center gap-1.5">
+                            {u.firstName}
+                            {isRootOwner && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] bg-red-500/20 text-red-300 border border-red-500/30 uppercase tracking-wider font-bold">
+                                Root Owner
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400">{u.fullName}</div>
+                        </td>
+                        <td className="px-4 py-3 capitalize text-slate-300">{u.role}</td>
+                        <td className="px-4 py-3 text-slate-400">{u.addressText || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                              isRootOwner || u.status === 'approved'
+                                ? 'bg-emerald-500/15 border border-emerald-400/30 text-emerald-300'
+                                : u.status === 'pending'
+                                ? 'bg-amber-500/15 border border-amber-400/30 text-amber-300'
+                                : 'bg-red-500/15 border border-red-400/30 text-red-300'
+                            }`}
                           >
-                            Suspend
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                            {isRootOwner ? 'Approved' : u.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {isRootOwner ? (
+                            <span className="text-[11px] text-slate-500 font-mono italic">Protected</span>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2.5">
+                              {u.status === 'approved' && (
+                                <button
+                                  onClick={() => handleUpdateStatus(u.uid, 'suspended')}
+                                  disabled={actionLoading === u.uid}
+                                  className="text-[11px] text-amber-400 hover:text-amber-300 underline font-semibold"
+                                >
+                                  Suspend
+                                </button>
+                              )}
+                              {u.status === 'suspended' && (
+                                <button
+                                  onClick={() => handleUpdateStatus(u.uid, 'approved')}
+                                  disabled={actionLoading === u.uid}
+                                  className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-semibold"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {u.status === 'pending' && (
+                                <button
+                                  onClick={() => handleApprove(u)}
+                                  disabled={actionLoading === u.uid}
+                                  className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-semibold"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteUser(u.uid, u.role)}
+                                disabled={actionLoading === u.uid}
+                                className="text-[11px] text-red-400 hover:text-red-300 underline font-semibold"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -771,6 +855,12 @@ export const ControlPortal: React.FC = () => {
                 <span className="text-slate-400">Google Sign-In:</span>
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <CheckCircle className="w-3.5 h-3.5" /> Enabled
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Email Verification:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" /> Verified
                 </span>
               </div>
               <div className="flex justify-between items-center py-1">

@@ -185,6 +185,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         async (snap) => {
           if (snap.exists()) {
             const data = snap.data() as UserProfile;
+            if (userIsOwner) {
+              data.role = 'owner';
+              data.status = 'approved';
+              data.passId = 'FP-OWNER-0001';
+            }
             setUserProfile({ ...data, uid: user.uid });
           } else if (userIsOwner) {
             // Auto-heal owner profile if missing
@@ -413,6 +418,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     recaptchaVerifier: RecaptchaVerifier
   ): Promise<string> => {
     if (!currentUser) throw new Error('No user is currently signed in');
+    // Ensure currentUser is reloaded and refreshed from server
+    await currentUser.reload();
+    await currentUser.getIdToken(true);
+    if (!currentUser.emailVerified) {
+      throw new Error('Please verify your email address before enrolling SMS MFA.');
+    }
     const multiFactorSession = await multiFactor(currentUser).getSession();
     const phoneAuthProvider = new PhoneAuthProvider(auth);
     const verificationId = await phoneAuthProvider.verifyPhoneNumber(
