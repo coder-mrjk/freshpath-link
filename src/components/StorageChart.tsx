@@ -10,9 +10,9 @@ interface StorageChartProps {
 export const StorageChart: React.FC<StorageChartProps> = ({ readings, className = '' }) => {
   if (!readings || readings.length === 0) {
     return (
-      <div className={`flex flex-col items-center justify-center p-6 bg-gray-50 rounded-xl text-xs text-gray-400 ${className}`}>
+      <div className={`flex flex-col items-center justify-center p-6 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl text-xs text-slate-400 ${className}`}>
         <span>No telemetry readings recorded yet for this unit.</span>
-        <span className="text-[10px] text-gray-400 mt-1">
+        <span className="text-[10px] text-slate-400 mt-1">
           Target optimal envelope: {STORAGE_DEFAULTS.TARGET_TEMP_MIN}°C – {STORAGE_DEFAULTS.TARGET_TEMP_MAX}°C
         </span>
       </div>
@@ -59,15 +59,15 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
   const targetBandHeight = Math.max(4, targetBottomY - targetTopY);
 
   return (
-    <div className={`bg-white p-4 rounded-xl border border-gray-200 shadow-xs ${className}`}>
+    <div className={`relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] ${className}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-charcoal">24h Temperature Trend</span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="text-xs font-bold text-white">24h Temperature Trend</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-400/30">
             Target 12°C – 15°C
           </span>
         </div>
-        <span className="text-[11px] text-gray-400 font-mono">
+        <span className="text-[11px] text-slate-400 font-mono">
           {sorted.length} readings
         </span>
       </div>
@@ -77,20 +77,27 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto overflow-visible select-none"
         >
+          <defs>
+            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
           {/* Optimal Target Zone Rectangle */}
           <rect
             x={paddingX}
             y={targetTopY}
             width={chartW}
             height={targetBandHeight}
-            fill="#10b981"
+            fill="#4ADE80"
             fillOpacity="0.12"
             rx="4"
           />
           <text
             x={paddingX + 6}
             y={targetTopY + 12}
-            fill="#059669"
+            fill="#4ADE80"
             fontSize="9"
             fontWeight="bold"
           >
@@ -103,10 +110,10 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
             y1={paddingY}
             x2={width - paddingX}
             y2={paddingY}
-            stroke="#e5e7eb"
+            stroke="rgba(255,255,255,0.1)"
             strokeDasharray="3 3"
           />
-          <text x={paddingX - 6} y={paddingY + 3} fill="#9ca3af" fontSize="9" textAnchor="end">
+          <text x={paddingX - 6} y={paddingY + 3} fill="#94A3B8" fontSize="9" textAnchor="end">
             {maxTemp}°C
           </text>
 
@@ -115,18 +122,18 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
             y1={getY(15)}
             x2={width - paddingX}
             y2={getY(15)}
-            stroke="#10b981"
+            stroke="#4ADE80"
             strokeDasharray="2 2"
-            strokeOpacity="0.4"
+            strokeOpacity="0.5"
           />
           <line
             x1={paddingX}
             y1={getY(12)}
             x2={width - paddingX}
             y2={getY(12)}
-            stroke="#10b981"
+            stroke="#4ADE80"
             strokeDasharray="2 2"
-            strokeOpacity="0.4"
+            strokeOpacity="0.5"
           />
 
           <line
@@ -134,12 +141,12 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
             y1={height - paddingY}
             x2={width - paddingX}
             y2={height - paddingY}
-            stroke="#e5e7eb"
+            stroke="rgba(255,255,255,0.1)"
           />
           <text
             x={paddingX - 6}
             y={height - paddingY + 3}
-            fill="#9ca3af"
+            fill="#94A3B8"
             fontSize="9"
             textAnchor="end"
           >
@@ -150,7 +157,7 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
           <path
             d={pathD}
             fill="none"
-            stroke="#2563eb"
+            stroke="#38BDF8"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -169,9 +176,9 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
                   cx={x}
                   cy={y}
                   r="4"
-                  fill={isOutOfRange ? '#ef4444' : '#2563eb'}
-                  stroke="#ffffff"
-                  strokeWidth="1.5"
+                  fill={isOutOfRange ? '#EF4444' : '#38BDF8'}
+                  stroke="#0F172A"
+                  strokeWidth="2"
                 />
               </g>
             );
@@ -180,7 +187,7 @@ export const StorageChart: React.FC<StorageChartProps> = ({ readings, className 
       </div>
 
       {/* Reading Time Range Labels */}
-      <div className="flex items-center justify-between text-[10px] text-gray-400 mt-2 px-1">
+      <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2 px-1 font-mono">
         <span>Earliest: {formatIST(parseReadingDate(sorted[0].at))}</span>
         <span>Latest: {formatIST(parseReadingDate(sorted[sorted.length - 1].at))}</span>
       </div>

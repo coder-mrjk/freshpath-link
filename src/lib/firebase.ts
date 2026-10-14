@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -18,6 +18,10 @@ export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfi
 // Initialize Services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Google Auth Provider
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Optional local emulator connection
 if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {

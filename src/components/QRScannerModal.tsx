@@ -111,32 +111,32 @@ export const QRScannerModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-md rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between bg-sandBg">
-          <h2 className="font-bold text-lg text-charcoal">{title}</h2>
+        <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02]">
+          <h2 className="font-extrabold text-lg text-white tracking-tight">{title}</h2>
           <button
             onClick={() => {
               stopScanner();
               onClose();
             }}
-            className="p-2 rounded-full hover:bg-gray-200 touch-target"
+            className="p-2 rounded-xl text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors touch-target flex items-center justify-center"
             aria-label="Close scanner"
           >
-            <X className="w-5 h-5 text-gray-700" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="flex border-b bg-gray-50">
+        <div className="flex p-1.5 m-4 mb-2 bg-slate-950/60 rounded-2xl border border-white/10 gap-1.5">
           <button
             type="button"
             onClick={() => setMode('camera')}
-            className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-xl transition-all duration-200 touch-target ${
               mode === 'camera'
-                ? 'border-tomato-500 text-tomato-500 bg-white'
-                : 'border-transparent text-gray-500 hover:text-charcoal'
+                ? 'bg-gradient-to-r from-red-600 to-red-800 text-white shadow-[0_0_16px_rgba(193,18,31,0.35)]'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Camera className="w-4 h-4" />
@@ -145,10 +145,10 @@ export const QRScannerModal: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setMode('manual')}
-            className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-xl transition-all duration-200 touch-target ${
               mode === 'manual'
-                ? 'border-tomato-500 text-tomato-500 bg-white'
-                : 'border-transparent text-gray-500 hover:text-charcoal'
+                ? 'bg-gradient-to-r from-red-600 to-red-800 text-white shadow-[0_0_16px_rgba(193,18,31,0.35)]'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Keyboard className="w-4 h-4" />
@@ -157,28 +157,28 @@ export const QRScannerModal: React.FC<Props> = ({
         </div>
 
         {/* Content */}
-        <div className="p-4 flex flex-col items-center">
+        <div className="p-4 sm:p-5 pt-2 flex flex-col items-center">
           {mode === 'camera' ? (
             <div className="w-full flex flex-col items-center">
               <div
                 id={scannerDivId}
-                className="w-full max-w-[320px] aspect-square rounded-xl overflow-hidden bg-black shadow-inner"
+                className="w-full max-w-[320px] aspect-square rounded-2xl overflow-hidden bg-black border border-white/10 shadow-inner"
               />
-              <p className="text-xs text-gray-500 mt-3 text-center">
+              <p className="text-xs text-slate-400 mt-3 text-center">
                 Point your camera at the printed QR label on the tomato crate.
               </p>
               {cameraError && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-xs text-amber-200 flex items-start gap-2.5 backdrop-blur-md w-full">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold">Camera Access Note:</p>
-                    <p>{cameraError}</p>
+                    <p className="font-semibold text-amber-300">Camera Access Note:</p>
+                    <p className="mt-0.5 text-slate-300">{cameraError}</p>
                     <button
                       type="button"
                       onClick={() => setMode('manual')}
-                      className="mt-1 text-tomato-600 font-bold underline"
+                      className="mt-1.5 text-red-400 font-bold hover:underline block"
                     >
-                      Use manual entry instead
+                      Use manual entry instead &rarr;
                     </button>
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export const QRScannerModal: React.FC<Props> = ({
               <div>
                 <label
                   htmlFor="manualBagId"
-                  className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5"
                 >
                   Enter Crate / Bag ID
                 </label>
@@ -202,21 +202,21 @@ export const QRScannerModal: React.FC<Props> = ({
                     setManualInput(e.target.value);
                     setManualError('');
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-tomato-500 focus:outline-none uppercase font-mono text-sm"
+                  className="w-full px-4 py-3 bg-slate-800/80 border border-white/15 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500/50 focus:outline-none uppercase font-mono text-sm text-white placeholder-slate-500 shadow-inner transition-colors"
                   autoFocus
                 />
               </div>
 
               {manualError && (
-                <p className="text-xs text-red-600 font-medium flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
+                <p className="text-xs text-red-400 font-medium flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {manualError}
                 </p>
               )}
 
               <button
                 type="submit"
-                className="w-full py-3 bg-tomato-500 hover:bg-tomato-600 text-white font-bold rounded-xl shadow-md transition-colors touch-target"
+                className="w-full py-3 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white font-bold rounded-xl shadow-[0_4px_24px_rgba(193,18,31,0.4)] transition-all touch-target"
               >
                 Lookup Crate
               </button>

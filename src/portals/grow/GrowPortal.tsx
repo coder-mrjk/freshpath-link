@@ -303,40 +303,40 @@ export const GrowPortal: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Top Banner */}
-      <div className="bg-emerald-700 text-white rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Banner - Gradient Glass */}
+      <div className="bg-gradient-to-r from-emerald-900/60 to-emerald-800/40 backdrop-blur-xl border border-emerald-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-emerald-800 rounded-xl">
-            <Sprout className="w-8 h-8" />
+          <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl shadow-[0_0_20px_0_rgba(74,222,128,0.2)]">
+            <Sprout className="w-8 h-8 text-emerald-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black tracking-tight">Grow Portal</h1>
+              <h1 className="text-2xl font-black tracking-tight text-white">Grow Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-500">
+                <span className="text-xs font-mono font-bold bg-emerald-950/60 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/40">
                   {userProfile.passId}
                 </span>
               )}
             </div>
-            <p className="text-xs text-emerald-100 mt-0.5">
-              Farmer: <strong>{userProfile?.firstName}</strong> • {userProfile?.addressText || 'Farm Cluster'}
+            <p className="text-xs text-emerald-200/80 mt-0.5">
+              Farmer: <strong className="text-white">{userProfile?.firstName}</strong> • {userProfile?.addressText || 'Farm Cluster'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <span className="text-[10px] uppercase font-bold text-emerald-200 block">
+            <span className="text-[10px] uppercase font-bold text-emerald-300/80 tracking-wider block">
               Tomato Rate
             </span>
-            <span className="text-xl font-black">{formatRupees(ratePerKg)}/kg</span>
+            <span className="text-xl font-black text-white">{formatRupees(ratePerKg)}/kg</span>
           </div>
 
           <button
             onClick={() => setShowHarvestModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-100 text-emerald-900 rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(74,222,128,0.35)] transition-all touch-target"
           >
-            <PlusCircle className="w-4 h-4 text-emerald-700" />
+            <PlusCircle className="w-4 h-4 text-white" />
             <span>Harvest New Crate</span>
           </button>
         </div>
@@ -344,18 +344,18 @@ export const GrowPortal: React.FC = () => {
 
       {/* Notifications */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 shadow-xs">
-          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-300 flex items-start gap-2 backdrop-blur-md shadow-lg">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
       {successMsg && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs">
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs text-emerald-300 flex items-center justify-between backdrop-blur-md shadow-lg">
           <span className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
             {successMsg}
           </span>
-          <button onClick={() => setSuccessMsg(null)} className="underline text-[11px]">
+          <button onClick={() => setSuccessMsg(null)} className="underline text-[11px] text-emerald-300 hover:text-emerald-200">
             Dismiss
           </button>
         </div>
@@ -363,37 +363,37 @@ export const GrowPortal: React.FC = () => {
 
       {/* Farmer Overview Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[10px] font-bold text-gray-400 uppercase">Total Harvested</div>
-          <div className="text-xl font-black text-charcoal mt-1">{totalHarvested} crates</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">{totalWeight} kg total</div>
+        <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Harvested</div>
+          <div className="text-xl font-black text-white mt-1">{totalHarvested} crates</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">{totalWeight} kg total</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[10px] font-bold text-gray-400 uppercase">Crop Value</div>
-          <div className="text-xl font-black text-emerald-600 mt-1">{formatRupees(totalValue)}</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">@ ₹{ratePerKg}/kg</div>
+        <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Crop Value</div>
+          <div className="text-xl font-black text-emerald-400 mt-1">{formatRupees(totalValue)}</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">@ ₹{ratePerKg}/kg</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[10px] font-bold text-gray-400 uppercase">In Mandi Storage</div>
-          <div className="text-xl font-black text-amber-600 mt-1">{inMandiCount} crates</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">Cold room active</div>
+        <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">In Mandi Storage</div>
+          <div className="text-xl font-black text-amber-400 mt-1">{inMandiCount} crates</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Cold room active</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[10px] font-bold text-gray-400 uppercase">Crates Sold</div>
-          <div className="text-xl font-black text-purple-600 mt-1">{soldCount} crates</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">To consumers</div>
+        <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Crates Sold</div>
+          <div className="text-xl font-black text-purple-400 mt-1">{soldCount} crates</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">To consumers</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs col-span-2 sm:col-span-1">
-          <div className="text-[10px] font-bold text-gray-400 uppercase">Consumer Rating</div>
-          <div className="text-xl font-black text-amber-500 mt-1 flex items-center gap-1">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] col-span-2 sm:col-span-1">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Consumer Rating</div>
+          <div className="text-xl font-black text-amber-400 mt-1 flex items-center gap-1">
             <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
             <span>{avgRating ? `${avgRating}` : '–'}</span>
           </div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
+          <div className="text-[10px] text-slate-400 mt-0.5">
             {ratedBags.length} verified reviews
           </div>
         </div>
@@ -411,10 +411,10 @@ export const GrowPortal: React.FC = () => {
           <button
             key={tab.key}
             onClick={() => setFilterStatus(tab.key)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
               filterStatus === tab.key
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white border border-emerald-400/30 shadow-[0_0_20px_0_rgba(74,222,128,0.30)]'
+                : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
             }`}
           >
             {tab.label}
@@ -425,22 +425,22 @@ export const GrowPortal: React.FC = () => {
       {/* Crates Inventory List */}
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+          <div className="text-center py-16 backdrop-blur-xl bg-white/[0.03] rounded-2xl border border-white/[0.08]">
             <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-xs text-gray-500">Loading your farm records...</p>
+            <p className="text-xs text-slate-400">Loading your farm records...</p>
           </div>
         ) : filteredBags.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl border border-gray-200 text-center">
-            <Sprout className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-            <h3 className="font-bold text-charcoal text-base">No crates found</h3>
-            <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto mb-4">
+          <div className="backdrop-blur-xl bg-white/[0.03] p-12 rounded-2xl border border-white/[0.08] text-center shadow-xl">
+            <Sprout className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+            <h3 className="font-bold text-white text-base">No crates found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">
               {bags.length === 0
                 ? 'Harvest your first crate of tomatoes to generate a QR label.'
                 : 'No crates matched this filter.'}
             </p>
             <button
               onClick={() => setShowHarvestModal(true)}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow"
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(74,222,128,0.3)] transition-all"
             >
               Harvest New Crate
             </button>
@@ -453,22 +453,22 @@ export const GrowPortal: React.FC = () => {
             return (
               <div
                 key={bag.id}
-                className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs hover:border-emerald-300 transition-all"
+                className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] hover:border-emerald-500/40 rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_25px_0_rgba(74,222,128,0.15)] transition-all duration-300"
               >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-charcoal">{bag.id}</span>
+                    <span className="font-mono text-xs font-bold text-white">{bag.id}</span>
                     <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                         bag.status === 'CREATED'
-                          ? 'bg-blue-100 text-blue-800'
+                          ? 'bg-blue-500/15 border-blue-400/30 text-blue-400'
                           : bag.status === 'IN_TRANSIT'
-                          ? 'bg-amber-100 text-amber-800'
+                          ? 'bg-amber-500/15 border-amber-400/30 text-amber-400'
                           : bag.status === 'IN_STORAGE'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-400'
                           : bag.status === 'SOLD'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-purple-500/15 border-purple-400/30 text-purple-400'
+                          : 'bg-slate-700/50 border-white/10 text-slate-300'
                       }`}
                     >
                       {bag.status.replace('_', ' ')}
@@ -481,40 +481,40 @@ export const GrowPortal: React.FC = () => {
                   </div>
 
                   <div className="text-right">
-                    <span className="font-black text-base text-emerald-700">
+                    <span className="font-black text-base text-emerald-400">
                       {formatRupees(bag.totalPrice)}
                     </span>
-                    <span className="text-[10px] text-gray-400 block">
+                    <span className="text-[10px] text-slate-400 block">
                       {bag.weightKg} kg (~{bag.pieces} pcs)
                     </span>
                   </div>
                 </div>
 
                 {/* Body Details */}
-                <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-600">
+                <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
                   <div>
-                    <span className="font-semibold text-charcoal">Origin Field: </span>
+                    <span className="font-semibold text-white">Origin Field: </span>
                     {bag.fieldName}, {bag.village} ({bag.sizeGrade || 'Grade A'})
                   </div>
                   <div>
-                    <span className="font-semibold text-charcoal">Harvested: </span>
+                    <span className="font-semibold text-white">Harvested: </span>
                     {formatIST(bag.harvestAt || bag.createdAt)} ({timeAgoIST(bag.harvestAt || bag.createdAt)})
                   </div>
                 </div>
 
                 {/* Live Storage Telemetry Alert for Crates in Mandi */}
                 {bag.status === 'IN_STORAGE' && (
-                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between mb-3">
+                  <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-200 flex items-center justify-between mb-3 backdrop-blur-md">
                     <div className="flex items-center gap-2">
-                      <Thermometer className="w-4 h-4 text-amber-600" />
+                      <Thermometer className="w-4 h-4 text-amber-400" />
                       <span>
-                        Preserved in <strong>{storageInfo?.name || 'Mandi Cold Room'}</strong>:
+                        Preserved in <strong className="text-white">{storageInfo?.name || 'Mandi Cold Room'}</strong>:
                       </span>
-                      <span className="font-mono font-bold text-charcoal">
-                        {storageInfo?.tempC !== undefined ? `${storageInfo.tempC}°C` : '13.5°C'} (Safe Safe Range: 12°–15°C)
+                      <span className="font-mono font-bold text-amber-300">
+                        {storageInfo?.tempC !== undefined ? `${storageInfo.tempC}°C` : '13.5°C'} (Safe Range: 12°–15°C)
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                       Protected
                     </span>
                   </div>
@@ -522,40 +522,40 @@ export const GrowPortal: React.FC = () => {
 
                 {/* Sold / Consumer Review Details */}
                 {bag.status === 'SOLD' && bag.soldTo && (
-                  <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs text-purple-900 mb-3">
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 text-xs text-purple-200 mb-3 backdrop-blur-md">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="flex items-center gap-1 font-bold">
-                        <Users className="w-3.5 h-3.5 text-purple-700" />
+                      <span className="flex items-center gap-1 font-bold text-purple-200">
+                        <Users className="w-3.5 h-3.5 text-purple-400" />
                         Buyer: {bag.soldTo.firstName} ({bag.soldTo.consumerPassId})
                       </span>
                       {bag.rating ? (
-                        <div className="flex items-center gap-0.5 text-amber-500">
+                        <div className="flex items-center gap-0.5 text-amber-400">
                           {[1, 2, 3, 4, 5].map((s) => (
                             <Star
                               key={s}
                               className={`w-3.5 h-3.5 ${
                                 s <= bag.rating!.stars
                                   ? 'fill-amber-400 text-amber-400'
-                                  : 'text-gray-300'
+                                  : 'text-slate-600'
                               }`}
                             />
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[10px] text-gray-400 italic">No review left</span>
+                        <span className="text-[10px] text-slate-400 italic">No review left</span>
                       )}
                     </div>
                     {bag.rating?.comment && (
-                      <p className="text-xs text-purple-950 italic mt-1">"{bag.rating.comment}"</p>
+                      <p className="text-xs text-purple-100 italic mt-1">"{bag.rating.comment}"</p>
                     )}
                   </div>
                 )}
 
                 {/* Bottom Actions Bar */}
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between">
                   <Link
                     to={`/b/${bag.id}`}
-                    className="text-xs text-emerald-700 hover:underline font-bold flex items-center gap-1"
+                    className="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 transition-colors"
                   >
                     <span>View Public Provenance</span>
                     <ExternalLink className="w-3 h-3" />
@@ -563,7 +563,7 @@ export const GrowPortal: React.FC = () => {
 
                   <Link
                     to={`/print/${bag.id}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-charcoal rounded-xl text-xs font-bold transition-colors touch-target"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-white/10 transition-colors touch-target"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Print Label</span>
@@ -577,16 +577,16 @@ export const GrowPortal: React.FC = () => {
 
       {/* Harvest Crate Modal */}
       {showHarvestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-white">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <PlusCircle className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-base text-charcoal">Harvest New Crate</h3>
+                <PlusCircle className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-base text-white">Harvest New Crate</h3>
               </div>
               <button
                 onClick={() => setShowHarvestModal(false)}
-                className="text-gray-400 hover:text-charcoal text-xs font-bold"
+                className="text-slate-400 hover:text-white text-xs font-bold"
               >
                 ✕ Close
               </button>
@@ -596,11 +596,11 @@ export const GrowPortal: React.FC = () => {
               {/* Field Selector */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-gray-700">Field / Farm</label>
+                  <label className="text-xs font-bold text-slate-300">Field / Farm</label>
                   <button
                     type="button"
                     onClick={() => setShowFieldModal(true)}
-                    className="text-[11px] font-bold text-emerald-700 hover:underline"
+                    className="text-[11px] font-bold text-emerald-400 hover:underline"
                   >
                     + Add Field
                   </button>
@@ -609,7 +609,7 @@ export const GrowPortal: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowFieldModal(true)}
-                    className="w-full py-2.5 px-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 hover:border-emerald-500 hover:text-emerald-700 font-semibold"
+                    className="w-full py-2.5 px-3 border border-dashed border-white/20 rounded-xl text-xs text-slate-400 hover:border-emerald-500 hover:text-emerald-400 font-semibold"
                   >
                     + Register your first field
                   </button>
@@ -617,10 +617,10 @@ export const GrowPortal: React.FC = () => {
                   <select
                     value={selectedFieldId}
                     onChange={(e) => setSelectedFieldId(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl text-xs"
+                    className="w-full px-3 py-2.5 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
                   >
                     {fields.map((f) => (
-                      <option key={f.id} value={f.id}>
+                      <option key={f.id} value={f.id} className="bg-slate-900 text-white">
                         {f.name} ({f.village})
                       </option>
                     ))}
@@ -630,7 +630,7 @@ export const GrowPortal: React.FC = () => {
 
               {/* Weight */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Weight (kg)</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Weight (kg)</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -640,16 +640,16 @@ export const GrowPortal: React.FC = () => {
                     required
                     value={weightKg}
                     onChange={(e) => setWeightKg(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-bold"
+                    className="w-full px-3 py-2.5 bg-slate-800/80 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-emerald-500/50"
                   />
-                  <Scale className="w-4 h-4 absolute right-3 top-3 text-gray-400" />
+                  <Scale className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
                 </div>
               </div>
 
               {/* Estimated Pieces & Grade */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
                     Pieces (~ count)
                   </label>
                   <input
@@ -658,41 +658,41 @@ export const GrowPortal: React.FC = () => {
                     max={500}
                     value={pieces}
                     onChange={(e) => setPieces(Number(e.target.value))}
-                    className="w-full px-2.5 py-2 border border-gray-300 rounded-xl text-xs"
+                    className="w-full px-2.5 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Grade</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Grade</label>
                   <select
                     value={sizeGrade}
                     onChange={(e) => setSizeGrade(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-white border border-gray-300 rounded-xl text-xs"
+                    className="w-full px-2.5 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
                   >
-                    <option value="Grade A">Grade A (Premium)</option>
-                    <option value="Grade B">Grade B (Medium)</option>
-                    <option value="Grade C">Grade C (Local)</option>
+                    <option value="Grade A" className="bg-slate-900 text-white">Grade A (Premium)</option>
+                    <option value="Grade B" className="bg-slate-900 text-white">Grade B (Medium)</option>
+                    <option value="Grade C" className="bg-slate-900 text-white">Grade C (Local)</option>
                   </select>
                 </div>
               </div>
 
               {/* Value Calculation */}
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-800 block">
+                  <span className="text-[10px] uppercase font-bold text-emerald-400 block">
                     Calculated Value
                   </span>
-                  <span className="text-xs text-emerald-700">
+                  <span className="text-xs text-emerald-200">
                     {weightKg} kg × ₹{ratePerKg}/kg
                   </span>
                 </div>
-                <span className="text-xl font-black text-emerald-800">
+                <span className="text-xl font-black text-emerald-400">
                   {formatRupees(calculateTotalPrice(weightKg, ratePerKg))}
                 </span>
               </div>
 
               {/* Note */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label className="block text-xs font-bold text-slate-300 mb-1">
                   Produce Notes / Benefits
                 </label>
                 <input
@@ -700,7 +700,7 @@ export const GrowPortal: React.FC = () => {
                   value={benefitsNote}
                   onChange={(e) => setBenefitsNote(e.target.value)}
                   placeholder="e.g. Naturally ripened Country Tomatoes"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
 
@@ -708,14 +708,14 @@ export const GrowPortal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowHarvestModal(false)}
-                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold"
+                  className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold shadow-md"
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-[0_4px_20px_rgba(74,222,128,0.35)] transition-all"
                 >
                   {submitting ? 'Generating...' : 'Save & Print QR'}
                 </button>
@@ -727,12 +727,12 @@ export const GrowPortal: React.FC = () => {
 
       {/* New Field Modal */}
       {showFieldModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-            <h3 className="font-bold text-base text-charcoal mb-4">Register New Field / Farm</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl text-white">
+            <h3 className="font-bold text-base text-white mb-4">Register New Field / Farm</h3>
             <form onSubmit={handleCreateField} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Field / Farm Name
                 </label>
                 <input
@@ -741,41 +741,41 @@ export const GrowPortal: React.FC = () => {
                   value={newFieldName}
                   onChange={(e) => setNewFieldName(e.target.value)}
                   placeholder="e.g. Vadakku Thottam"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Village</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Village</label>
                 <input
                   type="text"
                   required
                   value={newFieldVillage}
                   onChange={(e) => setNewFieldVillage(e.target.value)}
                   placeholder="Village"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">District</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">District</label>
                 <input
                   type="text"
                   value={newFieldDistrict}
                   onChange={(e) => setNewFieldDistrict(e.target.value)}
                   placeholder="District"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
               <div className="pt-2 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowFieldModal(false)}
-                  className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold"
+                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow"
+                  className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_20px_rgba(74,222,128,0.35)] transition-all"
                 >
                   Save Field
                 </button>

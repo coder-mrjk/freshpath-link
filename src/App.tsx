@@ -26,13 +26,25 @@ const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout } = useAuth();
 
   return (
-    <div className="min-h-screen flex flex-col bg-sandBg">
-      <Navbar
-        userRole={isOwner ? 'owner' : userProfile?.role}
-        passId={userProfile?.passId}
-        onLogout={userProfile || isOwner ? logout : undefined}
-      />
-      <main className="flex-1">
+    <div className="min-h-screen flex flex-col bg-[#0F172A] text-[#dae2fd] relative selection:bg-red-600/30 selection:text-white">
+      {/* Ambient Radial Mesh Gradient Glows */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-red-600/10 blur-3xl" />
+        <div className="absolute top-1/3 -left-40 w-96 h-96 rounded-full bg-emerald-600/10 blur-3xl" />
+        <div className="absolute -bottom-40 right-1/4 w-96 h-96 rounded-full bg-sky-600/08 blur-3xl" />
+      </div>
+
+      {/* Glassmorphism Navbar Area */}
+      <div className="relative z-40 backdrop-blur-xl bg-slate-900/65 border-b border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)]">
+        <Navbar
+          userRole={isOwner ? 'owner' : userProfile?.role}
+          passId={userProfile?.passId}
+          onLogout={userProfile || isOwner ? logout : undefined}
+        />
+      </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 relative z-10">
         <Routes>
           <Route path="/" element={<EntrancePage />} />
           <Route path="/auth/:role" element={<AuthPage />} />
@@ -139,24 +151,38 @@ const AppContent: React.FC = () => {
           <Route
             path="*"
             element={
-              <div className="text-center py-20 px-4">
-                <h2 className="text-2xl font-bold text-charcoal">Page Not Found</h2>
-                <p className="text-sm text-gray-500 mt-2">
-                  The requested page could not be located.
-                </p>
-                <a
-                  href="/"
-                  className="mt-4 inline-block px-4 py-2 bg-tomato-500 text-white rounded-xl text-sm font-bold"
-                >
-                  Return Home
-                </a>
+              <div className="min-h-[60vh] flex items-center justify-center px-4 py-20">
+                <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-3xl p-8 max-w-md w-full text-center shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+                  <h2 className="text-2xl font-extrabold text-[#dae2fd] tracking-tight">
+                    Page Not Found
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-2">
+                    The requested page could not be located in the FreshPath network.
+                  </p>
+                  <a
+                    href="/"
+                    className="mt-6 inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-800 text-white rounded-full text-sm font-semibold shadow-[0_4px_24px_rgba(193,18,31,0.4)] hover:brightness-110 transition-all duration-300"
+                  >
+                    Return Home
+                  </a>
+                </div>
               </div>
             }
           />
         </Routes>
       </main>
-      <footer className="py-6 border-t border-gray-200 text-center text-xs text-gray-400 no-print">
-        FreshPath Link © 2026 • Transparent Farm-to-Table Provenance
+
+      {/* Glassmorphism Footer */}
+      <footer className="relative z-10 py-6 border-t border-white/[0.08] backdrop-blur-xl bg-slate-900/60 text-center text-xs text-slate-400 no-print">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <img src="/logo192.png" alt="FreshPath Link" className="w-4 h-4 object-contain opacity-80" />
+            <span className="font-semibold text-slate-300">FreshPath Link © 2026</span>
+          </div>
+          <span className="text-slate-500 font-medium">
+            Transparent Farm-to-Table Provenance
+          </span>
+        </div>
       </footer>
     </div>
   );

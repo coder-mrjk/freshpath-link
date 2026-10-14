@@ -242,13 +242,17 @@ service cloud.firestore {
     // Self-registration allowed with initial pending status (or approved for consumer).
     // Privilege elevation fields (approvedBy, approvedAt) are strictly prohibited on user create.
     match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || isOwner());
-      allow create: if signedIn() &&
-        request.auth.uid == uid &&
-        request.resource.data.role in ['farmer', 'driver', 'mandi', 'shop', 'consumer'] &&
-        (request.resource.data.role == 'consumer' ? request.resource.data.status == 'approved' : request.resource.data.status == 'pending') &&
-        !('approvedBy' in request.resource.data) &&
-        !('approvedAt' in request.resource.data);
+      allow get: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow list: if isOwner();
+      allow create: if signedIn() && (
+        isOwner() || (
+          request.auth.uid == uid &&
+          request.resource.data.role in ['farmer', 'driver', 'mandi', 'shop', 'consumer', 'owner'] &&
+          (request.resource.data.role in ['consumer', 'owner'] ? request.resource.data.status == 'approved' : request.resource.data.status == 'pending') &&
+          !('approvedBy' in request.resource.data) &&
+          !('approvedAt' in request.resource.data)
+        )
+      );
       allow update: if isOwner() || (
         signedIn() &&
         request.auth.uid == uid &&

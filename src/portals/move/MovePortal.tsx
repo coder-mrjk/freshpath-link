@@ -395,7 +395,6 @@ export const MovePortal: React.FC = () => {
   const handleSimulateGPSFix = async () => {
     const gpsId = vehicle?.gpsUnitId || 'GPS-01';
     try {
-      // Simulate Panruti farm coordinate or Mandi coordinate
       const isStart = activeTrip?.status === 'DRAFT';
       const lat = isStart ? 11.748 : 11.9338;
       const lng = isStart ? 79.7714 : 79.8297;
@@ -430,31 +429,31 @@ export const MovePortal: React.FC = () => {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-xs text-gray-500">Loading driver vehicles & delivery trips...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-xs text-slate-400">Loading driver vehicles & delivery trips...</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Top Banner */}
-      <div className="bg-blue-700 text-white rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Banner - Blue Gradient Glass */}
+      <div className="bg-gradient-to-r from-blue-900/60 to-blue-800/40 backdrop-blur-xl border border-blue-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-800 rounded-xl">
-            <Truck className="w-8 h-8" />
+          <div className="p-3 bg-blue-500/20 border border-blue-500/30 rounded-2xl shadow-[0_0_20px_0_rgba(56,189,248,0.2)]">
+            <Truck className="w-8 h-8 text-blue-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black tracking-tight">Move Portal</h1>
+              <h1 className="text-2xl font-black tracking-tight text-white">Move Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-blue-800 px-2.5 py-0.5 rounded-full border border-blue-500">
+                <span className="text-xs font-mono font-bold bg-blue-950/60 text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-500/40">
                   {userProfile.passId}
                 </span>
               )}
             </div>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Driver: {userProfile?.firstName} • Vehicle: {vehicle?.regNumber || 'Unregistered'}
+            <p className="text-xs text-blue-200/80 mt-0.5">
+              Driver: <strong className="text-white">{userProfile?.firstName}</strong> • Vehicle: {vehicle?.regNumber || 'Unregistered'}
             </p>
           </div>
         </div>
@@ -462,9 +461,9 @@ export const MovePortal: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowNewTripModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-100 text-blue-900 rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(59,130,246,0.35)] transition-all touch-target"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-4 h-4 text-white" />
             <span>New Trip</span>
           </button>
         </div>
@@ -472,45 +471,45 @@ export const MovePortal: React.FC = () => {
 
       {/* Notifications */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 shadow-xs">
-          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-300 flex items-start gap-2 backdrop-blur-md shadow-lg">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
       {successMsg && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs">
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs text-emerald-300 flex items-center justify-between backdrop-blur-md shadow-lg">
           <span className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
             {successMsg}
           </span>
-          <button onClick={() => setSuccessMsg(null)} className="underline text-[11px]">
+          <button onClick={() => setSuccessMsg(null)} className="underline text-[11px] text-emerald-300 hover:text-emerald-200">
             Dismiss
           </button>
         </div>
       )}
 
       {/* Vehicle & GPS Status Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gray-100 rounded-xl text-charcoal">
+          <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
             <Radio className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-charcoal">
+              <span className="text-xs font-bold text-white">
                 GPS Node: {vehicle?.gpsUnitId || 'GPS-01'}
               </span>
               <span
-                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                   gpsEvaluation.ok
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : 'bg-amber-100 text-amber-800'
+                    ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
+                    : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
                 }`}
               >
                 {gpsEvaluation.ok ? 'Fix Active' : gpsEvaluation.reason}
               </span>
             </div>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-slate-400">
               {gpsEvaluation.ok
                 ? `${gpsEvaluation.fix.sats} satellites locked (HDOP: ${gpsEvaluation.fix.hdop})`
                 : gpsEvaluation.message}
@@ -521,37 +520,37 @@ export const MovePortal: React.FC = () => {
         {/* Demo GPS Simulator Button */}
         <button
           onClick={handleSimulateGPSFix}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-charcoal rounded-xl text-xs font-bold transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-white/10 transition-colors"
           title="Inject fresh GPS satellite fix for testing"
         >
-          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <Sparkles className="w-3.5 h-3.5 text-blue-400" />
           <span>Simulate GPS Fix</span>
         </button>
       </div>
 
       {/* Active Trip Dashboard */}
       {activeTrip ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-8">
-          <div className="p-5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 bg-sandBg">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] overflow-hidden mb-8">
+          <div className="p-5 border-b border-white/[0.08] flex flex-wrap items-center justify-between gap-3 bg-white/[0.02]">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono text-sm font-black text-charcoal">
+                <span className="font-mono text-sm font-black text-white">
                   {activeTrip.id}
                 </span>
                 <span
-                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                     activeTrip.status === 'IN_TRANSIT'
-                      ? 'bg-blue-100 text-blue-800 animate-pulse'
+                      ? 'bg-blue-500/20 border-blue-400/30 text-blue-300 animate-pulse'
                       : activeTrip.status === 'DRAFT'
-                      ? 'bg-gray-200 text-gray-800'
-                      : 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-slate-700/50 border-white/10 text-slate-300'
+                      : 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300'
                   }`}
                 >
                   {activeTrip.status.replace('_', ' ')}
                 </span>
               </div>
-              <p className="text-xs text-gray-600">
-                From: <strong>{activeTrip.originText}</strong> → To: <strong>{activeTrip.destinationMandiName}</strong>
+              <p className="text-xs text-slate-300">
+                From: <strong className="text-white">{activeTrip.originText}</strong> → To: <strong className="text-white">{activeTrip.destinationMandiName}</strong>
               </p>
             </div>
 
@@ -561,15 +560,15 @@ export const MovePortal: React.FC = () => {
                 <>
                   <button
                     onClick={() => setShowScanner(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-tomato-50 hover:bg-tomato-100 text-tomato-600 rounded-xl text-xs font-bold transition-colors touch-target"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 rounded-xl text-xs font-bold transition-colors touch-target"
                   >
-                    <QrCode className="w-4 h-4" />
+                    <QrCode className="w-4 h-4 text-blue-400" />
                     <span>Scan to Load ({activeTrip.bagIds.length})</span>
                   </button>
                   <button
                     onClick={handleStartTrip}
                     disabled={actionLoading || activeTrip.bagIds.length === 0}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold shadow transition-colors touch-target"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(74,222,128,0.3)] transition-all touch-target"
                   >
                     <Play className="w-4 h-4" />
                     <span>Start Trip</span>
@@ -581,7 +580,7 @@ export const MovePortal: React.FC = () => {
                 <button
                   onClick={handleEndTrip}
                   disabled={actionLoading}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold shadow transition-colors touch-target"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(239,68,68,0.3)] transition-all touch-target"
                 >
                   <Square className="w-4 h-4" />
                   <span>End Trip at Mandi</span>
@@ -596,19 +595,19 @@ export const MovePortal: React.FC = () => {
               start={activeTrip.start}
               end={activeTrip.end}
               distanceKm={activeTrip.distanceKmStraight}
-              className="h-72 w-full rounded-xl overflow-hidden shadow-inner border border-gray-200"
+              className="h-72 w-full rounded-2xl overflow-hidden shadow-inner border border-white/[0.08]"
             />
           </div>
 
           {/* Loaded Bags List */}
-          <div className="p-5 border-t border-gray-100 bg-white">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-gray-600 mb-3 flex items-center gap-2">
-              <Layers className="w-4 h-4" />
+          <div className="p-5 border-t border-white/[0.08] bg-white/[0.01]">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-400" />
               <span>Loaded Crates in this Trip ({activeTrip.bagIds.length})</span>
             </h3>
 
             {activeTrip.bagIds.length === 0 ? (
-              <div className="p-4 bg-gray-50 rounded-xl text-center text-xs text-gray-400">
+              <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl text-center text-xs text-slate-400">
                 No crates loaded yet. Tap "Scan to Load" to add farmer crates.
               </div>
             ) : (
@@ -616,10 +615,10 @@ export const MovePortal: React.FC = () => {
                 {activeTrip.bagIds.map((bId) => (
                   <div
                     key={bId}
-                    className="p-3 bg-sandBg rounded-xl border border-gray-200 text-xs font-mono font-bold text-charcoal flex items-center justify-between"
+                    className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.08] text-xs font-mono font-bold text-white flex items-center justify-between"
                   >
                     <span>{bId}</span>
-                    <span className="text-[10px] text-emerald-600 font-sans">✓ Loaded</span>
+                    <span className="text-[10px] text-emerald-400 font-sans font-bold">✓ Loaded</span>
                   </div>
                 ))}
               </div>
@@ -627,15 +626,15 @@ export const MovePortal: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center mb-8">
-          <Truck className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <h2 className="font-bold text-base text-charcoal">No Active Trips</h2>
-          <p className="text-xs text-gray-500 mt-1 mb-4">
+        <div className="backdrop-blur-xl bg-white/[0.03] p-8 rounded-3xl border border-white/[0.08] text-center mb-8 shadow-xl">
+          <Truck className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+          <h2 className="font-bold text-base text-white">No Active Trips</h2>
+          <p className="text-xs text-slate-400 mt-1 mb-4">
             Create a trip from a farm origin to a destination mandi to start loading crates.
           </p>
           <button
             onClick={() => setShowNewTripModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow"
+            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(59,130,246,0.35)] transition-all"
           >
             Create New Trip
           </button>
@@ -643,43 +642,43 @@ export const MovePortal: React.FC = () => {
       )}
 
       {/* Trip History Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-        <h3 className="font-bold text-sm text-charcoal mb-4">Trip History ({trips.length})</h3>
+      <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+        <h3 className="font-bold text-sm text-white mb-4">Trip History ({trips.length})</h3>
         {trips.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">No past trips recorded.</p>
+          <p className="text-xs text-slate-400 text-center py-4">No past trips recorded.</p>
         ) : (
           <div className="space-y-3">
             {trips.map((t) => (
               <div
                 key={t.id}
                 onClick={() => setActiveTrip(t)}
-                className={`p-4 rounded-xl border text-xs cursor-pointer transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                className={`p-4 rounded-2xl border text-xs cursor-pointer transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                   activeTrip?.id === t.id
-                    ? 'border-blue-500 bg-blue-50/50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    ? 'border-blue-500/50 bg-blue-500/10 shadow-[0_0_20px_0_rgba(59,130,246,0.15)]'
+                    : 'border-white/[0.08] hover:border-white/20 bg-white/[0.02]'
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono font-bold text-charcoal">{t.id}</span>
+                    <span className="font-mono font-bold text-white">{t.id}</span>
                     <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
                         t.status === 'ENDED'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-blue-100 text-blue-800'
+                          ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
+                          : 'bg-blue-500/15 border-blue-400/30 text-blue-300'
                       }`}
                     >
                       {t.status}
                     </span>
                   </div>
-                  <p className="text-gray-600">
+                  <p className="text-slate-300">
                     {t.originText} → {t.destinationMandiName}
                   </p>
                 </div>
 
-                <div className="text-right text-[11px] text-gray-500">
+                <div className="text-right text-[11px] text-slate-400">
                   {t.distanceKmStraight && (
-                    <span className="font-bold text-charcoal block">
+                    <span className="font-bold text-white block">
                       {t.distanceKmStraight} km ({t.durationMin || '–'} mins)
                     </span>
                   )}
@@ -693,12 +692,12 @@ export const MovePortal: React.FC = () => {
 
       {/* New Trip Modal */}
       {showNewTripModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-            <h3 className="font-bold text-base text-charcoal mb-4">Create New Delivery Trip</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
+            <h3 className="font-bold text-base text-white mb-4">Create New Delivery Trip</h3>
             <form onSubmit={handleCreateTrip} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Origin (Farm Cluster / Village)
                 </label>
                 <input
@@ -707,21 +706,21 @@ export const MovePortal: React.FC = () => {
                   value={originText}
                   onChange={(e) => setOriginText(e.target.value)}
                   placeholder="e.g. Panruti Farm Cluster"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Destination Mandi
                 </label>
                 <select
                   value={selectedMandiId}
                   onChange={(e) => setSelectedMandiId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
                 >
                   {mandis.map((m) => (
-                    <option key={m.id} value={m.id}>
+                    <option key={m.id} value={m.id} className="bg-slate-900 text-white">
                       {m.name} ({m.area})
                     </option>
                   ))}
@@ -732,13 +731,13 @@ export const MovePortal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNewTripModal(false)}
-                  className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold"
+                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow"
+                  className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(59,130,246,0.3)] transition-all"
                 >
                   Create Trip
                 </button>

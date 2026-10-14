@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BagProvenanceView } from './BagProvenanceView';
+import { AlertCircle } from 'lucide-react';
 
 export const PublicBagPage: React.FC = () => {
   const { bagId } = useParams<{ bagId: string }>();
@@ -8,12 +9,13 @@ export const PublicBagPage: React.FC = () => {
 
   if (!bagId) {
     return (
-      <div className="max-w-md mx-auto p-8 text-center bg-white rounded-2xl shadow mt-8">
-        <h2 className="text-xl font-bold text-charcoal">Invalid Crate URL</h2>
-        <p className="text-xs text-gray-500 mt-2">No crate identifier specified.</p>
+      <div className="max-w-md mx-auto p-8 text-center backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-3xl shadow-2xl mt-8 text-white">
+        <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+        <h2 className="text-xl font-bold text-white">Invalid Crate URL</h2>
+        <p className="text-xs text-slate-400 mt-2">No crate identifier specified in request.</p>
         <button
           onClick={() => navigate('/')}
-          className="mt-4 px-4 py-2 bg-tomato-500 text-white rounded-xl text-xs font-bold"
+          className="mt-6 px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-bold shadow-[0_4px_16px_rgba(193,18,31,0.3)] transition-all"
         >
           Return Home
         </button>

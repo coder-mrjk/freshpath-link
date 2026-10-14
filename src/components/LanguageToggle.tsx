@@ -30,11 +30,11 @@ export const LanguageToggle: React.FC = () => {
     <button
       onClick={toggle}
       type="button"
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-gray-300 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-tomato-500 touch-target transition-colors"
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-red-500/50 backdrop-blur-md transition-all duration-200 touch-target shadow-xs"
       aria-label="Toggle language between English and Tamil"
     >
-      <Languages className="w-4 h-4 text-tomato-500" />
-      <span>{currentLang.startsWith('ta') ? 'English' : 'தமிழ்'}</span>
+      <Languages className="w-4 h-4 text-red-400" />
+      <span className="font-medium">{currentLang.startsWith('ta') ? 'English' : 'தமிழ்'}</span>
     </button>
   );
 };

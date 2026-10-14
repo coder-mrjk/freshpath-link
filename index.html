@@ -1,20 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/logo-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/logo-16.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/logo-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#D62828" />
+    <meta name="theme-color" content="#0F172A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="FreshPath" />
-    <meta name="description" content="FreshPath Link - Farm to Table Tomato Tracking System" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FreshPath Link" />
+    <meta name="description" content="FreshPath Link - Farm-to-Table Tomato Tracking & Quality Telemetry Platform" />
     <title>FreshPath Link</title>
+
+    <!-- Google Fonts: Inter Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   </head>
-  <body class="bg-sandBg text-charcoal min-h-screen antialiased selection:bg-tomato-100 selection:text-tomato-700">
+  <body class="bg-[#0F172A] text-[#dae2fd] min-h-screen antialiased selection:bg-red-600/30 selection:text-white font-sans">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

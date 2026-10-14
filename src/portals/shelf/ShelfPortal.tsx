@@ -217,8 +217,8 @@ export const ShelfPortal: React.FC = () => {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-        <p className="text-xs text-gray-500">Loading retail shelf inventory...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+        <p className="text-xs text-slate-400">Loading retail shelf inventory...</p>
       </div>
     );
   }
@@ -250,17 +250,17 @@ export const ShelfPortal: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Top Banner */}
-      <div className="bg-purple-700 text-white rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Banner - Purple Gradient Glass */}
+      <div className="bg-gradient-to-r from-purple-900/60 to-purple-800/40 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-purple-800 rounded-xl">
-            <Store className="w-8 h-8" />
+          <div className="p-3 bg-purple-500/20 border border-purple-500/30 rounded-2xl shadow-[0_0_20px_0_rgba(147,51,234,0.2)]">
+            <Store className="w-8 h-8 text-purple-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black tracking-tight">Shelf Portal</h1>
+              <h1 className="text-2xl font-black tracking-tight text-white">Shelf Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-purple-800 px-2.5 py-0.5 rounded-full border border-purple-500">
+                <span className="text-xs font-mono font-bold bg-purple-950/60 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/40">
                   {userProfile.passId}
                 </span>
               )}
@@ -272,17 +272,17 @@ export const ShelfPortal: React.FC = () => {
                   const s = shops.find((x) => x.id === e.target.value);
                   if (s) setSelectedShop(s);
                 }}
-                className="mt-1 text-xs bg-purple-800 text-white rounded-lg px-2 py-1 border border-purple-600 font-bold"
+                className="mt-1 text-xs bg-slate-900/80 text-white rounded-lg px-2.5 py-1 border border-white/10 font-bold focus:outline-none"
               >
                 {shops.map((s) => (
-                  <option key={s.id} value={s.id}>
+                  <option key={s.id} value={s.id} className="bg-slate-900 text-white">
                     {s.name} ({s.area})
                   </option>
                 ))}
               </select>
             ) : (
-              <p className="text-xs text-purple-100 mt-0.5">
-                Retailer: <strong>{selectedShop?.name}</strong> • {selectedShop?.area}
+              <p className="text-xs text-purple-200/80 mt-0.5">
+                Retailer: <strong className="text-white">{selectedShop?.name}</strong> • {selectedShop?.area}
               </p>
             )}
           </div>
@@ -291,9 +291,9 @@ export const ShelfPortal: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowScanner(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-100 text-purple-900 rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(147,51,234,0.35)] transition-all touch-target"
           >
-            <QrCode className="w-4 h-4" />
+            <QrCode className="w-4 h-4 text-white" />
             <span>Receive Crate</span>
           </button>
         </div>
@@ -301,18 +301,18 @@ export const ShelfPortal: React.FC = () => {
 
       {/* Notifications */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 shadow-xs">
-          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-300 flex items-start gap-2 backdrop-blur-md shadow-lg">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
       {successMsg && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs">
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs text-emerald-300 flex items-center justify-between backdrop-blur-md shadow-lg">
           <span className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
             {successMsg}
           </span>
-          <button onClick={() => setSuccessMsg(null)} className="underline text-[11px]">
+          <button onClick={() => setSuccessMsg(null)} className="underline text-[11px] text-emerald-300 hover:text-emerald-200">
             Dismiss
           </button>
         </div>
@@ -320,63 +320,63 @@ export const ShelfPortal: React.FC = () => {
 
       {/* Summary Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Active Crates
           </div>
-          <div className="text-2xl font-black text-charcoal mt-1">{totalCrates}</div>
-          <div className="text-[10px] text-gray-400 mt-0.5">Ready for shoppers</div>
+          <div className="text-2xl font-black text-white mt-1">{totalCrates}</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Ready for shoppers</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Total Weight
           </div>
-          <div className="text-2xl font-black text-charcoal mt-1">{totalWeightKg} kg</div>
-          <div className="text-[10px] text-gray-400 mt-0.5">Fresh stock</div>
+          <div className="text-2xl font-black text-white mt-1">{totalWeightKg} kg</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Fresh stock</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Shelf Value
           </div>
-          <div className="text-2xl font-black text-emerald-600 mt-1">
+          <div className="text-2xl font-black text-emerald-400 mt-1">
             {formatRupees(totalShelfValue)}
           </div>
-          <div className="text-[10px] text-gray-400 mt-0.5">At ₹60 / kg</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">At ₹60 / kg</div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-          <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Avg Freshness
           </div>
-          <div className="text-2xl font-black text-leaf-700 mt-1">{avgFreshness}%</div>
-          <div className="text-[10px] text-gray-400 mt-0.5">Quality rating</div>
+          <div className="text-2xl font-black text-leaf-400 mt-1">{avgFreshness}%</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Quality rating</div>
         </div>
       </div>
 
       {/* Filter & Search Header */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+      <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-2xl border border-white/[0.08] p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search crate ID, farmer, village..."
-            className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 focus:outline-hidden"
+            className="w-full pl-9 pr-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-purple-500/50 focus:outline-none"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
           {(['ALL', 'FRESH', 'SELL_SOON', 'CHECK_QUALITY'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setFilterFreshness(mode)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
                 filterFreshness === mode
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white border border-purple-400/30 shadow-[0_0_20px_0_rgba(147,51,234,0.3)]'
+                  : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
               }`}
             >
               {mode === 'ALL'
@@ -394,17 +394,17 @@ export const ShelfPortal: React.FC = () => {
       {/* Shelf Crates List */}
       <div className="space-y-4">
         {filteredBags.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl border border-gray-200 text-center">
-            <Store className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <h3 className="font-bold text-base text-charcoal">No Crates On Shelf</h3>
-            <p className="text-xs text-gray-500 mt-1 mb-4">
+          <div className="backdrop-blur-xl bg-white/[0.03] p-12 rounded-3xl border border-white/[0.08] text-center shadow-xl">
+            <Store className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+            <h3 className="font-bold text-base text-white">No Crates On Shelf</h3>
+            <p className="text-xs text-slate-400 mt-1 mb-4">
               {shelfBags.length === 0
                 ? 'Scan arriving crates from the Mandi to put them on your retail shelf.'
                 : 'No crates matched your search filters.'}
             </p>
             <button
               onClick={() => setShowScanner(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-purple-700"
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(147,51,234,0.35)] transition-all"
             >
               Scan & Receive Crates
             </button>
@@ -416,54 +416,54 @@ export const ShelfPortal: React.FC = () => {
             return (
               <div
                 key={bag.id}
-                className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:border-purple-300 transition-all"
+                className="relative backdrop-blur-xl bg-white/[0.03] rounded-2xl border border-white/[0.08] hover:border-purple-500/40 p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_25px_0_rgba(147,51,234,0.15)] transition-all duration-300"
               >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-black text-charcoal">{bag.id}</span>
+                    <span className="font-mono text-sm font-black text-white">{bag.id}</span>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${fresh.colorClass}`}
                     >
                       {fresh.score}% {fresh.label}
                     </span>
                     {bag.sizeGrade && (
-                      <span className="text-[10px] font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold bg-white/5 border border-white/10 text-slate-300 px-2 py-0.5 rounded-full">
                         Grade {bag.sizeGrade}
                       </span>
                     )}
                   </div>
 
                   <div className="text-right">
-                    <span className="text-lg font-black text-emerald-600">
+                    <span className="text-lg font-black text-emerald-400">
                       {formatRupees(bag.totalPrice)}
                     </span>
-                    <span className="text-[10px] text-gray-400 block">
+                    <span className="text-[10px] text-slate-400 block">
                       (₹{bag.pricePerKg}/kg • {bag.weightKg} kg)
                     </span>
                   </div>
                 </div>
 
-                <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-600">
+                <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
                   <div>
-                    <span className="font-semibold text-charcoal">Farmer Origin: </span>
+                    <span className="font-semibold text-white">Farmer Origin: </span>
                     {bag.farmerFirstName} ({bag.farmerPassId || '–'}) • {bag.fieldName}, {bag.village}
                   </div>
                   <div>
-                    <span className="font-semibold text-charcoal">Harvested: </span>
+                    <span className="font-semibold text-white">Harvested: </span>
                     {formatIST(bag.harvestAt)} ({timeAgoIST(bag.harvestAt)})
                   </div>
                 </div>
 
                 {/* Actions Bar */}
-                <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] text-gray-400">
+                <div className="pt-3 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-400">
                     {bag.pieces} tomatoes in crate
                   </span>
 
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => navigate(`/print/${bag.id}`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-charcoal rounded-xl text-xs font-bold transition-colors touch-target"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-white/10 transition-colors touch-target"
                       title="Print Shelf Barcode Tag"
                     >
                       <Printer className="w-3.5 h-3.5" />
@@ -472,7 +472,7 @@ export const ShelfPortal: React.FC = () => {
 
                     <button
                       onClick={() => navigate(`/b/${bag.id}`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition-colors touch-target"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-300 rounded-xl text-xs font-bold transition-colors touch-target"
                       title="Customer QR provenance page"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -488,12 +488,12 @@ export const ShelfPortal: React.FC = () => {
 
       {/* Shop Profile Modal */}
       {showShopModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-            <h3 className="font-bold text-base text-charcoal mb-4">Edit Retail Shop Details</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
+            <h3 className="font-bold text-base text-white mb-4">Edit Retail Shop Details</h3>
             <form onSubmit={handleSaveShop} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Shop Name
                 </label>
                 <input
@@ -501,12 +501,12 @@ export const ShelfPortal: React.FC = () => {
                   required
                   value={newShopName}
                   onChange={(e) => setNewShopName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Area / Locality
                 </label>
                 <input
@@ -514,7 +514,7 @@ export const ShelfPortal: React.FC = () => {
                   required
                   value={newShopArea}
                   onChange={(e) => setNewShopArea(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
                 />
               </div>
 
@@ -522,13 +522,13 @@ export const ShelfPortal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowShopModal(false)}
-                  className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold"
+                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow"
+                  className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(147,51,234,0.3)] transition-all"
                 >
                   Save Profile
                 </button>

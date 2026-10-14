@@ -35,7 +35,7 @@ export const PrintLabelPage: React.FC = () => {
     if (!bagId) return;
 
     const fetchBag = async () => {
-      setLoading(false);
+      setLoading(true);
       try {
         const snap = await getDoc(doc(db, 'bags', bagId));
         if (snap.exists()) {
@@ -96,8 +96,8 @@ export const PrintLabelPage: React.FC = () => {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <div className="w-8 h-8 border-4 border-tomato-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-xs text-gray-500">Loading crate label...</p>
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-xs text-slate-400">Loading crate label...</p>
       </div>
     );
   }
@@ -105,13 +105,13 @@ export const PrintLabelPage: React.FC = () => {
   if (error || !bag) {
     return (
       <div className="max-w-md mx-auto px-4 py-12 text-center">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <h2 className="text-sm font-bold text-red-800">Label Not Found</h2>
-          <p className="text-xs text-red-600 mt-1">{error}</p>
+        <div className="p-6 backdrop-blur-xl bg-white/[0.03] border border-red-500/30 rounded-3xl shadow-2xl text-white">
+          <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-2" />
+          <h2 className="text-sm font-bold text-white">Label Not Found</h2>
+          <p className="text-xs text-red-300 mt-1">{error}</p>
           <Link
             to="/grow"
-            className="mt-4 inline-block px-4 py-2 bg-tomato-500 text-white rounded-xl text-xs font-bold"
+            className="mt-5 inline-block px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-bold transition-all"
           >
             Back to Grow Portal
           </Link>
@@ -126,38 +126,38 @@ export const PrintLabelPage: React.FC = () => {
       <div className="no-print mb-6 space-y-4">
         <Link
           to="/grow"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-tomato-600 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to My Bags</span>
         </Link>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] flex flex-wrap items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-gray-700">Copies:</label>
+            <label className="text-xs font-bold text-slate-300">Copies:</label>
             <select
               value={copies}
               onChange={(e) => setCopies(Number(e.target.value))}
-              className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-lg text-xs font-bold"
+              className="px-2.5 py-1.5 bg-slate-800/80 border border-white/10 rounded-lg text-xs font-bold text-white focus:outline-none"
             >
-              <option value={1}>1 copy</option>
-              <option value={2}>2 copies</option>
-              <option value={3}>3 copies</option>
-              <option value={4}>4 copies</option>
+              <option value={1} className="bg-slate-900 text-white">1 copy</option>
+              <option value={2} className="bg-slate-900 text-white">2 copies</option>
+              <option value={3} className="bg-slate-900 text-white">3 copies</option>
+              <option value={4} className="bg-slate-900 text-white">4 copies</option>
             </select>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPng}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-charcoal rounded-xl text-xs font-bold transition-colors touch-target"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-white/10 transition-colors touch-target"
             >
               <Download className="w-4 h-4" />
               <span>Download PNG</span>
             </button>
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-tomato-500 hover:bg-tomato-600 text-white rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(74,222,128,0.3)] transition-all touch-target"
             >
               <Printer className="w-4 h-4" />
               <span>Print Label</span>
@@ -171,14 +171,14 @@ export const PrintLabelPage: React.FC = () => {
         {Array.from({ length: copies }).map((_, index) => (
           <div
             key={index}
-            className="label-container bg-white p-6 rounded-2xl border-4 border-charcoal shadow-lg max-w-sm mx-auto text-charcoal font-sans"
+            className="label-container bg-white p-6 rounded-2xl border-4 border-charcoal shadow-2xl max-w-sm mx-auto text-charcoal font-sans"
           >
             {/* Header */}
             <div className="border-b-2 border-charcoal pb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FreshPathLogo className="w-8 h-8 shrink-0" />
                 <div>
-                  <h1 className="text-lg font-black tracking-tight leading-none">
+                  <h1 className="text-lg font-black tracking-tight leading-none text-charcoal">
                     FreshPath Link
                   </h1>
                   <span className="text-[10px] uppercase font-bold text-gray-600 tracking-wider">
@@ -186,7 +186,7 @@ export const PrintLabelPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <span className="text-xs font-bold px-2 py-0.5 bg-gray-100 border border-gray-400 rounded-md">
+              <span className="text-xs font-bold px-2 py-0.5 bg-gray-100 border border-gray-400 rounded-md text-charcoal">
                 TAMIL NADU
               </span>
             </div>
@@ -202,7 +202,7 @@ export const PrintLabelPage: React.FC = () => {
                   includeMargin={true}
                 />
               </div>
-              <p className="font-mono text-xs font-black tracking-wider mt-2 select-all">
+              <p className="font-mono text-xs font-black tracking-wider mt-2 select-all text-charcoal">
                 {bag.id}
               </p>
               <span className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">
@@ -241,7 +241,7 @@ export const PrintLabelPage: React.FC = () => {
                 <span className="text-[10px] uppercase font-bold text-gray-500 block">
                   Harvest Time (IST)
                 </span>
-                <span className="font-semibold text-[11px]">
+                <span className="font-semibold text-[11px] text-charcoal">
                   {formatIST(bag.harvestAt || bag.createdAt)}
                 </span>
               </div>
@@ -249,7 +249,7 @@ export const PrintLabelPage: React.FC = () => {
                 <span className="text-[10px] uppercase font-bold text-gray-500 block">
                   Retail Value
                 </span>
-                <span className="font-black text-sm text-tomato-600">
+                <span className="font-black text-sm text-red-600">
                   {formatRupees(bag.totalPrice)}
                 </span>
                 <span className="text-[10px] text-gray-500 block">

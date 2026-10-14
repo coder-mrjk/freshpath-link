@@ -304,15 +304,15 @@ export const ControlPortal: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      {/* Top Banner */}
-      <div className="bg-charcoal text-white rounded-2xl p-6 shadow-xl mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Banner - Red Gradient Glass */}
+      <div className="bg-gradient-to-r from-red-900/60 to-red-800/40 backdrop-blur-xl border border-red-500/20 rounded-3xl p-6 shadow-2xl mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-red-600 rounded-xl text-white">
-            <ShieldCheck className="w-8 h-8" />
+          <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-2xl shadow-[0_0_20px_0_rgba(193,18,31,0.2)]">
+            <ShieldCheck className="w-8 h-8 text-red-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight">Control Portal</h1>
-            <p className="text-xs text-gray-300">
+            <h1 className="text-2xl font-black tracking-tight text-white">Control Portal</h1>
+            <p className="text-xs text-slate-300">
               Master administration, user verification, pass issuance & IoT hardware binding
             </p>
           </div>
@@ -321,7 +321,7 @@ export const ControlPortal: React.FC = () => {
           <button
             onClick={handleSeedData}
             disabled={seeding}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-700 text-xs font-bold transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-[0_4px_16px_rgba(74,222,128,0.3)]"
             title="Seed full demo dataset across all 7 stages"
           >
             <Sparkles className="w-4 h-4 text-emerald-200" />
@@ -329,14 +329,14 @@ export const ControlPortal: React.FC = () => {
           </button>
           <button
             onClick={loadData}
-            className="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors"
             title="Refresh data"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={logout}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold transition-all shadow-[0_4px_16px_rgba(239,68,68,0.3)]"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
@@ -346,32 +346,32 @@ export const ControlPortal: React.FC = () => {
 
       {message && (
         <div
-          className={`mb-6 p-4 rounded-xl text-xs font-semibold flex items-center justify-between shadow-sm ${
+          className={`mb-6 p-4 rounded-2xl text-xs font-semibold flex items-center justify-between backdrop-blur-md shadow-lg ${
             message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+              : 'bg-red-500/10 text-red-300 border border-red-500/30'
           }`}
         >
           <span>{message.text}</span>
-          <button onClick={() => setMessage(null)} className="underline text-[11px] ml-4">
+          <button onClick={() => setMessage(null)} className="underline text-[11px] ml-4 hover:opacity-80">
             Dismiss
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 mb-6">
+      <div className="flex flex-wrap gap-2 pb-3 mb-6">
         <button
           onClick={() => setActiveTab('approvals')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'approvals'
-              ? 'bg-tomato-500 text-white shadow-sm'
-              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
           <span>Pending Approvals</span>
           {pendingUsers.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-white text-tomato-600 text-[10px]">
+            <span className="px-1.5 py-0.5 rounded-full bg-red-400 text-slate-950 text-[10px] font-black">
               {pendingUsers.length}
             </span>
           )}
@@ -379,10 +379,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'users'
-              ? 'bg-tomato-500 text-white shadow-sm'
-              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -391,10 +391,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('hardware')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'hardware'
-              ? 'bg-tomato-500 text-white shadow-sm'
-              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
           <Radio className="w-4 h-4" />
@@ -403,10 +403,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('config')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'config'
-              ? 'bg-tomato-500 text-white shadow-sm'
-              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
           <DollarSign className="w-4 h-4" />
@@ -418,19 +418,19 @@ export const ControlPortal: React.FC = () => {
       {activeTab === 'approvals' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-charcoal">
+            <h2 className="text-lg font-bold text-white">
               Pending Verification Requests
             </h2>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-slate-400">
               {pendingUsers.length} pending review
             </span>
           </div>
 
           {pendingUsers.length === 0 ? (
-            <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center text-gray-500">
-              <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-              <p className="font-bold text-sm text-charcoal">All caught up!</p>
-              <p className="text-xs text-gray-400 mt-1">
+            <div className="backdrop-blur-xl bg-white/[0.03] p-12 rounded-3xl border border-white/[0.08] text-center text-slate-400 shadow-xl">
+              <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+              <p className="font-bold text-sm text-white">All caught up!</p>
+              <p className="text-xs text-slate-400 mt-1">
                 There are currently no new registration requests awaiting approval.
               </p>
             </div>
@@ -439,29 +439,29 @@ export const ControlPortal: React.FC = () => {
               {pendingUsers.map((u) => (
                 <div
                   key={u.uid}
-                  className="bg-white p-5 rounded-2xl border-2 border-amber-200 shadow-sm flex flex-col justify-between"
+                  className="relative backdrop-blur-xl bg-white/[0.03] p-5 rounded-2xl border border-amber-500/30 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-300">
                         {u.role}
                       </span>
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-[11px] text-slate-400">
                         {formatIST(u.createdAt as any)}
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-base text-charcoal">{u.firstName}</h3>
-                    <p className="text-xs text-gray-500">Full Name: {u.fullName}</p>
-                    <p className="text-xs text-gray-500">Phone: {u.phone}</p>
-                    <p className="text-xs text-gray-500">Location: {u.addressText}</p>
+                    <h3 className="font-bold text-base text-white">{u.firstName}</h3>
+                    <p className="text-xs text-slate-300">Full Name: {u.fullName}</p>
+                    <p className="text-xs text-slate-300">Phone: {u.phone}</p>
+                    <p className="text-xs text-slate-300">Location: {u.addressText}</p>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-gray-100 flex items-center gap-2">
+                  <div className="pt-4 mt-4 border-t border-white/[0.08] flex items-center gap-2">
                     <button
                       onClick={() => handleApprove(u)}
                       disabled={actionLoading === u.uid}
-                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm touch-target transition-colors"
+                      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-[0_4px_16px_rgba(74,222,128,0.3)] touch-target transition-all"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>Approve & Issue Pass</span>
@@ -469,7 +469,7 @@ export const ControlPortal: React.FC = () => {
                     <button
                       onClick={() => handleReject(u.uid)}
                       disabled={actionLoading === u.uid}
-                      className="px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 rounded-xl text-xs font-bold transition-colors"
+                      className="px-3 py-2.5 bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-300 rounded-xl text-xs font-bold transition-colors"
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
@@ -486,24 +486,24 @@ export const ControlPortal: React.FC = () => {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, pass ID, phone..."
-                className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-tomato-500 focus:outline-none"
+                className="w-full pl-9 pr-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-red-500/50 focus:outline-none"
               />
             </div>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-slate-400">
               Showing {filteredUsers.length} of {allUsers.length} users
             </span>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+          <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] overflow-hidden shadow-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-sandBg text-gray-600 border-b border-gray-200">
+                <thead className="bg-white/[0.02] text-slate-400 border-b border-white/[0.08]">
                   <tr>
                     <th className="p-3">Pass ID</th>
                     <th className="p-3">Name</th>
@@ -513,37 +513,37 @@ export const ControlPortal: React.FC = () => {
                     <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-white/[0.05]">
                   {filteredUsers.map((u) => (
-                    <tr key={u.uid} className="hover:bg-gray-50">
-                      <td className="p-3 font-mono font-bold text-charcoal">
+                    <tr key={u.uid} className="hover:bg-white/[0.03] transition-colors">
+                      <td className="p-3 font-mono font-bold text-white">
                         {u.passId || '–'}
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-charcoal">{u.firstName}</div>
-                        <div className="text-[11px] text-gray-400">{u.addressText}</div>
+                        <div className="font-bold text-white">{u.firstName}</div>
+                        <div className="text-[11px] text-slate-400">{u.addressText}</div>
                       </td>
-                      <td className="p-3 capitalize font-semibold">{u.role}</td>
+                      <td className="p-3 capitalize font-semibold text-slate-300">{u.role}</td>
                       <td className="p-3">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                             u.status === 'approved'
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
                               : u.status === 'pending'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-amber-500/15 border-amber-400/30 text-amber-300'
+                              : 'bg-red-500/15 border-red-400/30 text-red-300'
                           }`}
                         >
                           {u.status}
                         </span>
                       </td>
-                      <td className="p-3 font-mono">{u.phone}</td>
+                      <td className="p-3 font-mono text-slate-300">{u.phone}</td>
                       <td className="p-3 text-right">
                         {u.status === 'approved' ? (
                           <button
                             onClick={() => handleSuspend(u.uid)}
                             disabled={actionLoading === u.uid}
-                            className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
                           >
                             Suspend
                           </button>
@@ -551,7 +551,7 @@ export const ControlPortal: React.FC = () => {
                           <button
                             onClick={() => handleReactivate(u.uid)}
                             disabled={actionLoading === u.uid}
-                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
                           >
                             Reinstate
                           </button>
@@ -559,7 +559,7 @@ export const ControlPortal: React.FC = () => {
                           <button
                             onClick={() => handleApprove(u)}
                             disabled={actionLoading === u.uid}
-                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
                           >
                             Approve
                           </button>
@@ -578,30 +578,30 @@ export const ControlPortal: React.FC = () => {
       {activeTab === 'hardware' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Link GPS to Vehicle */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+              <div className="p-2.5 bg-blue-500/15 border border-blue-400/30 text-blue-400 rounded-xl">
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-charcoal">Bind GPS Node to Vehicle</h3>
-                <p className="text-xs text-gray-500">Link ESP32 NEO-M8N hardware unit to a driver truck</p>
+                <h3 className="font-bold text-sm text-white">Bind GPS Node to Vehicle</h3>
+                <p className="text-xs text-slate-400">Link ESP32 NEO-M8N hardware unit to a driver truck</p>
               </div>
             </div>
 
             <form onSubmit={handleLinkGps} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Registered Driver Vehicle
                 </label>
                 <select
                   value={selectedVehicleId}
                   onChange={(e) => setSelectedVehicleId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
                 >
-                  {vehicles.length === 0 && <option value="">No registered vehicles found</option>}
+                  {vehicles.length === 0 && <option value="" className="bg-slate-900 text-white">No registered vehicles found</option>}
                   {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
+                    <option key={v.id} value={v.id} className="bg-slate-900 text-white">
                       {v.regNumber} ({v.gpsUnitId ? `Linked: ${v.gpsUnitId}` : 'Unlinked'})
                     </option>
                   ))}
@@ -609,7 +609,7 @@ export const ControlPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Hardware Unit ID
                 </label>
                 <input
@@ -617,14 +617,14 @@ export const ControlPortal: React.FC = () => {
                   value={gpsUnitIdInput}
                   onChange={(e) => setGpsUnitIdInput(e.target.value)}
                   placeholder="e.g. GPS-01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono uppercase"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={vehicles.length === 0}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold transition-colors touch-target shadow-sm"
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(59,130,246,0.3)]"
               >
                 Bind GPS Unit
               </button>
@@ -632,30 +632,30 @@ export const ControlPortal: React.FC = () => {
           </div>
 
           {/* Link Sensor Node to Storage Unit */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+              <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
                 <Cpu className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-charcoal">Bind Environmental Node</h3>
-                <p className="text-xs text-gray-500">Link Arduino/ESP32 DHT22 sensor to mandi storage</p>
+                <h3 className="font-bold text-sm text-white">Bind Environmental Node</h3>
+                <p className="text-xs text-slate-400">Link Arduino/ESP32 DHT22 sensor to mandi storage</p>
               </div>
             </div>
 
             <form onSubmit={handleLinkSensor} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Mandi Storage Unit
                 </label>
                 <select
                   value={selectedStorageId}
                   onChange={(e) => setSelectedStorageId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
                 >
-                  {storageUnits.length === 0 && <option value="">No storage units registered</option>}
+                  {storageUnits.length === 0 && <option value="" className="bg-slate-900 text-white">No storage units registered</option>}
                   {storageUnits.map((s) => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={s.id} className="bg-slate-900 text-white">
                       {s.name} ({s.nodeUnitId ? `Node: ${s.nodeUnitId}` : 'Unlinked'})
                     </option>
                   ))}
@@ -663,7 +663,7 @@ export const ControlPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Sensor Node Unit ID
                 </label>
                 <input
@@ -671,14 +671,14 @@ export const ControlPortal: React.FC = () => {
                   value={sensorNodeIdInput}
                   onChange={(e) => setSensorNodeIdInput(e.target.value)}
                   placeholder="e.g. STORE-01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono uppercase"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={storageUnits.length === 0}
-                className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 text-white rounded-xl text-xs font-bold transition-colors touch-target shadow-sm"
+                className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(217,119,6,0.3)]"
               >
                 Bind Environmental Sensor
               </button>
@@ -689,20 +689,20 @@ export const ControlPortal: React.FC = () => {
 
       {/* Tab 4: Configuration */}
       {activeTab === 'config' && (
-        <div className="max-w-md bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="max-w-md relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 bg-tomato-50 text-tomato-500 rounded-xl">
+            <div className="p-2.5 bg-red-500/15 border border-red-400/30 text-red-400 rounded-xl">
               <DollarSign className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-charcoal">Tomato Base Pricing</h3>
-              <p className="text-xs text-gray-500">Configure base price per kilogram for fresh harvest</p>
+              <h3 className="font-bold text-sm text-white">Tomato Base Pricing</h3>
+              <p className="text-xs text-slate-400">Configure base price per kilogram for fresh harvest</p>
             </div>
           </div>
 
           <form onSubmit={handleUpdatePrice} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Rate (₹ per kg)
               </label>
               <input
@@ -711,16 +711,16 @@ export const ControlPortal: React.FC = () => {
                 max={500}
                 value={ratePerKg}
                 onChange={(e) => setRatePerKg(Number(e.target.value))}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-tomato-500 focus:outline-none"
+                className="w-full px-3 py-2.5 bg-slate-800/80 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-red-500/50"
               />
-              <p className="text-[11px] text-gray-400 mt-1">
+              <p className="text-[11px] text-slate-400 mt-1">
                 Standard FreshPath benchmark: ₹60/kg.
               </p>
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-tomato-500 hover:bg-tomato-600 text-white rounded-xl text-xs font-bold transition-colors shadow-sm touch-target"
+              className="w-full py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_16px_rgba(193,18,31,0.3)] touch-target"
             >
               Update Pricing
             </button>

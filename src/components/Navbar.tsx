@@ -2,7 +2,6 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LanguageToggle } from './LanguageToggle';
-import { FreshPathLogo } from './FreshPathLogo';
 import { LogOut, User } from 'lucide-react';
 
 interface Props {
@@ -17,19 +16,26 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
-      <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-2xl border-b border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Brand / Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="group-hover:scale-105 transition-transform drop-shadow-xs">
-            <FreshPathLogo className="w-9 h-9" />
+          <div className="group-hover:scale-105 transition-transform duration-300 drop-shadow-md">
+            <img
+              src="/logo192.png"
+              alt="FreshPath Link"
+              className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/20 shadow-md"
+            />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-lg leading-tight tracking-tight text-charcoal flex items-center gap-1.5">
-              FreshPath <span className="text-tomato-600 font-bold text-xs uppercase px-1.5 py-0.5 bg-tomato-50 rounded">Link</span>
+            <span className="font-extrabold text-lg leading-tight tracking-tight text-white flex items-center gap-1.5">
+              FreshPath{' '}
+              <span className="bg-gradient-to-r from-red-500 to-red-700 text-white font-bold text-xs uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_rgba(193,18,31,0.4)]">
+                Link
+              </span>
             </span>
             {portalName && (
-              <span className="text-xs font-semibold text-leaf-600">
+              <span className="text-xs font-semibold text-emerald-400 tracking-wide">
                 {portalName}
               </span>
             )}
@@ -41,14 +47,14 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
           <LanguageToggle />
 
           {userRole && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold uppercase px-2 py-0.5 bg-tomato-50 text-tomato-600 rounded">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-3 py-1 bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 rounded-full shadow-[0_0_12px_rgba(74,222,128,0.25)]">
               {userRole}
             </span>
           )}
 
           {passId && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono font-bold px-2.5 py-1 bg-gray-100 border border-gray-300 rounded-full text-gray-700">
-              <User className="w-3 h-3 text-gray-500" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 bg-white/5 border border-white/10 rounded-full text-slate-300 backdrop-blur-md">
+              <User className="w-3 h-3 text-slate-400" />
               {passId}
             </span>
           )}
@@ -56,7 +62,7 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
           {onLogout ? (
             <button
               onClick={onLogout}
-              className="p-2 rounded-lg text-gray-500 hover:text-tomato-600 hover:bg-gray-100 touch-target"
+              className="p-2 rounded-xl text-slate-400 hover:text-red-400 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/30 transition-all duration-200 touch-target flex items-center justify-center"
               title={t('logout')}
               aria-label="Log out"
             >
@@ -65,7 +71,7 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
           ) : (
             <button
               onClick={() => navigate('/')}
-              className="text-xs font-bold text-gray-600 hover:text-tomato-600 px-2 py-1"
+              className="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
             >
               {t('home')}
             </button>

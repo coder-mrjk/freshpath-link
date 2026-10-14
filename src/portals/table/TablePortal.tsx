@@ -148,24 +148,24 @@ export const TablePortal: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      {/* Top Banner */}
-      <div className="bg-tomato-600 text-white rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Banner - Crimson Gradient Glass */}
+      <div className="bg-gradient-to-r from-red-900/60 to-red-800/40 backdrop-blur-xl border border-red-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-tomato-700 rounded-xl">
-            <Salad className="w-8 h-8" />
+          <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-2xl shadow-[0_0_20px_0_rgba(193,18,31,0.2)]">
+            <Salad className="w-8 h-8 text-red-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black tracking-tight">Table Portal</h1>
+              <h1 className="text-2xl font-black tracking-tight text-white">Table Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-tomato-700 px-2.5 py-0.5 rounded-full border border-tomato-400">
+                <span className="text-xs font-mono font-bold bg-red-950/60 text-red-300 px-2.5 py-0.5 rounded-full border border-red-500/40">
                   {userProfile.passId}
                 </span>
               )}
             </div>
-            <p className="text-xs text-tomato-100 mt-0.5">
+            <p className="text-xs text-red-200/80 mt-0.5">
               Consumer:{' '}
-              <strong>{userProfile?.firstName || 'Guest Shopper'}</strong>
+              <strong className="text-white">{userProfile?.firstName || 'Guest Shopper'}</strong>
               {!currentUser && ' • Sign in to save your history'}
             </p>
           </div>
@@ -175,7 +175,7 @@ export const TablePortal: React.FC = () => {
           {!currentUser ? (
             <Link
               to="/auth/consumer?redirect=/table"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-tomato-700 hover:bg-tomato-800 text-white rounded-xl text-xs font-bold border border-tomato-500 shadow-xs transition-colors touch-target"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold border border-white/10 shadow-xs transition-colors touch-target"
             >
               <LogIn className="w-4 h-4" />
               <span>Sign In / Register</span>
@@ -184,24 +184,24 @@ export const TablePortal: React.FC = () => {
 
           <button
             onClick={() => setShowScanner(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-100 text-tomato-800 rounded-xl text-xs font-bold shadow-md transition-colors touch-target"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(193,18,31,0.35)] transition-all touch-target"
           >
-            <QrCode className="w-4 h-4" />
+            <QrCode className="w-4 h-4 text-white" />
             <span>Scan Crate QR</span>
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-2">
+      <div className="flex items-center gap-2 mb-6 pb-2">
         <button
           onClick={() => {
             setActiveTab('SCAN');
           }}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
             activeTab === 'SCAN'
-              ? 'bg-tomato-600 text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
           Verify Provenance
@@ -212,10 +212,10 @@ export const TablePortal: React.FC = () => {
             setActiveTab('HISTORY');
             setSelectedBagId(null);
           }}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'HISTORY'
-              ? 'bg-tomato-600 text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
           <ShoppingBag className="w-3.5 h-3.5" />
@@ -235,17 +235,17 @@ export const TablePortal: React.FC = () => {
       ) : activeTab === 'SCAN' ? (
         <div className="space-y-6">
           {/* Quick Scanner Hero Card */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-xs">
-            <div className="w-16 h-16 bg-tomato-50 text-tomato-600 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-tomato-100 shadow-inner">
+          <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] p-8 text-center shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+            <div className="w-16 h-16 bg-red-500/15 border border-red-500/30 text-red-400 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_0_rgba(193,18,31,0.2)]">
               <QrCode className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-black text-charcoal">Instant QR Crate Scanner</h2>
-            <p className="text-xs text-gray-500 mt-1 mb-6 max-w-sm mx-auto">
+            <h2 className="text-lg font-black text-white">Instant QR Crate Scanner</h2>
+            <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto leading-relaxed">
               Scan any FreshPath tomato crate QR code at your retail supermarket to inspect complete farm-to-table provenance, harvest time, temperature history, and GPS route.
             </p>
             <button
               onClick={() => setShowScanner(true)}
-              className="px-6 py-3 bg-tomato-600 hover:bg-tomato-700 text-white rounded-xl text-sm font-bold shadow-md transition-all touch-target inline-flex items-center gap-2"
+              className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-sm font-bold shadow-[0_4px_24px_rgba(193,18,31,0.4)] transition-all touch-target inline-flex items-center gap-2"
             >
               <QrCode className="w-4 h-4" />
               <span>Launch Camera Scanner</span>
@@ -253,9 +253,9 @@ export const TablePortal: React.FC = () => {
           </div>
 
           {/* Manual Entry Fallback */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-1.5">
-              <Search className="w-4 h-4 text-gray-400" />
+          <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-2xl border border-white/[0.08] p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+              <Search className="w-4 h-4 text-slate-400" />
               <span>Or Enter Crate ID Manually</span>
             </h3>
             <form onSubmit={handleManualSearch} className="flex gap-2">
@@ -265,11 +265,11 @@ export const TablePortal: React.FC = () => {
                 value={manualBagId}
                 onChange={(e) => setManualBagId(e.target.value)}
                 placeholder="e.g. FP-TOM-261013-ABC123"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-xs font-mono uppercase focus:ring-1 focus:ring-tomato-500"
+                className="flex-1 px-4 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50"
               />
               <button
                 type="submit"
-                className="px-5 py-2 bg-charcoal hover:bg-black text-white rounded-xl text-xs font-bold transition-colors"
+                className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors"
               >
                 Inspect
               </button>
@@ -278,9 +278,9 @@ export const TablePortal: React.FC = () => {
 
           {/* Recently Inspected Crates */}
           {recentScans.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-1.5">
-                <History className="w-4 h-4 text-tomato-500" />
+            <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-2xl border border-white/[0.08] p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                <History className="w-4 h-4 text-red-400" />
                 <span>Recently Inspected Crates</span>
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -289,10 +289,10 @@ export const TablePortal: React.FC = () => {
                     key={rId}
                     type="button"
                     onClick={() => setSelectedBagId(rId)}
-                    className="px-3 py-1.5 bg-sandBg hover:bg-tomato-50 hover:text-tomato-700 text-charcoal border border-gray-200 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 touch-target"
+                    className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 touch-target"
                   >
                     <span>{rId}</span>
-                    <ChevronRight className="w-3 h-3 text-gray-400" />
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
                   </button>
                 ))}
               </div>
@@ -301,24 +301,24 @@ export const TablePortal: React.FC = () => {
         </div>
       ) : (
         /* Purchase History Tab */
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
-          <h3 className="font-bold text-sm text-charcoal mb-4 flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-tomato-600" />
+        <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <h3 className="font-bold text-sm text-white mb-4 flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-red-400" />
             <span>My Purchased Crates {currentUser ? `(${purchases.length})` : ''}</span>
           </h3>
 
           {!currentUser ? (
-            <div className="py-12 px-6 text-center bg-sandBg/50 rounded-2xl border border-dashed border-gray-200">
-              <div className="w-12 h-12 bg-tomato-100 text-tomato-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <div className="py-12 px-6 text-center bg-white/[0.02] rounded-2xl border border-dashed border-white/10">
+              <div className="w-12 h-12 bg-red-500/15 text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-red-500/20">
                 <ShoppingBag className="w-6 h-6" />
               </div>
-              <h4 className="text-sm font-bold text-charcoal">Save Your Produce History</h4>
-              <p className="text-xs text-gray-500 mt-1 mb-5 max-w-sm mx-auto leading-relaxed">
+              <h4 className="text-sm font-bold text-white">Save Your Produce History</h4>
+              <p className="text-xs text-slate-400 mt-1 mb-5 max-w-sm mx-auto leading-relaxed">
                 Create a free consumer account to automatically track your fresh produce purchases, retain digital farm provenance receipts, and leave direct ratings for farmers.
               </p>
               <Link
                 to="/auth/consumer?redirect=/table"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-tomato-600 hover:bg-tomato-700 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(193,18,31,0.35)] transition-all touch-target"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Create Consumer Account / Sign In</span>
@@ -326,15 +326,15 @@ export const TablePortal: React.FC = () => {
             </div>
           ) : loadingPurchases ? (
             <div className="py-12 text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-tomato-600 mx-auto mb-2"></div>
-              <p className="text-xs text-gray-400">Loading your purchase ledger...</p>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500 mx-auto mb-2"></div>
+              <p className="text-xs text-slate-400">Loading your purchase ledger...</p>
             </div>
           ) : purchases.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 text-xs bg-gray-50 rounded-xl">
+            <div className="py-12 text-center text-slate-400 text-xs bg-white/[0.02] border border-white/[0.06] rounded-2xl">
               <p>You have not confirmed any crate purchases yet.</p>
               <button
                 onClick={() => setActiveTab('SCAN')}
-                className="mt-3 px-4 py-2 bg-tomato-600 text-white rounded-xl text-xs font-bold"
+                className="mt-3 px-5 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-full text-xs font-bold"
               >
                 Scan Produce Now
               </button>
@@ -345,39 +345,39 @@ export const TablePortal: React.FC = () => {
                 <div
                   key={p.id}
                   onClick={() => setSelectedBagId(p.bagId)}
-                  className="p-4 rounded-xl border border-gray-200 hover:border-tomato-300 bg-sandBg/40 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all"
+                  className="p-4 rounded-2xl border border-white/[0.08] hover:border-red-500/40 bg-white/[0.02] cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono font-bold text-xs text-charcoal">{p.bagId}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      <span className="font-mono font-bold text-xs text-white">{p.bagId}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
                         Purchased
                       </span>
                     </div>
 
-                    <p className="text-xs text-gray-600">
-                      Farmer: <strong>{p.farmerName}</strong> • {p.village}
+                    <p className="text-xs text-slate-300">
+                      Farmer: <strong className="text-white">{p.farmerName}</strong> • {p.village}
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-slate-400 mt-0.5">
                       Bought on {formatIST(p.at)} ({timeAgoIST(p.at)})
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-right">
-                      <div className="text-base font-black text-emerald-600">
+                      <div className="text-base font-black text-emerald-400">
                         {formatRupees(p.price)}
                       </div>
                       {p.rating ? (
-                        <div className="flex items-center gap-0.5 text-amber-500 text-[10px]">
+                        <div className="flex items-center gap-0.5 text-amber-400 text-[10px]">
                           <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                           <span>{p.rating.stars} stars rated</span>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-amber-700 underline">Tap to rate</span>
+                        <span className="text-[10px] text-amber-400 underline">Tap to rate</span>
                       )}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </div>
               ))}
