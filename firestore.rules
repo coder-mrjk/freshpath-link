@@ -195,7 +195,10 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return signedIn() && exists(/databases/$(database)/documents/owners/$(request.auth.uid));
+      return signedIn() && (
+        (request.auth.token.email != null && request.auth.token.email == 'tonightgamermrjk@gmail.com') ||
+        exists(/databases/$(database)/documents/owners/$(request.auth.uid))
+      );
     }
 
     function getUser() {
@@ -258,7 +261,7 @@ service cloud.firestore {
         request.auth.uid == uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['preferredLang'])
       );
-      allow delete: if false;
+      allow delete: if isOwner();
     }
 
     // System owners: Root administrators
