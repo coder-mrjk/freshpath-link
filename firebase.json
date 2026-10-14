@@ -42,7 +42,6 @@
   "auth": {
     "providers": {
       "emailPassword": true,
-      "phone": true,
       "googleSignIn": {
         "oAuthBrandDisplayName": "FreshPath Link",
         "supportEmail": "tonightgamermrjk@gmail.com",

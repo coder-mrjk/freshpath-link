@@ -26,7 +26,6 @@ import {
   DollarSign,
   RefreshCw,
   LogOut,
-  Smartphone,
   Lock,
 } from 'lucide-react';
 
@@ -36,11 +35,6 @@ export const ControlPortal: React.FC = () => {
     currentUser,
     loading: authLoading,
     logout,
-    enrolledMfaFactors,
-    setupRecaptcha,
-    sendPhoneVerificationForMfa,
-    enrollPhoneMfa,
-    unenrollMfa,
   } = useAuth();
   const navigate = useNavigate();
 
@@ -62,12 +56,6 @@ export const ControlPortal: React.FC = () => {
 
   // Config State
   const [ratePerKg, setRatePerKg] = useState(60);
-
-  // MFA Enrollment State
-  const [mfaPhone, setMfaPhone] = useState('+91');
-  const [mfaVerificationId, setMfaVerificationId] = useState<string | null>(null);
-  const [mfaOtp, setMfaOtp] = useState('');
-  const [mfaActionLoading, setMfaActionLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isOwner) {
@@ -308,72 +296,6 @@ export const ControlPortal: React.FC = () => {
     }
   };
 
-  // Send SMS MFA Enrollment Code
-  const handleSendMfaEnrollCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage(null);
-    setMfaActionLoading(true);
-
-    try {
-      if (currentUser) {
-        await currentUser.reload();
-      }
-      const rv = setupRecaptcha('mfa-recaptcha-container');
-      const vId = await sendPhoneVerificationForMfa(mfaPhone.trim(), rv);
-      setMfaVerificationId(vId);
-      setMessage({
-        text: `Verification code sent to ${mfaPhone.trim()}! Please enter the 6-digit SMS code below.`,
-        type: 'success',
-      });
-    } catch (err: unknown) {
-      setMessage({
-        text: `Failed to send SMS code: ${(err as Error)?.message || 'Recaptcha/SMS error'}`,
-        type: 'error',
-      });
-    } finally {
-      setMfaActionLoading(false);
-    }
-  };
-
-  // Confirm SMS MFA Enrollment
-  const handleConfirmMfaEnroll = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mfaVerificationId || !mfaOtp.trim()) return;
-    setMessage(null);
-    setMfaActionLoading(true);
-
-    try {
-      await enrollPhoneMfa(mfaVerificationId, mfaOtp.trim());
-      setMessage({
-        text: 'SMS Multi-Factor Authentication successfully enrolled on your Owner account!',
-        type: 'success',
-      });
-      setMfaVerificationId(null);
-      setMfaOtp('');
-    } catch (err: unknown) {
-      setMessage({
-        text: `Enrollment failed: ${(err as Error)?.message || 'Invalid code'}`,
-        type: 'error',
-      });
-    } finally {
-      setMfaActionLoading(false);
-    }
-  };
-
-  // Remove MFA factor
-  const handleUnenrollMfa = async (uid: string) => {
-    if (!window.confirm('Are you sure you want to disable SMS 2FA on this phone number?')) return;
-    setMfaActionLoading(true);
-    try {
-      await unenrollMfa(uid);
-      setMessage({ text: 'SMS 2FA factor removed.', type: 'success' });
-    } catch (err: unknown) {
-      setMessage({ text: `Unenroll failed: ${(err as Error)?.message}`, type: 'error' });
-    } finally {
-      setMfaActionLoading(false);
-    }
-  };
-
   const filteredUsers = allUsers.filter(
     (u) =>
       u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -384,7 +306,6 @@ export const ControlPortal: React.FC = () => {
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] bg-[#0F172A] text-slate-100 overflow-hidden max-w-6xl mx-auto px-4 py-8">
-      <div id="mfa-recaptcha-container" />
       {/* Background radial gradients */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div
@@ -502,8 +423,8 @@ export const ControlPortal: React.FC = () => {
               : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
           }`}
         >
-          <Lock className="w-4 h-4" />
-          <span>Security & SMS MFA</span>
+          <ShieldCheck className="w-4 h-4" />
+          <span>System Security</span>
         </button>
 
         <button
@@ -823,7 +744,7 @@ export const ControlPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Security & SMS MFA */}
+      {/* Tab 4: System Security */}
       {activeTab === 'security' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Owner Account Status */}
@@ -864,129 +785,48 @@ export const ControlPortal: React.FC = () => {
                 </span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="text-slate-400">SMS MFA Status:</span>
-                <span className={`font-bold flex items-center gap-1 ${enrolledMfaFactors.length > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {enrolledMfaFactors.length > 0 ? (
-                    <>
-                      <CheckCircle className="w-3.5 h-3.5" /> Active ({enrolledMfaFactors.length} Factor)
-                    </>
-                  ) : (
-                    'Not Enrolled (Configure below)'
-                  )}
+                <span className="text-slate-400">Account Role:</span>
+                <span className="font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" /> Root Owner (Permanent)
                 </span>
               </div>
             </div>
           </div>
 
-          {/* SMS Multi-Factor Enrollment */}
+          {/* Security Architecture Card */}
           <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 mb-5">
-              <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
-                <Smartphone className="w-5 h-5" />
+              <div className="p-2.5 bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 rounded-xl">
+                <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">SMS MFA Phone Enrollment</h3>
-                <p className="text-xs text-slate-400">Two-factor authentication with SMS OTP</p>
+                <h3 className="font-bold text-sm text-white">System Security Policy</h3>
+                <p className="text-xs text-slate-400">Authentication & server-side enforcement</p>
               </div>
             </div>
 
-            {enrolledMfaFactors.length > 0 ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs">
-                  <p className="font-bold text-emerald-300 mb-2 flex items-center gap-1.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    SMS 2FA is currently active on this account
-                  </p>
-                  {enrolledMfaFactors.map((factor) => (
-                    <div key={factor.uid} className="flex items-center justify-between py-2 border-t border-emerald-500/20 text-slate-300">
-                      <div>
-                        <span className="font-semibold">{factor.displayName || 'SMS Factor'}</span>
-                        <div className="text-[11px] text-slate-400 font-mono">{(factor as any).phoneNumber || 'Registered mobile'}</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleUnenrollMfa(factor.uid)}
-                        disabled={mfaActionLoading}
-                        className="text-xs text-red-400 hover:text-red-300 underline font-semibold"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            <div className="space-y-3 text-xs bg-slate-900/60 p-4 rounded-2xl border border-white/10">
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Sign-In Providers:</span>
+                <span className="font-semibold text-white">Google OAuth 2.0 & Email/Password</span>
               </div>
-            ) : !mfaVerificationId ? (
-              <form onSubmit={handleSendMfaEnrollCode} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Mobile Phone Number (with Country Code)
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={mfaPhone}
-                    onChange={(e) => setMfaPhone(e.target.value)}
-                    placeholder="+919876543210"
-                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Example: +91 98765 43210. A 6-digit SMS verification code will be sent.
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={mfaActionLoading || mfaPhone.length < 10}
-                  className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_16px_rgba(217,119,6,0.3)] touch-target flex items-center justify-center gap-2"
-                >
-                  {mfaActionLoading ? (
-                    <span>Sending SMS Code...</span>
-                  ) : (
-                    <>
-                      <Smartphone className="w-4 h-4" />
-                      <span>Send SMS Verification Code</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleConfirmMfaEnroll} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Enter 6-Digit SMS Verification Code
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={mfaOtp}
-                    onChange={(e) => setMfaOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123456"
-                    className="w-full px-4 py-2.5 bg-slate-800/80 border border-amber-500/40 text-center font-mono text-lg tracking-[0.4em] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={mfaActionLoading || mfaOtp.length < 6}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md touch-target flex items-center justify-center gap-2"
-                  >
-                    {mfaActionLoading ? 'Verifying...' : 'Complete SMS MFA Enrollment'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMfaVerificationId(null);
-                      setMfaOtp('');
-                    }}
-                    className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl text-xs"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">SMS Verification:</span>
+                <span className="text-slate-400 font-mono">Fully Disabled</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-slate-400">Firestore Security:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" /> Server-side Rules Enforced
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-400">Owner Access Shield:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" /> Protected
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}

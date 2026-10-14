@@ -6,13 +6,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  multiFactor,
-  PhoneAuthProvider,
-  PhoneMultiFactorGenerator,
-  RecaptchaVerifier,
-  getMultiFactorResolver,
-  MultiFactorResolver,
-  MultiFactorInfo,
 } from 'firebase/auth';
 import {
   doc,
@@ -64,17 +57,11 @@ export interface RegisterExtraData {
   shopArea?: string;
 }
 
-export interface MfaRequiredError extends Error {
-  code: string;
-  resolver: MultiFactorResolver;
-}
-
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
   isOwner: boolean;
   loading: boolean;
-  enrolledMfaFactors: MultiFactorInfo[];
   login: (email: string, pass: string) => Promise<void>;
   loginWithGoogle: (targetRole?: UserRole | 'control') => Promise<{ isNewUser?: boolean; user: User }>;
   register: (
@@ -88,21 +75,6 @@ interface AuthContextType {
     extras?: RegisterExtraData
   ) => Promise<void>;
   logout: () => Promise<void>;
-  // MFA methods
-  setupRecaptcha: (containerId: string) => RecaptchaVerifier;
-  sendPhoneVerificationForMfa: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<string>;
-  enrollPhoneMfa: (verificationId: string, verificationCode: string) => Promise<void>;
-  unenrollMfa: (factorUid: string) => Promise<void>;
-  sendMfaSignInCode: (
-    resolver: MultiFactorResolver,
-    selectedHintIndex: number,
-    recaptchaVerifier: RecaptchaVerifier
-  ) => Promise<string>;
-  resolveMfaSignIn: (
-    resolver: MultiFactorResolver,
-    verificationId: string,
-    verificationCode: string
-  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -112,7 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [enrolledMfaFactors, setEnrolledMfaFactors] = useState<MultiFactorInfo[]>([]);
 
   // Helper to ensure owner records are synchronized in Firestore
   const syncOwnerStatus = async (user: User): Promise<boolean> => {
@@ -161,18 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!user) {
         setUserProfile(null);
         setIsOwner(false);
-        setEnrolledMfaFactors([]);
         setLoading(false);
         return;
-      }
-
-      // Refresh MFA enrolled factors
-      try {
-        const factors = multiFactor(user).enrolledFactors || [];
-        setEnrolledMfaFactors(factors);
-      } catch (e) {
-        console.warn('Error fetching enrolled MFA factors:', e);
-        setEnrolledMfaFactors([]);
       }
 
       // Verify owner status
@@ -247,72 +208,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, pass: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (err: unknown) {
-      const fbErr = err as { code?: string };
-      if (fbErr.code === 'auth/multi-factor-auth-required') {
-        const resolver = getMultiFactorResolver(auth, err as any);
-        const mfaError = new Error('Multi-factor authentication required') as MfaRequiredError;
-        mfaError.code = 'auth/multi-factor-auth-required';
-        mfaError.resolver = resolver;
-        throw mfaError;
-      }
-      throw err;
-    }
+    await signInWithEmailAndPassword(auth, email, pass);
   };
 
   const loginWithGoogle = async (targetRole?: UserRole | 'control') => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
 
-      // Check if user is owner
-      const isOwnerUser = await syncOwnerStatus(user);
+    // Check if user is owner
+    const isOwnerUser = await syncOwnerStatus(user);
 
-      if (targetRole === 'control' && !isOwnerUser) {
-        await signOut(auth);
-        throw new Error(
-          `Unauthorized: ${user.email} is not registered as the FreshPath system owner. Please sign in with the authorized owner account.`
-        );
-      }
-
-      // Check if user profile already exists
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists() && targetRole && targetRole !== 'control') {
-        // Auto-provision consumer or return for role registration
-        const isConsumer = targetRole === 'consumer';
-        const passId = isConsumer ? `FP-C-${generateRandomCode(6)}` : undefined;
-        const status: UserStatus = isConsumer ? 'approved' : 'pending';
-
-        const profile: UserProfile = {
-          uid: user.uid,
-          role: targetRole,
-          status,
-          firstName: user.displayName?.split(' ')[0] || 'User',
-          fullName: user.displayName || user.email || 'User',
-          phone: user.phoneNumber || '',
-          addressText: '',
-          preferredLang: (localStorage.getItem('freshpath_lang') as 'en' | 'ta') || 'en',
-          createdAt: serverTimestamp(),
-          ...(passId ? { passId } : {}),
-        };
-
-        await setDoc(doc(db, 'users', user.uid), profile);
-      }
-
-      return { user, isNewUser: !userDoc.exists() };
-    } catch (err: unknown) {
-      const fbErr = err as { code?: string };
-      if (fbErr.code === 'auth/multi-factor-auth-required') {
-        const resolver = getMultiFactorResolver(auth, err as any);
-        const mfaError = new Error('Multi-factor authentication required') as MfaRequiredError;
-        mfaError.code = 'auth/multi-factor-auth-required';
-        mfaError.resolver = resolver;
-        throw mfaError;
-      }
-      throw err;
+    if (targetRole === 'control' && !isOwnerUser) {
+      await signOut(auth);
+      throw new Error(
+        `Unauthorized: ${user.email} is not registered as the FreshPath system owner. Please sign in with the authorized owner account.`
+      );
     }
+
+    // Check if user profile already exists
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    if (!userDoc.exists() && targetRole && targetRole !== 'control') {
+      // Auto-provision consumer or return for role registration
+      const isConsumer = targetRole === 'consumer';
+      const passId = isConsumer ? `FP-C-${generateRandomCode(6)}` : undefined;
+      const status: UserStatus = isConsumer ? 'approved' : 'pending';
+
+      const profile: UserProfile = {
+        uid: user.uid,
+        role: targetRole,
+        status,
+        firstName: user.displayName?.split(' ')[0] || 'User',
+        fullName: user.displayName || user.email || 'User',
+        phone: user.phoneNumber || '',
+        addressText: '',
+        preferredLang: (localStorage.getItem('freshpath_lang') as 'en' | 'ta') || 'en',
+        createdAt: serverTimestamp(),
+        ...(passId ? { passId } : {}),
+      };
+
+      await setDoc(doc(db, 'users', user.uid), profile);
+    }
+
+    return { user, isNewUser: !userDoc.exists() };
   };
 
   const register = async (
@@ -399,91 +336,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(auth);
     setUserProfile(null);
     setIsOwner(false);
-    setEnrolledMfaFactors([]);
-  };
-
-  // Recaptcha setup for Phone/SMS auth
-  const setupRecaptcha = (containerId: string): RecaptchaVerifier => {
-    return new RecaptchaVerifier(auth, containerId, {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved
-      },
-    });
-  };
-
-  // Enroll Phone/SMS MFA on currentUser
-  const sendPhoneVerificationForMfa = async (
-    phoneNumber: string,
-    recaptchaVerifier: RecaptchaVerifier
-  ): Promise<string> => {
-    if (!currentUser) throw new Error('No user is currently signed in');
-    // Ensure currentUser is reloaded and refreshed from server
-    await currentUser.reload();
-    await currentUser.getIdToken(true);
-    if (!currentUser.emailVerified) {
-      throw new Error('Please verify your email address before enrolling SMS MFA.');
-    }
-    const multiFactorSession = await multiFactor(currentUser).getSession();
-    const phoneAuthProvider = new PhoneAuthProvider(auth);
-    const verificationId = await phoneAuthProvider.verifyPhoneNumber(
-      {
-        phoneNumber,
-        session: multiFactorSession,
-      },
-      recaptchaVerifier
-    );
-    return verificationId;
-  };
-
-  const enrollPhoneMfa = async (
-    verificationId: string,
-    verificationCode: string
-  ): Promise<void> => {
-    if (!currentUser) throw new Error('No user is currently signed in');
-    const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
-    const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
-    await multiFactor(currentUser).enroll(multiFactorAssertion, 'Primary Phone SMS');
-    const updatedFactors = multiFactor(currentUser).enrolledFactors || [];
-    setEnrolledMfaFactors(updatedFactors);
-  };
-
-  const unenrollMfa = async (factorUid: string): Promise<void> => {
-    if (!currentUser) throw new Error('No user is currently signed in');
-    const factorToUnenroll = multiFactor(currentUser).enrolledFactors.find(
-      (f) => f.uid === factorUid
-    );
-    if (!factorToUnenroll) throw new Error('Factor not found');
-    await multiFactor(currentUser).unenroll(factorToUnenroll);
-    const updatedFactors = multiFactor(currentUser).enrolledFactors || [];
-    setEnrolledMfaFactors(updatedFactors);
-  };
-
-  const sendMfaSignInCode = async (
-    resolver: MultiFactorResolver,
-    selectedHintIndex: number,
-    recaptchaVerifier: RecaptchaVerifier
-  ): Promise<string> => {
-    const phoneInfoOptions = {
-      multiFactorHint: resolver.hints[selectedHintIndex],
-      session: resolver.session,
-    };
-    const phoneAuthProvider = new PhoneAuthProvider(auth);
-    const verificationId = await phoneAuthProvider.verifyPhoneNumber(
-      phoneInfoOptions,
-      recaptchaVerifier
-    );
-    return verificationId;
-  };
-
-  const resolveMfaSignIn = async (
-    resolver: MultiFactorResolver,
-    verificationId: string,
-    verificationCode: string
-  ): Promise<void> => {
-    const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
-    const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
-    await resolver.resolveSignIn(multiFactorAssertion);
   };
 
   return (
@@ -493,17 +345,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userProfile,
         isOwner,
         loading,
-        enrolledMfaFactors,
         login,
         loginWithGoogle,
         register,
         logout,
-        setupRecaptcha,
-        sendPhoneVerificationForMfa,
-        enrollPhoneMfa,
-        unenrollMfa,
-        sendMfaSignInCode,
-        resolveMfaSignIn,
       }}
     >
       {children}

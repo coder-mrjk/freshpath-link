@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useAuth, UserRole, MfaRequiredError } from '../../context/AuthContext';
-import { MultiFactorResolver, RecaptchaVerifier } from 'firebase/auth';
+import { useAuth, UserRole } from '../../context/AuthContext';
 import {
   Sprout,
   Truck,
@@ -15,9 +14,6 @@ import {
   ArrowLeft,
   AlertCircle,
   CheckCircle,
-  Smartphone,
-  KeyRound,
-  RotateCw,
 } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
@@ -34,9 +30,6 @@ export const AuthPage: React.FC = () => {
     loginWithGoogle,
     register,
     logout,
-    setupRecaptcha,
-    sendMfaSignInCode,
-    resolveMfaSignIn,
   } = useAuth();
 
   const [isRegister, setIsRegister] = useState(role !== 'control');
@@ -49,14 +42,6 @@ export const AuthPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-
-  // MFA State
-  const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
-  const [mfaVerificationId, setMfaVerificationId] = useState<string | null>(null);
-  const [mfaPhoneHint, setMfaPhoneHint] = useState<string>('');
-  const [smsOtp, setSmsOtp] = useState('');
-  const [mfaLoading, setMfaLoading] = useState(false);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
 
   // Extras
   const [fieldName, setFieldName] = useState('');
@@ -169,28 +154,6 @@ export const AuthPage: React.FC = () => {
     }
   }, [userProfile, isOwner, navigate, redirectUrl]);
 
-  // Handle MFA Challenge
-  const handleMfaChallenge = async (resolver: MultiFactorResolver) => {
-    setMfaResolver(resolver);
-    setError(null);
-    try {
-      const hint = resolver.hints[0];
-      setMfaPhoneHint((hint as any)?.phoneNumber || 'registered phone');
-
-      let rv = recaptchaVerifier;
-      if (!rv) {
-        rv = setupRecaptcha('recaptcha-container');
-        setRecaptchaVerifier(rv);
-      }
-
-      const vId = await sendMfaSignInCode(resolver, 0, rv);
-      setMfaVerificationId(vId);
-    } catch (err: unknown) {
-      console.error('Failed to trigger SMS MFA:', err);
-      setError((err as Error)?.message || 'Failed to trigger SMS verification code.');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -228,13 +191,8 @@ export const AuthPage: React.FC = () => {
         await login(email, password);
       }
     } catch (err: unknown) {
-      const mfaErr = err as MfaRequiredError;
-      if (mfaErr.code === 'auth/multi-factor-auth-required' && mfaErr.resolver) {
-        await handleMfaChallenge(mfaErr.resolver);
-      } else {
-        const msg = (err as Error)?.message || 'An error occurred during authentication.';
-        setError(msg);
-      }
+      const msg = (err as Error)?.message || 'An error occurred during authentication.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -247,52 +205,10 @@ export const AuthPage: React.FC = () => {
     try {
       await loginWithGoogle(isOwnerMode ? 'control' : currentRole);
     } catch (err: unknown) {
-      const mfaErr = err as MfaRequiredError;
-      if (mfaErr.code === 'auth/multi-factor-auth-required' && mfaErr.resolver) {
-        await handleMfaChallenge(mfaErr.resolver);
-      } else {
-        const msg = (err as Error)?.message || 'Google Sign-In failed.';
-        setError(msg);
-      }
+      const msg = (err as Error)?.message || 'Google Sign-In failed.';
+      setError(msg);
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  const handleVerifySmsOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mfaResolver || !mfaVerificationId) return;
-    setError(null);
-    setMfaLoading(true);
-
-    try {
-      await resolveMfaSignIn(mfaResolver, mfaVerificationId, smsOtp.trim());
-      setMfaResolver(null);
-      setMfaVerificationId(null);
-      setSmsOtp('');
-    } catch (err: unknown) {
-      setError((err as Error)?.message || 'Invalid SMS verification code. Please try again.');
-    } finally {
-      setMfaLoading(false);
-    }
-  };
-
-  const handleResendMfaCode = async () => {
-    if (!mfaResolver) return;
-    setError(null);
-    setMfaLoading(true);
-    try {
-      let rv = recaptchaVerifier;
-      if (!rv) {
-        rv = setupRecaptcha('recaptcha-container');
-        setRecaptchaVerifier(rv);
-      }
-      const vId = await sendMfaSignInCode(mfaResolver, 0, rv);
-      setMfaVerificationId(vId);
-    } catch (err: unknown) {
-      setError((err as Error)?.message || 'Failed to resend SMS code.');
-    } finally {
-      setMfaLoading(false);
     }
   };
 
@@ -386,101 +302,8 @@ export const AuthPage: React.FC = () => {
     );
   }
 
-  // MFA Challenge Modal / View
-  if (mfaResolver) {
-    return (
-      <div className="relative min-h-[calc(100vh-4rem)] bg-[#0F172A] text-slate-100 overflow-hidden flex items-center justify-center px-4 py-12">
-        <div id="recaptcha-container" />
-        <div className="relative max-w-md w-full backdrop-blur-2xl bg-slate-900/90 border border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl text-center">
-          <div className="w-16 h-16 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex items-center justify-center text-amber-400 mx-auto mb-4">
-            <Smartphone className="w-8 h-8" />
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-            Two-Step Verification
-          </h2>
-          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            A 6-digit SMS verification code has been sent to your registered phone number{' '}
-            <strong className="text-amber-400">{mfaPhoneHint}</strong>.
-          </p>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-xs text-red-200 flex items-start gap-2 text-left">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleVerifySmsOtp} className="mt-6 space-y-4 text-left">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                SMS Verification Code
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  maxLength={6}
-                  value={smsOtp}
-                  onChange={(e) => setSmsOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
-                  className="w-full px-4 py-3 bg-slate-800 border border-white/10 text-white text-center font-mono text-xl tracking-[0.5em] rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={mfaLoading || smsOtp.length < 6}
-              className="w-full py-3.5 px-6 bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600 disabled:opacity-50 text-white font-extrabold rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
-            >
-              {mfaLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Verifying Code...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Confirm & Complete Sign In</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 flex items-center justify-between text-xs text-slate-400 border-t border-white/10 pt-4">
-            <button
-              type="button"
-              onClick={handleResendMfaCode}
-              disabled={mfaLoading}
-              className="hover:text-white inline-flex items-center gap-1 transition-colors"
-            >
-              <RotateCw className="w-3.5 h-3.5" />
-              <span>Resend Code</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMfaResolver(null);
-                setMfaVerificationId(null);
-                setError(null);
-              }}
-              className="hover:text-red-400 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative min-h-[calc(100vh-4rem)] bg-[#0F172A] text-slate-100 overflow-hidden py-8 sm:py-12 px-4 flex flex-col justify-center">
-      <div id="recaptcha-container" />
       {/* Mesh gradients in background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div
@@ -529,7 +352,7 @@ export const AuthPage: React.FC = () => {
                   ? 'Control portal access'
                   : isRegister
                   ? 'Create a verified FreshPath account'
-                  : 'Sign in with Google, email, or SMS verification'}
+                  : 'Sign in with Google or Email & Password'}
               </p>
             </div>
           </div>
