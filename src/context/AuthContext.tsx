@@ -15,6 +15,7 @@ import {
   serverTimestamp,
   collection,
   addDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { generateRandomCode } from '../lib/bagId';
@@ -74,6 +75,12 @@ interface AuthContextType {
     addressText: string,
     extras?: RegisterExtraData
   ) => Promise<void>;
+  updateUserProfile: (updates: {
+    fullName?: string;
+    phone?: string;
+    addressText?: string;
+    preferredLang?: 'en' | 'ta';
+  }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -332,6 +339,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserProfile = async (updates: {
+    fullName?: string;
+    phone?: string;
+    addressText?: string;
+    preferredLang?: 'en' | 'ta';
+  }) => {
+    if (!currentUser) throw new Error('Not signed in');
+    const userRef = doc(db, 'users', currentUser.uid);
+    const payload: Record<string, any> = {};
+
+    if (updates.fullName !== undefined) {
+      const full = updates.fullName.trim();
+      payload.fullName = full;
+      payload.firstName = full.split(' ')[0] || full;
+    }
+    if (updates.phone !== undefined) {
+      payload.phone = updates.phone.trim();
+    }
+    if (updates.addressText !== undefined) {
+      payload.addressText = updates.addressText.trim();
+    }
+    if (updates.preferredLang !== undefined) {
+      payload.preferredLang = updates.preferredLang;
+      localStorage.setItem('freshpath_lang', updates.preferredLang);
+    }
+
+    await updateDoc(userRef, payload);
+    setUserProfile((prev) => (prev ? { ...prev, ...payload } : null));
+  };
+
   const logout = async () => {
     await signOut(auth);
     setUserProfile(null);
@@ -348,6 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         loginWithGoogle,
         register,
+        updateUserProfile,
         logout,
       }}
     >

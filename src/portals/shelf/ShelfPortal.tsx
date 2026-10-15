@@ -18,6 +18,7 @@ import { formatIST, timeAgoIST } from '../../lib/time';
 import { formatRupees } from '../../lib/price';
 import { calculateFreshness } from '../../lib/freshness';
 import { QRScannerModal } from '../../components/QRScannerModal';
+import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   Store,
   QrCode,
@@ -26,6 +27,8 @@ import {
   ExternalLink,
   Printer,
   Search,
+  Settings,
+  Plus,
 } from 'lucide-react';
 
 interface Shop {
@@ -72,6 +75,7 @@ export const ShelfPortal: React.FC = () => {
 
   // Shop setup modal
   const [showShopModal, setShowShopModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [newShopName, setNewShopName] = useState('Fresh Basket Supermarket');
   const [newShopArea, setNewShopArea] = useState('Adyar, Chennai');
 
@@ -91,33 +95,25 @@ export const ShelfPortal: React.FC = () => {
         sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
       }
 
-      // Auto-provision initial shop if none exists
-      if (sList.length === 0) {
-        const defaultShop: Shop = {
-          id: `shop-${currentUser.uid.slice(0, 8)}`,
-          shopPersonUid: currentUser.uid,
-          name: 'Fresh Basket Supermarket',
-          area: 'Adyar, Chennai',
-        };
-        await setDoc(doc(db, 'shops', defaultShop.id), defaultShop);
-        sList = [defaultShop];
-      }
-
       setShops(sList);
-      const activeShop = sList[0];
+      const activeShop = sList.length > 0 ? sList[0] : null;
       setSelectedShop(activeShop);
 
-      // 2. Fetch Shelf Bags (status == 'AT_SHOP')
-      const bQ = query(
-        collection(db, 'bags'),
-        where('shopId', '==', activeShop.id),
-        where('status', '==', 'AT_SHOP')
-      );
-      const bSnap = await getDocs(bQ);
-      const bList: ShelfBag[] = [];
-      bSnap.forEach((d) => bList.push({ id: d.id, ...d.data() } as ShelfBag));
-      bList.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
-      setShelfBags(bList);
+      if (activeShop) {
+        // 2. Fetch Shelf Bags (status == 'AT_SHOP')
+        const bQ = query(
+          collection(db, 'bags'),
+          where('shopId', '==', activeShop.id),
+          where('status', '==', 'AT_SHOP')
+        );
+        const bSnap = await getDocs(bQ);
+        const bList: ShelfBag[] = [];
+        bSnap.forEach((d) => bList.push({ id: d.id, ...d.data() } as ShelfBag));
+        bList.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+        setShelfBags(bList);
+      } else {
+        setShelfBags([]);
+      }
     } catch (err: unknown) {
       console.warn('Shelf portal load error:', err);
       setError((err as Error)?.message || 'Failed to load retail shop data.');
@@ -260,7 +256,7 @@ export const ShelfPortal: React.FC = () => {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Shelf Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-purple-950/60 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/40">
+                <span className="text-xs font-mono font-bold bg-purple-950/60 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/40" title="Unique Pass ID">
                   {userProfile.passId}
                 </span>
               )}
@@ -282,16 +278,39 @@ export const ShelfPortal: React.FC = () => {
               </select>
             ) : (
               <p className="text-xs text-purple-200/80 mt-0.5">
-                Retailer: <strong className="text-white">{selectedShop?.name}</strong> • {selectedShop?.area}
+                Retailer: <strong className="text-white">{selectedShop?.name || 'No Shop Registered'}</strong>
+                {selectedShop?.area && <span> • {selectedShop.area}</span>}
+                {userProfile?.fullName && <span> • Manager: <strong className="text-white">{userProfile.fullName}</strong></span>}
+                {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
+          {!selectedShop && (
+            <button
+              onClick={() => setShowShopModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded-full text-xs font-bold transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Register Shop</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs transition-colors"
+            title="User Settings"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => setShowScanner(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(147,51,234,0.35)] transition-all touch-target"
+            disabled={!selectedShop}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 disabled:opacity-50 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(147,51,234,0.35)] transition-all touch-target"
           >
             <QrCode className="w-4 h-4 text-white" />
             <span>Receive Crate</span>
@@ -544,6 +563,13 @@ export const ShelfPortal: React.FC = () => {
         onClose={() => setShowScanner(false)}
         onScanSuccess={handleReceiveBag}
         title="Scan Crate QR to Receive onto Shelf"
+      />
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onProfileUpdated={loadShelfData}
       />
     </div>
   );

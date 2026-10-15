@@ -17,6 +17,7 @@ import { generateBagId } from '../../lib/bagId';
 import { calculateTotalPrice, formatRupees } from '../../lib/price';
 import { formatIST, timeAgoIST } from '../../lib/time';
 import { calculateFreshness } from '../../lib/freshness';
+import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   Sprout,
   PlusCircle,
@@ -28,6 +29,7 @@ import {
   ExternalLink,
   Users,
   CheckCircle,
+  Settings,
 } from 'lucide-react';
 
 interface Field {
@@ -99,6 +101,7 @@ export const GrowPortal: React.FC = () => {
 
   // New Field Modal
   const [showFieldModal, setShowFieldModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldVillage, setNewFieldVillage] = useState(userProfile?.addressText || '');
   const [newFieldDistrict, setNewFieldDistrict] = useState('');
@@ -313,13 +316,15 @@ export const GrowPortal: React.FC = () => {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Grow Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-emerald-950/60 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/40">
+                <span className="text-xs font-mono font-bold bg-emerald-950/60 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/40" title="Unique Pass ID">
                   {userProfile.passId}
                 </span>
               )}
             </div>
             <p className="text-xs text-emerald-200/80 mt-0.5">
-              Farmer: <strong className="text-white">{userProfile?.firstName}</strong> • {userProfile?.addressText || 'Farm Cluster'}
+              Farmer: <strong className="text-white">{userProfile?.fullName || userProfile?.firstName || 'Farmer'}</strong>
+              {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
+              <span> • {userProfile?.addressText || 'Farm Cluster'}</span>
             </p>
           </div>
         </div>
@@ -331,6 +336,15 @@ export const GrowPortal: React.FC = () => {
             </span>
             <span className="text-xl font-black text-white">{formatRupees(ratePerKg)}/kg</span>
           </div>
+
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs transition-colors"
+            title="User Settings"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
 
           <button
             onClick={() => setShowHarvestModal(true)}
@@ -784,6 +798,13 @@ export const GrowPortal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onProfileUpdated={loadGrowData}
+      />
     </div>
   );
 };

@@ -39,7 +39,7 @@ export const FreshnessBadge: React.FC<Props> = ({
       >
         <Icon className="w-3.5 h-3.5 shrink-0" />
         <span className="tracking-wide">{text}</span>
-        {score !== undefined && (
+        {score !== undefined && !isNaN(score) && (
           <span className="opacity-80 font-mono tabular-nums">({score}/100)</span>
         )}
       </span>

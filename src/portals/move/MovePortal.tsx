@@ -18,6 +18,7 @@ import { calculateHaversineDistance } from '../../lib/haversine';
 import { timeAgoIST } from '../../lib/time';
 import { TripMap } from '../../components/TripMap';
 import { QRScannerModal } from '../../components/QRScannerModal';
+import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   Truck,
   Radio,
@@ -29,6 +30,8 @@ import {
   CheckCircle,
   Layers,
   Sparkles,
+  Settings,
+  Plus,
 } from 'lucide-react';
 
 interface Vehicle {
@@ -69,7 +72,8 @@ interface Trip {
 export const MovePortal: React.FC = () => {
   const { userProfile, currentUser, isOwner } = useAuth();
 
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [mandis, setMandis] = useState<Mandi[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
@@ -78,10 +82,24 @@ export const MovePortal: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // New Trip Modal
+  // Registered Farms from Farmers
+  const [registeredFarms, setRegisteredFarms] = useState<
+    Array<{ id: string; name: string; village: string; district?: string }>
+  >([]);
+  const [selectedFarmId, setSelectedFarmId] = useState<string>('');
+
+  // Modals
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNewTripModal, setShowNewTripModal] = useState(false);
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
   const [originText, setOriginText] = useState('Panruti Farm Cluster');
   const [selectedMandiId, setSelectedMandiId] = useState('');
+  const [selectedTripVehicleId, setSelectedTripVehicleId] = useState('');
+
+  // New Vehicle form state
+  const [newRegNumber, setNewRegNumber] = useState('');
+  const [newVehicleType, setNewVehicleType] = useState('Pickup Truck');
+  const [newCapacityKg, setNewCapacityKg] = useState('1000');
 
   // Scanner Modal
   const [showScanner, setShowScanner] = useState(false);
@@ -94,14 +112,24 @@ export const MovePortal: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch Vehicle for Driver
-      const vQ = query(collection(db, 'vehicles'), where('driverUid', '==', currentUser.uid));
+      // 1. Fetch ALL Vehicles for Driver (Driver can hold more than 1 vehicle)
+      const vQ = isOwner
+        ? collection(db, 'vehicles')
+        : query(collection(db, 'vehicles'), where('driverUid', '==', currentUser.uid));
       const vSnap = await getDocs(vQ);
-      let loadedVehicle: Vehicle | null = null;
+      const vList: Vehicle[] = [];
       vSnap.forEach((d) => {
-        loadedVehicle = { id: d.id, ...d.data() } as Vehicle;
+        vList.push({ id: d.id, ...d.data() } as Vehicle);
       });
-      setVehicle(loadedVehicle);
+      setVehicles(vList);
+
+      const activeVeh = vList.length > 0
+        ? (selectedVehicle ? vList.find((v) => v.id === selectedVehicle.id) || vList[0] : vList[0])
+        : null;
+      setSelectedVehicle(activeVeh);
+      if (activeVeh && !selectedTripVehicleId) {
+        setSelectedTripVehicleId(activeVeh.id);
+      }
 
       // 2. Fetch Mandis
       const mSnap = await getDocs(collection(db, 'mandis'));
@@ -112,8 +140,20 @@ export const MovePortal: React.FC = () => {
         setSelectedMandiId(mList[0].id);
       }
 
-      // 3. Fetch Driver Trips
-      const tQ = query(collection(db, 'trips'), where('driverUid', '==', currentUser.uid));
+      // 3. Fetch Registered Farms added by Farmers from fields collection
+      const fSnap = await getDocs(collection(db, 'fields'));
+      const fList: Array<{ id: string; name: string; village: string; district?: string }> = [];
+      fSnap.forEach((d) => fList.push({ id: d.id, ...d.data() } as any));
+      setRegisteredFarms(fList);
+      if (fList.length > 0 && !selectedFarmId) {
+        setSelectedFarmId(fList[0].id);
+        setOriginText(`${fList[0].name} (${fList[0].village})`);
+      }
+
+      // 4. Fetch Driver Trips
+      const tQ = isOwner
+        ? collection(db, 'trips')
+        : query(collection(db, 'trips'), where('driverUid', '==', currentUser.uid));
       const tSnap = await getDocs(tQ);
       const tList: Trip[] = [];
       tSnap.forEach((d) => tList.push({ id: d.id, ...d.data() } as Trip));
@@ -124,8 +164,8 @@ export const MovePortal: React.FC = () => {
       const ongoing = tList.find((t) => t.status === 'IN_TRANSIT' || t.status === 'DRAFT');
       setActiveTrip(ongoing || tList[0] || null);
 
-      // 4. Fetch GPS Unit
-      const gpsId = loadedVehicle ? (loadedVehicle as Vehicle).gpsUnitId : 'GPS-01';
+      // 5. Fetch GPS Unit
+      const gpsId = activeVeh ? activeVeh.gpsUnitId : 'GPS-01';
       if (gpsId) {
         const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
         if (gpsSnap.exists()) {
@@ -144,11 +184,39 @@ export const MovePortal: React.FC = () => {
     loadMoveData();
   }, [currentUser]);
 
+  // Quick Add Vehicle
+  const handleQuickAddVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !newRegNumber.trim()) return;
+
+    try {
+      const vehicleId = newRegNumber.replace(/\s+/g, '').toUpperCase();
+      const newVeh = {
+        driverUid: currentUser.uid,
+        regNumber: newRegNumber.trim().toUpperCase(),
+        vehicleType: newVehicleType,
+        capacityKg: Number(newCapacityKg) || 1000,
+        status: 'ACTIVE',
+        gpsUnitId: 'GPS-01',
+        createdAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, 'vehicles', vehicleId), newVeh);
+      setNewRegNumber('');
+      setShowAddVehicleModal(false);
+      setSuccessMsg(`Vehicle "${newVeh.regNumber}" added successfully!`);
+      await loadMoveData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to add vehicle.');
+    }
+  };
+
   // Create New Trip
   const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !vehicle) {
-      setError('You must have a registered vehicle to create trips.');
+    const tripVeh = vehicles.find((v) => v.id === selectedTripVehicleId) || selectedVehicle;
+    if (!currentUser || !tripVeh) {
+      setError('You must have a registered vehicle selected to create trips.');
       return;
     }
 
@@ -159,8 +227,8 @@ export const MovePortal: React.FC = () => {
       const newTripData: Trip = {
         id: tripId,
         driverUid: currentUser.uid,
-        vehicleId: vehicle.id,
-        gpsUnitId: vehicle.gpsUnitId || 'GPS-01',
+        vehicleId: tripVeh.id,
+        gpsUnitId: tripVeh.gpsUnitId || 'GPS-01',
         originText: originText.trim(),
         destinationMandiId: selectedMandiId || 'default-mandi',
         destinationMandiName: mandi ? `${mandi.name} (${mandi.area})` : 'Mandi Storage',
@@ -238,7 +306,7 @@ export const MovePortal: React.FC = () => {
         byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
         at: serverTimestamp(),
         place: { text: activeTrip.originText },
-        note: `Loaded into vehicle ${vehicle?.regNumber || 'Truck'}.`,
+        note: `Loaded into vehicle ${selectedVehicle?.regNumber || 'Truck'}.`,
       });
 
       await batch.commit();
@@ -265,7 +333,7 @@ export const MovePortal: React.FC = () => {
 
     try {
       // Fetch latest GPS fix
-      const gpsId = activeTrip.gpsUnitId || vehicle?.gpsUnitId || 'GPS-01';
+      const gpsId = activeTrip.gpsUnitId || selectedVehicle?.gpsUnitId || 'GPS-01';
       const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
       const gpsData = gpsSnap.data() as GPSUnitData;
 
@@ -330,7 +398,7 @@ export const MovePortal: React.FC = () => {
     setError(null);
 
     try {
-      const gpsId = activeTrip.gpsUnitId || vehicle?.gpsUnitId || 'GPS-01';
+      const gpsId = activeTrip.gpsUnitId || selectedVehicle?.gpsUnitId || 'GPS-01';
       const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
       const gpsData = gpsSnap.data() as GPSUnitData;
 
@@ -393,7 +461,7 @@ export const MovePortal: React.FC = () => {
 
   // Simulator for Offline / Demo Testing
   const handleSimulateGPSFix = async () => {
-    const gpsId = vehicle?.gpsUnitId || 'GPS-01';
+    const gpsId = selectedVehicle?.gpsUnitId || 'GPS-01';
     try {
       const isStart = activeTrip?.status === 'DRAFT';
       const lat = isStart ? 11.748 : 11.9338;
@@ -402,7 +470,7 @@ export const MovePortal: React.FC = () => {
       await setDoc(
         doc(db, 'gpsUnits', gpsId),
         {
-          vehicleId: vehicle?.id || 'TN01AB1234',
+          vehicleId: selectedVehicle?.id || 'TN01AB1234',
           latest: {
             lat,
             lng,
@@ -447,18 +515,60 @@ export const MovePortal: React.FC = () => {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Move Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-blue-950/60 text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-500/40">
+                <span className="text-xs font-mono font-bold bg-blue-950/60 text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-500/40" title="Unique Pass ID">
                   {userProfile.passId}
                 </span>
               )}
             </div>
             <p className="text-xs text-blue-200/80 mt-0.5">
-              Driver: <strong className="text-white">{userProfile?.firstName}</strong> • Vehicle: {vehicle?.regNumber || 'Unregistered'}
+              Driver: <strong className="text-white">{userProfile?.fullName || userProfile?.firstName || 'Driver'}</strong>
+              {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
+              {selectedVehicle ? (
+                <span> • Active: <strong className="text-white font-mono">{selectedVehicle.regNumber}</strong></span>
+              ) : (
+                <span> • <span className="text-amber-300 font-semibold">No vehicle registered</span></span>
+              )}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
+          {/* Vehicle Switcher if multiple vehicles */}
+          {vehicles.length > 1 && (
+            <select
+              value={selectedVehicle?.id || ''}
+              onChange={(e) => {
+                const chosen = vehicles.find((v) => v.id === e.target.value);
+                if (chosen) setSelectedVehicle(chosen);
+              }}
+              className="px-3 py-2 bg-slate-900/90 border border-blue-400/30 rounded-full text-xs font-mono text-white focus:outline-none"
+            >
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.regNumber} ({v.vehicleType})
+                </option>
+              ))}
+            </select>
+          )}
+
+          <button
+            onClick={() => setShowAddVehicleModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs font-semibold transition-colors"
+            title="Register Another Vehicle"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Add Vehicle</span>
+          </button>
+
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs transition-colors"
+            title="User Settings"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => setShowNewTripModal(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(59,130,246,0.35)] transition-all touch-target"
@@ -497,7 +607,7 @@ export const MovePortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-white">
-                GPS Node: {vehicle?.gpsUnitId || 'GPS-01'}
+                GPS Node: {selectedVehicle?.gpsUnitId || 'GPS-01'}
               </span>
               <span
                 className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
@@ -696,18 +806,78 @@ export const MovePortal: React.FC = () => {
           <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
             <h3 className="font-bold text-base text-white mb-4">Create New Delivery Trip</h3>
             <form onSubmit={handleCreateTrip} className="space-y-3">
+              {/* Vehicle selector */}
+              {vehicles.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Transport Vehicle
+                  </label>
+                  <select
+                    value={selectedTripVehicleId || selectedVehicle?.id || ''}
+                    onChange={(e) => setSelectedTripVehicleId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50 font-mono"
+                  >
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={v.id} className="bg-slate-900 text-white">
+                        {v.regNumber} ({v.vehicleType} • {v.capacityKg} kg)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Origin Farm Dropdown from Registered Farms */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Origin (Farm Cluster / Village)
+                  Origin Farm (Harvest Location)
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={originText}
-                  onChange={(e) => setOriginText(e.target.value)}
-                  placeholder="e.g. Panruti Farm Cluster"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
-                />
+                {registeredFarms.length > 0 ? (
+                  <>
+                    <select
+                      value={selectedFarmId}
+                      onChange={(e) => {
+                        const fId = e.target.value;
+                        setSelectedFarmId(fId);
+                        if (fId === 'custom') {
+                          setOriginText('');
+                        } else {
+                          const farm = registeredFarms.find((f) => f.id === fId);
+                          if (farm) setOriginText(`${farm.name} (${farm.village})`);
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50 mb-2"
+                    >
+                      {registeredFarms.map((f) => (
+                        <option key={f.id} value={f.id} className="bg-slate-900 text-white">
+                          {f.name} — {f.village}{f.district ? ` (${f.district})` : ''}
+                        </option>
+                      ))}
+                      <option value="custom" className="bg-slate-900 text-amber-300">
+                        + Other / Custom Location
+                      </option>
+                    </select>
+
+                    {selectedFarmId === 'custom' && (
+                      <input
+                        type="text"
+                        required
+                        value={originText}
+                        onChange={(e) => setOriginText(e.target.value)}
+                        placeholder="Type custom origin / farm location..."
+                        className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+                      />
+                    )}
+                  </>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    value={originText}
+                    onChange={(e) => setOriginText(e.target.value)}
+                    placeholder="e.g. Panruti Farm Cluster"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+                  />
+                )}
               </div>
 
               <div>
@@ -747,12 +917,91 @@ export const MovePortal: React.FC = () => {
         </div>
       )}
 
+      {/* Quick Add Vehicle Modal */}
+      {showAddVehicleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
+            <h3 className="font-bold text-base text-white mb-1">Register Transport Vehicle</h3>
+            <p className="text-[11px] text-slate-400 mb-4">
+              Add another vehicle to your driver fleet profile
+            </p>
+            <form onSubmit={handleQuickAddVehicle} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Registration Number
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newRegNumber}
+                  onChange={(e) => setNewRegNumber(e.target.value.toUpperCase())}
+                  placeholder="e.g. TN 31 AB 1234"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-blue-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Vehicle Type
+                </label>
+                <select
+                  value={newVehicleType}
+                  onChange={(e) => setNewVehicleType(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                >
+                  <option value="Pickup Truck">Pickup Truck</option>
+                  <option value="LCV Mini Truck">LCV Mini Truck</option>
+                  <option value="Heavy Truck">Heavy Truck</option>
+                  <option value="Three Wheeler">Three Wheeler</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Payload Capacity (kg)
+                </label>
+                <input
+                  type="number"
+                  value={newCapacityKg}
+                  onChange={(e) => setNewCapacityKg(e.target.value)}
+                  placeholder="1000"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddVehicleModal(false)}
+                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow transition-all"
+                >
+                  Save Vehicle
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Scanner Modal */}
       <QRScannerModal
         isOpen={showScanner}
         onClose={() => setShowScanner(false)}
         onScanSuccess={handleScanLoadBag}
         title="Scan Crate QR to Load"
+      />
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onProfileUpdated={loadMoveData}
       />
     </div>
   );

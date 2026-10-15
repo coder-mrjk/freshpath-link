@@ -67,4 +67,46 @@ describe('Freshness Score & Badge Evaluator', () => {
     const resFuture = calculateFreshness(future, 0, undefined, baseTime);
     expect(resFuture.score).toBe(100);
   });
+
+  it('safely handles Firestore Timestamp objects with seconds and nanoseconds', () => {
+    // 10 hours ago as Firestore Timestamp object { seconds, nanoseconds }
+    const tenHoursAgoSeconds = Math.floor((baseTime.getTime() - 10 * 3600 * 1000) / 1000);
+    const firestoreTimestamp = {
+      seconds: tenHoursAgoSeconds,
+      nanoseconds: 0,
+      toDate: () => new Date(tenHoursAgoSeconds * 1000),
+    };
+
+    const res = calculateFreshness(firestoreTimestamp, 0, undefined, baseTime);
+    expect(isNaN(res.score)).toBe(false);
+    expect(res.score).toBe(95);
+    expect(res.badge).toBe('FRESH');
+  });
+
+  it('safely handles plain Firestore seconds object without toDate()', () => {
+    const twentyHoursAgoSeconds = Math.floor((baseTime.getTime() - 20 * 3600 * 1000) / 1000);
+    const plainTimestampObj = {
+      seconds: twentyHoursAgoSeconds,
+      nanoseconds: 0,
+    };
+
+    const res = calculateFreshness(plainTimestampObj, 0, undefined, baseTime);
+    expect(isNaN(res.score)).toBe(false);
+    expect(res.score).toBe(90);
+    expect(res.badge).toBe('FRESH');
+  });
+
+  it('prevents NaN% when date is null, undefined, or corrupt string', () => {
+    const resNull = calculateFreshness(null, 0, undefined, baseTime);
+    expect(isNaN(resNull.score)).toBe(false);
+    expect(resNull.score).toBe(100);
+
+    const resUndefined = calculateFreshness(undefined, 0, undefined, baseTime);
+    expect(isNaN(resUndefined.score)).toBe(false);
+    expect(resUndefined.score).toBe(100);
+
+    const resCorrupt = calculateFreshness('INVALID_DATE_STRING', 0, undefined, baseTime);
+    expect(isNaN(resCorrupt.score)).toBe(false);
+    expect(resCorrupt.score).toBe(100);
+  });
 });

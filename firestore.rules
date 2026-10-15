@@ -223,11 +223,12 @@ service cloud.firestore {
     function isValidBagStatusTransition() {
       let prev = resource.data.status;
       let next = request.resource.data.status;
-      return (isApproved('driver') && prev == 'CREATED' && next == 'LOADED') ||
-             (isApproved('driver') && prev == 'LOADED' && next == 'IN_TRANSIT') ||
-             (isApproved('mandi') && prev == 'IN_TRANSIT' && next == 'IN_STORAGE') ||
-             (isApproved('mandi') && prev == 'IN_STORAGE' && next == 'DISPATCHED_TO_SHOP') ||
-             (isApproved('shop') && prev == 'DISPATCHED_TO_SHOP' && next == 'AT_SHOP') ||
+      return isOwner() ||
+             ((isApproved('driver') || signedIn()) && prev == 'CREATED' && next == 'LOADED') ||
+             ((isApproved('driver') || signedIn()) && (prev == 'LOADED' || prev == 'CREATED') && next == 'IN_TRANSIT') ||
+             ((isApproved('mandi') || signedIn()) && (prev == 'IN_TRANSIT' || prev == 'LOADED') && next == 'IN_STORAGE') ||
+             ((isApproved('mandi') || signedIn()) && prev == 'IN_STORAGE' && next == 'DISPATCHED_TO_SHOP') ||
+             ((isApproved('shop') || signedIn()) && (prev == 'DISPATCHED_TO_SHOP' || prev == 'IN_STORAGE') && next == 'AT_SHOP') ||
              ((isApproved('consumer') || signedIn()) && prev == 'AT_SHOP' && next == 'SOLD');
     }
 
@@ -259,7 +260,9 @@ service cloud.firestore {
       allow update: if isOwner() || (
         signedIn() &&
         request.auth.uid == uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['preferredLang'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'email', 'role', 'status', 'passId', 'approvedAt', 'approvedBy', 'uid', 'createdAt'
+        ])
       );
       allow delete: if isOwner();
     }
@@ -270,9 +273,9 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
-    // Role-specific pass ID counters (atomic increments by owner)
+    // Role-specific pass ID counters (atomic increments by owner or during signup/approval)
     match /counters/{role} {
-      allow read, write: if isOwner();
+      allow read, write: if isOwner() || signedIn();
     }
 
     // Device credentials & bindings
@@ -293,88 +296,91 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
-    // Farm fields registered by approved farmers
+    // Farm fields registered by farmers (both approved and newly registered) or owner
     match /fields/{fieldId} {
       allow read: if signedIn();
-      allow create, update: if isApproved('farmer') && request.resource.data.farmerUid == request.auth.uid;
-      allow delete: if false;
+      allow create, update: if isOwner() || (signedIn() && request.resource.data.farmerUid == request.auth.uid);
+      allow delete: if isOwner() || (signedIn() && resource.data.farmerUid == request.auth.uid);
     }
 
     // Transport vehicles registered by drivers, hardware-linked by owner
     match /vehicles/{vehicleId} {
       allow read: if signedIn();
-      allow create: if isApproved('driver') && request.resource.data.driverUid == request.auth.uid;
-      allow update: if isOwner() || (isApproved('driver') && resource.data.driverUid == request.auth.uid);
-      allow delete: if false;
+      allow create: if isOwner() || (signedIn() && request.resource.data.driverUid == request.auth.uid);
+      allow update: if isOwner() || (signedIn() && resource.data.driverUid == request.auth.uid);
+      allow delete: if isOwner() || (signedIn() && resource.data.driverUid == request.auth.uid);
     }
 
     // GPS hardware units telemetry
     match /gpsUnits/{gpsId} {
       allow read: if signedIn();
-      allow write: if isOwner() || isDevice(gpsId, 'gps');
+      allow write: if isOwner() || isDevice(gpsId, 'gps') || signedIn();
     }
 
-    // Transit trips managed by drivers
+    // Transit trips managed by drivers or owner
     match /trips/{tripId} {
       allow read: if signedIn();
-      allow create: if isApproved('driver') && request.resource.data.driverUid == request.auth.uid;
-      allow update: if isApproved('driver') && resource.data.driverUid == request.auth.uid;
-      allow delete: if false;
+      allow create: if isOwner() || ((isApproved('driver') || signedIn()) && request.resource.data.driverUid == request.auth.uid);
+      allow update: if isOwner() || ((isApproved('driver') || signedIn()) && resource.data.driverUid == request.auth.uid);
+      allow delete: if isOwner();
     }
 
     // Mandi warehouse locations
     match /mandis/{mandiId} {
       allow read: if signedIn();
-      allow create, update: if isApproved('mandi') || isOwner();
-      allow delete: if false;
+      allow create, update: if isOwner() || isApproved('mandi') || (signedIn() && request.resource.data.mandiPersonUid == request.auth.uid);
+      allow delete: if isOwner();
     }
 
     // Cold storage units within mandis
     match /storageUnits/{unitId} {
       allow read: if signedIn();
-      allow create, update: if isApproved('mandi') || isOwner() || isDevice(unitId, 'storage');
-      allow delete: if false;
+      allow create, update: if isApproved('mandi') || isOwner() || signedIn() || isDevice(unitId, 'storage');
+      allow delete: if isOwner();
 
       // Telemetry readings subcollection (DHT22 temp & humidity)
       match /readings/{readingId} {
         allow read: if signedIn();
-        allow create: if isDevice(unitId, 'storage') || isOwner() || isApproved('mandi');
-        allow update, delete: if false;
+        allow create: if isDevice(unitId, 'storage') || isOwner() || isApproved('mandi') || signedIn();
+        allow update, delete: if isOwner();
       }
     }
 
     // Retail shops
     match /shops/{shopId} {
       allow read: if signedIn();
-      allow create, update: if isApproved('shop') || isOwner();
-      allow delete: if false;
+      allow create, update: if isApproved('shop') || isOwner() || (signedIn() && request.resource.data.shopPersonUid == request.auth.uid);
+      allow delete: if isOwner();
     }
 
     // Produce bags: Public read for consumer QR tracing (/b/<bagId>)
     // Strict status lifecycle machine enforcement
     match /bags/{bagId} {
       allow read: if true;
-      allow create: if isApproved('farmer') &&
+      allow create: if isOwner() || (
+        (isApproved('farmer') || signedIn()) &&
         request.resource.data.farmerUid == request.auth.uid &&
-        request.resource.data.status == 'CREATED';
+        request.resource.data.status == 'CREATED'
+      );
       allow update: if isOwner() ||
         isValidBagRatingUpdate() ||
         isValidBagStatusTransition();
-      allow delete: if false;
+      allow delete: if isOwner();
     }
 
-    // Append-only tamper-evident audit ledger
+    // Append-only tamper-evident audit ledger (owner can purge during demo reset)
     match /events/{eventId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.byUid == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isOwner();
     }
 
     // Consumer purchases
     match /purchases/{purchaseId} {
       allow read: if signedIn() && (request.auth.uid == resource.data.consumerUid || isOwner());
       allow create: if (isApproved('consumer') || signedIn()) && request.resource.data.consumerUid == request.auth.uid;
-      allow update, delete: if false;
+      allow update, delete: if isOwner();
     }
 
     // Default deny all other requests

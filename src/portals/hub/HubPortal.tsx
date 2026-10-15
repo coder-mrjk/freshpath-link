@@ -10,6 +10,7 @@ import {
   setDoc,
   serverTimestamp,
   writeBatch,
+  addDoc,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { parseScannedBagId } from '../../lib/bagId';
@@ -25,6 +26,7 @@ import {
 import { calculateFreshness } from '../../lib/freshness';
 import { StorageChart } from '../../components/StorageChart';
 import { QRScannerModal } from '../../components/QRScannerModal';
+import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   Warehouse,
   Thermometer,
@@ -38,6 +40,8 @@ import {
   Sparkles,
   Store,
   Clock,
+  Settings,
+  Plus,
 } from 'lucide-react';
 
 interface Mandi {
@@ -94,6 +98,12 @@ export const HubPortal: React.FC = () => {
   const [dispatchBag, setDispatchBag] = useState<StoredBag | null>(null);
   const [selectedShopId, setSelectedShopId] = useState('');
 
+  // Settings & Registration Modals
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showRegisterMandiModal, setShowRegisterMandiModal] = useState(false);
+  const [newMandiName, setNewMandiName] = useState('');
+  const [newMandiArea, setNewMandiArea] = useState('');
+
   const loadHubData = async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -110,85 +120,49 @@ export const HubPortal: React.FC = () => {
         mSnap.forEach((d) => mandiList.push({ id: d.id, ...d.data() } as Mandi));
       }
 
-      // If no mandi exists yet for this approved person, fallback default
-      if (mandiList.length === 0) {
-        const defaultMandi: Mandi = {
-          id: `mandi-${currentUser.uid.slice(0, 8)}`,
-          mandiPersonUid: currentUser.uid,
-          name: 'Panruti Central Agro Mandi',
-          area: 'Cuddalore Main Road',
-        };
-        await setDoc(doc(db, 'mandis', defaultMandi.id), defaultMandi);
-        mandiList = [defaultMandi];
-      }
-
       setMandis(mandiList);
-      const activeMandi = mandiList[0];
+      const activeMandi = mandiList.length > 0 ? mandiList[0] : null;
       setSelectedMandi(activeMandi);
 
-      // 2. Fetch Storage Units for this Mandi
-      const uQ = query(collection(db, 'storageUnits'), where('mandiId', '==', activeMandi.id));
-      const uSnap = await getDocs(uQ);
-      let uList: StorageUnit[] = [];
-      uSnap.forEach((d) => uList.push({ id: d.id, ...d.data() } as StorageUnit));
+      if (activeMandi) {
+        // 2. Fetch Storage Units for this Mandi
+        const uQ = query(collection(db, 'storageUnits'), where('mandiId', '==', activeMandi.id));
+        const uSnap = await getDocs(uQ);
+        let uList: StorageUnit[] = [];
+        uSnap.forEach((d) => uList.push({ id: d.id, ...d.data() } as StorageUnit));
+        setStorageUnits(uList);
+        const targetUnit = uList.length > 0 ? uList[0] : null;
+        setSelectedUnit(targetUnit);
 
-      // Auto-provision initial storage unit if empty
-      if (uList.length === 0) {
-        const initUnit: StorageUnit = {
-          id: 'STORE-01',
-          mandiId: activeMandi.id,
-          name: 'Cold Storage Room 1',
-          nodeUnitId: 'STORE-01',
-          currentTemp: 13.5,
-          currentHumidity: 88.0,
-          latest: {
-            tempC: 13.5,
-            humidityPct: 88.0,
-            at: new Date().toISOString(),
-          },
-          targetTempMin: 12.0,
-          targetTempMax: 15.0,
-          targetHumidityMin: 85.0,
-          targetHumidityMax: 90.0,
-          capacityCrates: 200,
-          createdAt: serverTimestamp(),
-        };
-        await setDoc(doc(db, 'storageUnits', initUnit.id), initUnit);
-        uList = [initUnit];
+        // 3. Fetch readings for active unit
+        if (targetUnit) {
+          await loadReadings(targetUnit.id);
+        } else {
+          setUnitReadings([]);
+        }
+
+        // 4. Fetch Stored Bags
+        const bQ = query(
+          collection(db, 'bags'),
+          where('mandiId', '==', activeMandi.id),
+          where('status', '==', 'IN_STORAGE')
+        );
+        const bSnap = await getDocs(bQ);
+        const bList: StoredBag[] = [];
+        bSnap.forEach((d) => bList.push({ id: d.id, ...d.data() } as StoredBag));
+        bList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        setStoredBags(bList);
+      } else {
+        setStorageUnits([]);
+        setSelectedUnit(null);
+        setUnitReadings([]);
+        setStoredBags([]);
       }
-
-      setStorageUnits(uList);
-      const targetUnit = uList[0];
-      setSelectedUnit(targetUnit);
-
-      // 3. Fetch readings for active unit
-      await loadReadings(targetUnit.id);
-
-      // 4. Fetch Stored Bags
-      const bQ = query(
-        collection(db, 'bags'),
-        where('mandiId', '==', activeMandi.id),
-        where('status', '==', 'IN_STORAGE')
-      );
-      const bSnap = await getDocs(bQ);
-      const bList: StoredBag[] = [];
-      bSnap.forEach((d) => bList.push({ id: d.id, ...d.data() } as StoredBag));
-      bList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setStoredBags(bList);
 
       // 5. Fetch Retail Shops for dispatch
       const sSnap = await getDocs(collection(db, 'shops'));
       const sList: Shop[] = [];
       sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
-      if (sList.length === 0) {
-        const defaultShop: Shop = {
-          id: 'SHOP-01',
-          name: 'Fresh Basket Supermarket',
-          area: 'Adyar, Chennai',
-        };
-        await setDoc(doc(db, 'shops', defaultShop.id), defaultShop);
-        sList.push(defaultShop);
-      }
       setShops(sList);
       if (sList.length > 0) {
         setSelectedShopId(sList[0].id);
@@ -198,6 +172,53 @@ export const HubPortal: React.FC = () => {
       setError((err as Error)?.message || 'Failed to load mandi hub data.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Register New Mandi
+  const handleRegisterMandi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !newMandiName.trim()) return;
+
+    setActionLoading(true);
+    try {
+      const mandiRef = await addDoc(collection(db, 'mandis'), {
+        mandiPersonUid: currentUser.uid,
+        name: newMandiName.trim(),
+        area: newMandiArea.trim() || userProfile?.addressText || 'Tamil Nadu',
+        createdAt: serverTimestamp(),
+      });
+
+      // Also create first storage unit
+      const unitId = 'STORE-01';
+      await setDoc(doc(db, 'storageUnits', unitId), {
+        mandiId: mandiRef.id,
+        name: 'Cold Storage Room 1',
+        nodeUnitId: unitId,
+        currentTemp: 13.5,
+        currentHumidity: 88.0,
+        latest: {
+          tempC: 13.5,
+          humidityPct: 88.0,
+          at: new Date().toISOString(),
+        },
+        targetTempMin: 12.0,
+        targetTempMax: 15.0,
+        targetHumidityMin: 85.0,
+        targetHumidityMax: 90.0,
+        capacityCrates: 200,
+        createdAt: serverTimestamp(),
+      });
+
+      setShowRegisterMandiModal(false);
+      setNewMandiName('');
+      setNewMandiArea('');
+      setSuccessMsg(`Mandi "${newMandiName.trim()}" registered successfully!`);
+      await loadHubData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to register mandi.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -428,7 +449,7 @@ export const HubPortal: React.FC = () => {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Hub Portal</h1>
               {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-amber-950/60 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40">
+                <span className="text-xs font-mono font-bold bg-amber-950/60 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40" title="Unique Pass ID">
                   {userProfile.passId}
                 </span>
               )}
@@ -450,16 +471,39 @@ export const HubPortal: React.FC = () => {
               </select>
             ) : (
               <p className="text-xs text-amber-200/80 mt-0.5">
-                Mandi: <strong className="text-white">{selectedMandi?.name}</strong> • {selectedMandi?.area}
+                Mandi: <strong className="text-white">{selectedMandi?.name || 'No Mandi Registered'}</strong>
+                {selectedMandi?.area && <span> • {selectedMandi.area}</span>}
+                {userProfile?.fullName && <span> • Manager: <strong className="text-white">{userProfile.fullName}</strong></span>}
+                {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
+          {!selectedMandi && (
+            <button
+              onClick={() => setShowRegisterMandiModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 rounded-full text-xs font-bold transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Register Mandi</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs transition-colors"
+            title="User Settings"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => setShowScanner(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(217,119,6,0.35)] transition-all touch-target"
+            disabled={!selectedMandi || !selectedUnit}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(217,119,6,0.35)] transition-all touch-target"
           >
             <QrCode className="w-4 h-4 text-white" />
             <span>Receive Crate</span>
@@ -792,12 +836,76 @@ export const HubPortal: React.FC = () => {
         </div>
       )}
 
+      {/* Register Mandi Modal */}
+      {showRegisterMandiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
+            <h3 className="font-bold text-base text-white mb-1">Register Mandi Facility</h3>
+            <p className="text-[11px] text-slate-400 mb-4">
+              Enter your wholesale mandi name and market yard location
+            </p>
+            <form onSubmit={handleRegisterMandi} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Mandi Business Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newMandiName}
+                  onChange={(e) => setNewMandiName(e.target.value)}
+                  placeholder="e.g. Panruti Agro Mandi"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Market Yard Area / Address
+                </label>
+                <input
+                  type="text"
+                  value={newMandiArea}
+                  onChange={(e) => setNewMandiArea(e.target.value)}
+                  placeholder="e.g. Cuddalore Main Road"
+                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterMandiModal(false)}
+                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow transition-all"
+                >
+                  {actionLoading ? 'Saving...' : 'Register Mandi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Scanner Modal */}
       <QRScannerModal
         isOpen={showScanner}
         onClose={() => setShowScanner(false)}
         onScanSuccess={handleReceiveBag}
         title="Scan Crate QR to Receive into Storage"
+      />
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onProfileUpdated={loadHubData}
       />
     </div>
   );

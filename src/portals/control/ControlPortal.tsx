@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { formatIST } from '../../lib/time';
+import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   ShieldCheck,
   CheckCircle,
@@ -27,6 +28,7 @@ import {
   RefreshCw,
   LogOut,
   Lock,
+  Settings,
 } from 'lucide-react';
 
 export const ControlPortal: React.FC = () => {
@@ -47,6 +49,7 @@ export const ControlPortal: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Hardware Link Form State
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -342,6 +345,14 @@ export const ControlPortal: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors"
+            title="User Profile & Settings"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          <button
             onClick={loadData}
             className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors"
             title="Refresh data"
@@ -484,9 +495,8 @@ export const ControlPortal: React.FC = () => {
                       </span>
                     </div>
 
-                    <h3 className="font-extrabold text-base text-white">{u.firstName}</h3>
-                    <p className="text-xs text-slate-300 mt-0.5">{u.fullName}</p>
-                    <p className="text-xs text-slate-400 mt-2">
+                    <h3 className="font-extrabold text-base text-white">{u.fullName || u.firstName}</h3>
+                    <p className="text-xs text-slate-400 mt-1">
                       📍 {u.addressText || 'Location not specified'} • 📞 {u.phone || 'No phone'}
                     </p>
                   </div>
@@ -555,14 +565,16 @@ export const ControlPortal: React.FC = () => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="font-bold text-white flex items-center gap-1.5">
-                            {u.firstName}
+                            {u.fullName || u.firstName || 'User'}
                             {isRootOwner && (
                               <span className="px-1.5 py-0.5 rounded text-[9px] bg-red-500/20 text-red-300 border border-red-500/30 uppercase tracking-wider font-bold">
                                 Root Owner
                               </span>
                             )}
                           </div>
-                          <div className="text-[11px] text-slate-400">{u.fullName}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            📞 {u.phone || '—'}
+                          </div>
                         </td>
                         <td className="px-4 py-3 capitalize text-slate-300">{u.role}</td>
                         <td className="px-4 py-3 text-slate-400">{u.addressText || '—'}</td>
@@ -871,6 +883,13 @@ export const ControlPortal: React.FC = () => {
           </form>
         </div>
       )}
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onProfileUpdated={loadData}
+      />
     </div>
   );
 };

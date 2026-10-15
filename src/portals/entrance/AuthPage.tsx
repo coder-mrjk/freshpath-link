@@ -35,7 +35,6 @@ export const AuthPage: React.FC = () => {
   const [isRegister, setIsRegister] = useState(role !== 'control');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [addressText, setAddressText] = useState('');
@@ -161,18 +160,25 @@ export const AuthPage: React.FC = () => {
 
     try {
       if (isRegister && !isOwnerMode) {
-        if (!firstName.trim() || !email.trim() || !password.trim()) {
-          throw new Error('Please fill in all required fields.');
+        if (!fullName.trim() || !email.trim() || !password.trim()) {
+          throw new Error('Please fill in your full name, email, and password.');
         }
+
+        const cleanPhone = phone.trim();
+        if (cleanPhone && !/^\d{10}$/.test(cleanPhone)) {
+          throw new Error('Phone number must be exactly 10 digits (e.g. 9876543210).');
+        }
+
+        const derivedFirstName = fullName.trim().split(' ')[0] || fullName.trim();
 
         await register(
           email,
           password,
           currentRole,
-          firstName,
-          fullName || firstName,
-          phone,
-          addressText,
+          derivedFirstName,
+          fullName.trim(),
+          cleanPhone,
+          addressText.trim(),
           {
             fieldName,
             fieldVillage,
@@ -421,27 +427,14 @@ export const AuthPage: React.FC = () => {
               <>
                 <div>
                   <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    First Name <span className="text-red-400">*</span>
-                    <span className="text-[10px] text-slate-400 font-normal lowercase ml-1.5">
-                      (public to shoppers / farmers)
+                    Full Name <span className="text-red-400">*</span>
+                    <span className="text-[10px] text-emerald-400 font-normal lowercase ml-1.5">
+                      (public supply chain identity)
                     </span>
                   </label>
                   <input
                     type="text"
                     required
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="e.g. Arul"
-                    className={`w-full px-3.5 py-2.5 bg-slate-800/80 border border-white/10 text-white placeholder:text-slate-500 rounded-xl text-sm transition-all focus:outline-none ${roleTheme.focusRing}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Full Name (Private)
-                  </label>
-                  <input
-                    type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. Arul Murugan"
@@ -452,12 +445,16 @@ export const AuthPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                      Phone (Private)
+                      Phone Number (10 Digits)
+                      <span className="text-[10px] text-emerald-400 font-normal lowercase ml-1.5">
+                        (public)
+                      </span>
                     </label>
                     <input
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      maxLength={10}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                       placeholder="9876543210"
                       className={`w-full px-3.5 py-2.5 bg-slate-800/80 border border-white/10 text-white placeholder:text-slate-500 rounded-xl text-sm transition-all focus:outline-none ${roleTheme.focusRing}`}
                     />

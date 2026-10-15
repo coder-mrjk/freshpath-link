@@ -36,20 +36,38 @@ export interface FreshnessResult {
  * Calculates the freshness score and badge.
  */
 export function calculateFreshness(
-  harvestDate: Date | string | number,
+  harvestDate: any,
   hoursStoredAbove30C = 0,
   config = DEFAULT_FRESHNESS_CONFIG,
   now = new Date()
 ): FreshnessResult {
-  const harvestTime = new Date(harvestDate).getTime();
-  const currentTime = now.getTime();
+  const currentTime = now instanceof Date ? now.getTime() : new Date(now).getTime();
+
+  let harvestTime: number;
+  if (!harvestDate) {
+    harvestTime = currentTime;
+  } else if (typeof harvestDate?.toDate === 'function') {
+    harvestTime = harvestDate.toDate().getTime();
+  } else if (typeof harvestDate?.seconds === 'number') {
+    harvestTime = harvestDate.seconds * 1000;
+  } else if (harvestDate instanceof Date) {
+    harvestTime = harvestDate.getTime();
+  } else {
+    harvestTime = new Date(harvestDate).getTime();
+  }
+
+  if (isNaN(harvestTime)) {
+    harvestTime = currentTime;
+  }
+
   const elapsedMs = Math.max(0, currentTime - harvestTime);
   const hoursSinceHarvest = elapsedMs / (1000 * 60 * 60);
 
   const penaltyTime = hoursSinceHarvest * config.perHourSinceHarvest;
-  const penaltyHeat = hoursStoredAbove30C * config.perHourStoredAbove30C;
+  const safeHeatHours = Number(hoursStoredAbove30C) || 0;
+  const penaltyHeat = safeHeatHours * config.perHourStoredAbove30C;
   const rawScore = 100 - penaltyTime - penaltyHeat;
-  const score = Math.max(0, Math.min(100, Math.round(rawScore)));
+  const score = Math.max(0, Math.min(100, Math.round(isNaN(rawScore) ? 100 : rawScore)));
 
   let badge: FreshnessBadgeStatus = 'CHECK_QUALITY';
   let label = 'Check quality';
@@ -71,6 +89,6 @@ export function calculateFreshness(
     label,
     colorClass,
     hoursSinceHarvest: Math.round(hoursSinceHarvest * 10) / 10,
-    hoursStoredAbove30C: Math.round(hoursStoredAbove30C * 10) / 10,
+    hoursStoredAbove30C: Math.round(safeHeatHours * 10) / 10,
   };
 }
