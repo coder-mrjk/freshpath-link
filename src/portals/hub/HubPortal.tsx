@@ -906,6 +906,7 @@ export const HubPortal: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onProfileUpdated={loadHubData}
+        portalRole="mandi"
       />
     </div>
   );

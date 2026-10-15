@@ -889,6 +889,7 @@ export const ControlPortal: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onProfileUpdated={loadData}
+        portalRole="control"
       />
     </div>
   );

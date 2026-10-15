@@ -113,6 +113,7 @@ export const DemoPortal: React.FC = () => {
       }
 
       // Delete users EXCEPT Owner account
+      const nonOwnerUids: string[] = [];
       const usersSnap = await getDocs(collection(db, 'users'));
       for (const uDoc of usersSnap.docs) {
         const uData = uDoc.data();
@@ -140,6 +141,7 @@ export const DemoPortal: React.FC = () => {
             { merge: true }
           );
         } else {
+          nonOwnerUids.push(uDoc.id);
           await deleteDoc(uDoc.ref);
           deletedCount++;
         }
@@ -147,7 +149,7 @@ export const DemoPortal: React.FC = () => {
 
       setGeneratedCrates([]);
       setSuccessMsg(
-        `Database purged successfully! ${deletedCount} documents deleted. Owner account (${OWNER_EMAIL}) was strictly preserved and kept approved.`
+        `Database purged successfully! ${deletedCount} documents deleted. Owner account (${OWNER_EMAIL}) was strictly preserved and kept approved. To remove any extra Firebase Auth credentials created in the Firebase console, run "npm run purge-auth" in your terminal.`
       );
     } catch (err: unknown) {
       console.error('Error clearing database:', err);
@@ -745,10 +747,10 @@ export const DemoPortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1 text-red-400">
               <Trash2 className="w-5 h-5" />
-              <h3 className="font-extrabold text-base text-white">Database Reset (Preserves Owner Account)</h3>
+              <h3 className="font-extrabold text-base text-white">Database & Auth Reset (Preserves Owner Account)</h3>
             </div>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Wipes all test crates, trips, events, farmer fields, driver vehicles, mandis, cold storage units, retail shops, and non-owner user accounts from Firestore. Your owner account (<span className="text-white font-mono">{OWNER_EMAIL}</span>) is strictly preserved and set to approved status.
+              Wipes all test crates, trips, events, farmer fields, driver vehicles, mandis, cold storage units, retail shops, and non-owner user accounts from Firestore. Your owner account (<span className="text-white font-mono">{OWNER_EMAIL}</span>) is strictly preserved and set to approved status in both Firestore and Firebase Auth.
             </p>
           </div>
 
@@ -760,6 +762,18 @@ export const DemoPortal: React.FC = () => {
             <RotateCcw className="w-4 h-4" />
             <span>Clear Database</span>
           </button>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-red-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div>
+            <span className="font-bold text-slate-200">Firebase Auth Clean Command: </span>
+            <span className="text-slate-400">
+              Purges all non-owner Auth accounts from the Firebase Authentication console via CLI.
+            </span>
+          </div>
+          <code className="px-3 py-1.5 bg-black/40 border border-red-500/30 text-red-300 rounded-lg font-mono text-[11px] select-all whitespace-nowrap">
+            npm run purge-auth
+          </code>
         </div>
 
         {/* Confirmation Modal */}
@@ -1024,6 +1038,7 @@ export const DemoPortal: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onProfileUpdated={() => {}}
+        portalRole="control"
       />
     </div>
   );

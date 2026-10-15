@@ -1002,6 +1002,7 @@ export const MovePortal: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onProfileUpdated={loadMoveData}
+        portalRole="driver"
       />
     </div>
   );

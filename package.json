@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "vite-node scripts/seedDemoData.ts",
+    "purge-auth": "node scripts/purgeAuthUsers.cjs",
     "emulators": "firebase emulators:start --only firestore,auth"
   },
   "dependencies": {

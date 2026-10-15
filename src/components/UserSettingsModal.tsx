@@ -27,6 +27,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onProfileUpdated?: () => void;
+  portalRole?: 'farmer' | 'driver' | 'mandi' | 'shop' | 'consumer' | 'control';
 }
 
 interface FieldItem {
@@ -56,8 +57,13 @@ export const UserSettingsModal: React.FC<Props> = ({
   isOpen,
   onClose,
   onProfileUpdated,
+  portalRole,
 }) => {
   const { userProfile, currentUser, isOwner, updateUserProfile } = useAuth();
+
+  // Active role determines which role-specific section to show (if any).
+  // Root Owner / Admin ('control' or 'owner') never shows farmer/driver/mandi entity sections!
+  const activeRole = portalRole || (isOwner ? 'owner' : userProfile?.role);
 
   // Basic Profile State
   const [fullName, setFullName] = useState('');
@@ -102,28 +108,20 @@ export const UserSettingsModal: React.FC<Props> = ({
   const loadRoleEntities = async () => {
     if (!currentUser) return;
     try {
-      const role = isOwner ? 'owner' : userProfile?.role;
-
-      // Farmer Fields
-      if (role === 'farmer' || isOwner) {
+      // Only load entities for the matching activeRole
+      if (activeRole === 'farmer') {
         const fQ = query(collection(db, 'fields'), where('farmerUid', '==', currentUser.uid));
         const fSnap = await getDocs(fQ);
         const fList: FieldItem[] = [];
         fSnap.forEach((d) => fList.push({ id: d.id, ...d.data() } as FieldItem));
         setFields(fList);
-      }
-
-      // Driver Vehicles (Driver can hold MORE than 1 vehicle)
-      if (role === 'driver' || isOwner) {
+      } else if (activeRole === 'driver') {
         const vQ = query(collection(db, 'vehicles'), where('driverUid', '==', currentUser.uid));
         const vSnap = await getDocs(vQ);
         const vList: VehicleItem[] = [];
         vSnap.forEach((d) => vList.push({ id: d.id, ...d.data() } as VehicleItem));
         setVehicles(vList);
-      }
-
-      // Mandi Units
-      if (role === 'mandi' || isOwner) {
+      } else if (activeRole === 'mandi') {
         const mQ = query(collection(db, 'mandis'), where('mandiPersonUid', '==', currentUser.uid));
         const mSnap = await getDocs(mQ);
         if (!mSnap.empty) {
@@ -364,9 +362,6 @@ export const UserSettingsModal: React.FC<Props> = ({
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                 Full Name <span className="text-red-400">*</span>
-                <span className="text-[10px] text-emerald-400 font-normal lowercase ml-1">
-                  (public)
-                </span>
               </label>
               <div className="relative">
                 <input
@@ -384,9 +379,6 @@ export const UserSettingsModal: React.FC<Props> = ({
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                 Phone Number (10 Digits) <span className="text-red-400">*</span>
-                <span className="text-[10px] text-emerald-400 font-normal lowercase ml-1">
-                  (public)
-                </span>
               </label>
               <div className="relative">
                 <input
@@ -447,12 +439,13 @@ export const UserSettingsModal: React.FC<Props> = ({
           </div>
         </form>
 
-        <hr className="my-6 border-white/10" />
-
-        {/* ROLE-SPECIFIC ENTITY SECTIONS */}
+        {/* ROLE-SPECIFIC ENTITY SECTIONS (Only shown for matching non-owner roles) */}
+        {(activeRole === 'farmer' || activeRole === 'driver' || activeRole === 'mandi') && (
+          <hr className="my-6 border-white/10" />
+        )}
 
         {/* 1. FARMER: Manage Multiple Farms / Fields */}
-        {(role === 'farmer' || isOwner) && (
+        {activeRole === 'farmer' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -536,7 +529,7 @@ export const UserSettingsModal: React.FC<Props> = ({
         )}
 
         {/* 2. DRIVER: Hold More Than 1 Vehicle */}
-        {(role === 'driver' || isOwner) && (
+        {activeRole === 'driver' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -630,7 +623,7 @@ export const UserSettingsModal: React.FC<Props> = ({
         )}
 
         {/* 3. MANDI: Cold Storage Units */}
-        {(role === 'mandi' || isOwner) && (
+        {activeRole === 'mandi' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>

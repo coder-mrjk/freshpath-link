@@ -570,6 +570,7 @@ export const ShelfPortal: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onProfileUpdated={loadShelfData}
+        portalRole="shop"
       />
     </div>
   );

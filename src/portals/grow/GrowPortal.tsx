@@ -804,6 +804,7 @@ export const GrowPortal: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onProfileUpdated={loadGrowData}
+        portalRole="farmer"
       />
     </div>
   );

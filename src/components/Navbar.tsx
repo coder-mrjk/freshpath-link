@@ -7,7 +7,7 @@ import { UserSettingsModal } from './UserSettingsModal';
 
 interface Props {
   portalName?: string;
-  userRole?: string;
+  userRole?: 'farmer' | 'driver' | 'mandi' | 'shop' | 'consumer' | 'owner';
   passId?: string;
   onLogout?: () => void;
 }
@@ -98,6 +98,7 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
       <UserSettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+        portalRole={userRole === 'owner' ? 'control' : userRole}
       />
     </>
   );
