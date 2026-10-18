@@ -335,7 +335,7 @@ export const GrowPortal: React.FC = () => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Top Banner - Gradient Glass */}
       <div className="bg-gradient-to-r from-emerald-900/60 to-emerald-800/40 backdrop-blur-xl border border-emerald-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -601,7 +601,7 @@ export const GrowPortal: React.FC = () => {
                     to={`/b/${bag.id}`}
                     className="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 transition-colors"
                   >
-                    <span>View Public Provenance</span>
+                    <span>View Crate Provenance</span>
                     <ExternalLink className="w-3 h-3" />
                   </Link>
 
@@ -621,20 +621,28 @@ export const GrowPortal: React.FC = () => {
 
       {/* Harvest Crate Modal */}
       {showHarvestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-white">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <PlusCircle className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-bold text-base text-white">Harvest New Crate</h3>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowHarvestModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-lg my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 sm:p-8 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-emerald-400" />
+                  <h3 className="font-bold text-base text-white">Harvest New Crate</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHarvestModal(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 text-xs font-bold transition-colors"
+                >
+                  ✕ Close
+                </button>
               </div>
-              <button
-                onClick={() => setShowHarvestModal(false)}
-                className="text-slate-400 hover:text-white text-xs font-bold"
-              >
-                ✕ Close
-              </button>
-            </div>
 
             <form onSubmit={handleCreateBag} className="space-y-4">
               {/* Field Selector */}
@@ -796,66 +804,75 @@ export const GrowPortal: React.FC = () => {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* New Field Modal */}
       {showFieldModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-4">Register New Field / Farm</h3>
-            <form onSubmit={handleCreateField} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Field / Farm Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newFieldName}
-                  onChange={(e) => setNewFieldName(e.target.value)}
-                  placeholder="e.g. Vadakku Thottam"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Village</label>
-                <input
-                  type="text"
-                  required
-                  value={newFieldVillage}
-                  onChange={(e) => setNewFieldVillage(e.target.value)}
-                  placeholder="Village"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">District</label>
-                <input
-                  type="text"
-                  value={newFieldDistrict}
-                  onChange={(e) => setNewFieldDistrict(e.target.value)}
-                  placeholder="District"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-                />
-              </div>
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowFieldModal(false)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_20px_rgba(74,222,128,0.35)] transition-all"
-                >
-                  Save Field
-                </button>
-              </div>
-            </form>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowFieldModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-2xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-4">Register New Field / Farm</h3>
+              <form onSubmit={handleCreateField} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Field / Farm Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newFieldName}
+                    onChange={(e) => setNewFieldName(e.target.value)}
+                    placeholder="e.g. Vadakku Thottam"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Village</label>
+                  <input
+                    type="text"
+                    required
+                    value={newFieldVillage}
+                    onChange={(e) => setNewFieldVillage(e.target.value)}
+                    placeholder="Village"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">District</label>
+                  <input
+                    type="text"
+                    value={newFieldDistrict}
+                    onChange={(e) => setNewFieldDistrict(e.target.value)}
+                    placeholder="District"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowFieldModal(false)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_20px_rgba(74,222,128,0.35)] transition-all"
+                  >
+                    Save Field
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

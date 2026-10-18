@@ -108,11 +108,33 @@ export const QRScannerModal: React.FC<Props> = ({
     });
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        stopScanner();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-      <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-md rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+      onClick={() => {
+        stopScanner();
+        onClose();
+      }}
+    >
+      <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+        <div
+          className="relative w-full max-w-md my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 text-left shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl transition-all flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02]">
           <h2 className="font-extrabold text-lg text-white tracking-tight">{title}</h2>
@@ -225,5 +247,6 @@ export const QRScannerModal: React.FC<Props> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

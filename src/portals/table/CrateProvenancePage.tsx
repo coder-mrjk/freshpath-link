@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { BagProvenanceView } from './BagProvenanceView';
 import { AlertCircle } from 'lucide-react';
 
-export const PublicBagPage: React.FC = () => {
+export const CrateProvenancePage: React.FC = () => {
   const { bagId } = useParams<{ bagId: string }>();
   const navigate = useNavigate();
 

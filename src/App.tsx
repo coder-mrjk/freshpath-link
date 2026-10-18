@@ -21,7 +21,7 @@ import { MovePortal } from './portals/move/MovePortal';
 import { HubPortal } from './portals/hub/HubPortal';
 import { ShelfPortal } from './portals/shelf/ShelfPortal';
 import { TablePortal } from './portals/table/TablePortal';
-import { PublicBagPage } from './portals/table/PublicBagPage';
+import { CrateProvenancePage } from './portals/table/CrateProvenancePage';
 
 const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout, currentUser } = useAuth();
@@ -194,7 +194,7 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/b/:bagId" element={<PublicBagPage />} />
+          <Route path="/b/:bagId" element={<CrateProvenancePage />} />
 
           <Route
             path="*"

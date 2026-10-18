@@ -428,9 +428,6 @@ export const AuthPage: React.FC = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                     Full Name <span className="text-red-400">*</span>
-                    <span className="text-[10px] text-emerald-400 font-normal lowercase ml-1.5">
-                      (public supply chain identity)
-                    </span>
                   </label>
                   <input
                     type="text"
@@ -446,9 +443,6 @@ export const AuthPage: React.FC = () => {
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                       Phone Number (10 Digits)
-                      <span className="text-[10px] text-emerald-400 font-normal lowercase ml-1.5">
-                        (public)
-                      </span>
                     </label>
                     <input
                       type="tel"

@@ -688,63 +688,71 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
 
       {/* Rating Modal */}
       {showRatingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-2">Rate Your Tomatoes</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Share your direct feedback for farmer <strong className="text-white">{bag.farmerFirstName}</strong>.
-            </p>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowRatingModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-2">Rate Your Tomatoes</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                Share your direct feedback for farmer <strong className="text-white">{bag.farmerFirstName}</strong>.
+              </p>
 
-            <form onSubmit={handleSubmitRating} className="space-y-4">
-              <div className="flex items-center justify-center gap-2 py-2">
-                {[1, 2, 3, 4, 5].map((star) => (
+              <form onSubmit={handleSubmitRating} className="space-y-4">
+                <div className="flex items-center justify-center gap-2 py-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setSelectedStars(star)}
+                      className="p-1 touch-target transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-7 h-7 ${
+                          star <= selectedStars
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'text-slate-600'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Comment (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    placeholder="e.g. Delicious, fresh taste and crisp texture!"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
                   <button
-                    key={star}
                     type="button"
-                    onClick={() => setSelectedStars(star)}
-                    className="p-1 touch-target transition-transform hover:scale-110"
+                    onClick={() => setShowRatingModal(false)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
                   >
-                    <Star
-                      className={`w-7 h-7 ${
-                        star <= selectedStars
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'text-slate-600'
-                      }`}
-                    />
+                    Skip
                   </button>
-                ))}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Comment (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={ratingComment}
-                  onChange={(e) => setRatingComment(e.target.value)}
-                  placeholder="e.g. Delicious, fresh taste and crisp texture!"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRatingModal(false)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Skip
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingRating}
-                  className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(217,119,6,0.3)] transition-all"
-                >
-                  {submittingRating ? 'Saving...' : 'Submit Rating'}
-                </button>
-              </div>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={submittingRating}
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(217,119,6,0.3)] transition-all"
+                  >
+                    {submittingRating ? 'Saving...' : 'Submit Rating'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

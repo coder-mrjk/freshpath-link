@@ -245,7 +245,7 @@ export const ShelfPortal: React.FC = () => {
       : 100;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Top Banner - Purple Gradient Glass */}
       <div className="bg-gradient-to-r from-purple-900/60 to-purple-800/40 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -517,52 +517,60 @@ export const ShelfPortal: React.FC = () => {
 
       {/* Shop Profile Modal */}
       {showShopModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-4">Edit Retail Shop Details</h3>
-            <form onSubmit={handleSaveShop} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Shop Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newShopName}
-                  onChange={(e) => setNewShopName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
-                />
-              </div>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowShopModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-4">Edit Retail Shop Details</h3>
+              <form onSubmit={handleSaveShop} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Shop Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newShopName}
+                    onChange={(e) => setNewShopName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Area / Locality
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newShopArea}
-                  onChange={(e) => setNewShopArea(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Area / Locality
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newShopArea}
+                    onChange={(e) => setNewShopArea(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
 
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowShopModal(false)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(147,51,234,0.3)] transition-all"
-                >
-                  Save Profile
-                </button>
-              </div>
-            </form>
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowShopModal(false)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(147,51,234,0.3)] transition-all"
+                  >
+                    Save Profile
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

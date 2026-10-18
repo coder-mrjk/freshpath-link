@@ -438,7 +438,7 @@ export const HubPortal: React.FC = () => {
   const humStatus = getStorageHumidityStatus(selectedUnit?.currentHumidity);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Top Banner - Amber Gradient Glass */}
       <div className="bg-gradient-to-r from-amber-900/60 to-amber-800/40 backdrop-blur-xl border border-amber-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -732,163 +732,187 @@ export const HubPortal: React.FC = () => {
 
       {/* Dispatch Modal */}
       {dispatchBag && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <div className="flex items-center gap-2 mb-3">
-              <Store className="w-5 h-5 text-purple-400" />
-              <h3 className="font-bold text-base text-white">Dispatch to Retail Shop</h3>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setDispatchBag(null)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Store className="w-5 h-5 text-purple-400" />
+                <h3 className="font-bold text-base text-white">Dispatch to Retail Shop</h3>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">
+                Select destination retail partner for crate{' '}
+                <strong className="font-mono text-purple-300">{dispatchBag.id}</strong>.
+              </p>
+
+              <form onSubmit={handleDispatchBag} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Destination Retail Shop
+                  </label>
+                  <select
+                    value={selectedShopId}
+                    onChange={(e) => setSelectedShopId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500/50"
+                  >
+                    {shops.map((s) => (
+                      <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                        {s.name} ({s.area})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDispatchBag(null)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(147,51,234,0.3)] transition-all"
+                  >
+                    {actionLoading ? 'Dispatching...' : 'Confirm Dispatch'}
+                  </button>
+                </div>
+              </form>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Select destination retail partner for crate{' '}
-              <strong className="font-mono text-purple-300">{dispatchBag.id}</strong>.
-            </p>
-
-            <form onSubmit={handleDispatchBag} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Destination Retail Shop
-                </label>
-                <select
-                  value={selectedShopId}
-                  onChange={(e) => setSelectedShopId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500/50"
-                >
-                  {shops.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                      {s.name} ({s.area})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDispatchBag(null)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(147,51,234,0.3)] transition-all"
-                >
-                  {actionLoading ? 'Dispatching...' : 'Confirm Dispatch'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
 
       {/* New Storage Unit Modal */}
       {showNewUnitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-4">Add Storage Unit</h3>
-            <form onSubmit={handleCreateUnit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Storage Unit Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newUnitName}
-                  onChange={(e) => setNewUnitName(e.target.value)}
-                  placeholder="e.g. Cold Room B"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowNewUnitModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-4">Add Storage Unit</h3>
+              <form onSubmit={handleCreateUnit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Storage Unit Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newUnitName}
+                    onChange={(e) => setNewUnitName(e.target.value)}
+                    placeholder="e.g. Cold Room B"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Node Hardware Unit ID
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newNodeId}
-                  onChange={(e) => setNewNodeId(e.target.value)}
-                  placeholder="e.g. STORE-02"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Node Hardware Unit ID
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newNodeId}
+                    onChange={(e) => setNewNodeId(e.target.value)}
+                    placeholder="e.g. STORE-02"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
 
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNewUnitModal(false)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(217,119,6,0.3)] transition-all"
-                >
-                  Create Unit
-                </button>
-              </div>
-            </form>
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewUnitModal(false)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(217,119,6,0.3)] transition-all"
+                  >
+                    Create Unit
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Register Mandi Modal */}
       {showRegisterMandiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-1">Register Mandi Facility</h3>
-            <p className="text-[11px] text-slate-400 mb-4">
-              Enter your wholesale mandi name and market yard location
-            </p>
-            <form onSubmit={handleRegisterMandi} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Mandi Business Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMandiName}
-                  onChange={(e) => setNewMandiName(e.target.value)}
-                  placeholder="e.g. Panruti Agro Mandi"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowRegisterMandiModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-1">Register Mandi Facility</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Enter your wholesale mandi name and market yard location
+              </p>
+              <form onSubmit={handleRegisterMandi} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Mandi Business Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newMandiName}
+                    onChange={(e) => setNewMandiName(e.target.value)}
+                    placeholder="e.g. Panruti Agro Mandi"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Market Yard Area / Address
-                </label>
-                <input
-                  type="text"
-                  value={newMandiArea}
-                  onChange={(e) => setNewMandiArea(e.target.value)}
-                  placeholder="e.g. Cuddalore Main Road"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Market Yard Area / Address
+                  </label>
+                  <input
+                    type="text"
+                    value={newMandiArea}
+                    onChange={(e) => setNewMandiArea(e.target.value)}
+                    placeholder="e.g. Cuddalore Main Road"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
 
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterMandiModal(false)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow transition-all"
-                >
-                  {actionLoading ? 'Saving...' : 'Register Mandi'}
-                </button>
-              </div>
-            </form>
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterMandiModal(false)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow transition-all"
+                  >
+                    {actionLoading ? 'Saving...' : 'Register Mandi'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

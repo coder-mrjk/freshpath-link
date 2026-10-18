@@ -802,9 +802,16 @@ export const MovePortal: React.FC = () => {
 
       {/* New Trip Modal */}
       {showNewTripModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-4">Create New Delivery Trip</h3>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowNewTripModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-4">Create New Delivery Trip</h3>
             <form onSubmit={handleCreateTrip} className="space-y-3">
               {/* Vehicle selector */}
               {vehicles.length > 0 && (
@@ -913,6 +920,7 @@ export const MovePortal: React.FC = () => {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
