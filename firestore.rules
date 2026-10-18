@@ -419,6 +419,17 @@ service cloud.firestore {
       allow update, delete: if isOwner();
     }
 
+    // Client-side crash and error telemetry (Crashlytics equivalent for Web)
+    match /client_errors/{errorId} {
+      // Allow anyone (signed-in or anonymous) to report a client error
+      allow create: if request.resource.data.keys().hasAll(['message', 'fatal', 'timestamp'])
+                   && request.resource.data.message is string
+                   && request.resource.data.message.size() <= 5000;
+      // Only system owner / admin can read, list, or delete crash reports
+      allow read, delete: if isOwner();
+      allow update: if false;
+    }
+
     // Default deny all other requests
     match /{document=**} {
       allow read, write: if false;

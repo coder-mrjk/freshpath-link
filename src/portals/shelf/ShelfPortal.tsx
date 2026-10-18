@@ -20,6 +20,7 @@ import { formatIST, timeAgoIST } from '../../lib/time';
 import { formatRupees } from '../../lib/price';
 import { calculateFreshness } from '../../lib/freshness';
 import { showLocalNotification } from '../../lib/notifications';
+import { measureAsyncTrace } from '../../lib/performance';
 import { QRScannerModal } from '../../components/QRScannerModal';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
@@ -329,7 +330,7 @@ export const ShelfPortal: React.FC = () => {
         note: `Payment received in cash/counter by shopkeeper for buyer ${buyerName} (${buyerPassId}).`,
       });
 
-      await batch.commit();
+      await measureAsyncTrace('shop_confirm_payment', () => batch.commit());
       setSuccessMsg(`Payment received! Crate ${bag.id} marked SOLD. Consumer provenance unlocked.`);
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to confirm counter payment.');

@@ -27,6 +27,7 @@ import { formatIST, timeAgoIST } from '../../lib/time';
 import { calculateFreshness } from '../../lib/freshness';
 import { initRemoteConfig, getRemoteNumber } from '../../lib/remoteConfig';
 import { showLocalNotification } from '../../lib/notifications';
+import { measureAsyncTrace } from '../../lib/performance';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   Sprout,
@@ -464,7 +465,7 @@ export const GrowPortal: React.FC = () => {
       };
       batch.set(eventRef, eventData);
 
-      await batch.commit();
+      await measureAsyncTrace('farmer_create_crate', () => batch.commit());
 
       setShowHarvestModal(false);
       setSuccessMsg(`Crate ${bagId} created! Print QR label to paste on crate.`);
