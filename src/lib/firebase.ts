@@ -3,13 +3,13 @@ import { getAuth, connectAuthEmulator, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'dummy-api-key',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'freshpath-link.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'freshpath-link',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'freshpath-link.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '660502674071',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:660502674071:web:freshpath',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-CFT4QM8YRR',
 };
 
 // Initialize Firebase App
