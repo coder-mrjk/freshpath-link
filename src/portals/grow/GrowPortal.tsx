@@ -272,10 +272,11 @@ export const GrowPortal: React.FC = () => {
 
   const handleUpdateField = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingField || !editingField.name.trim()) return;
+    if (!currentUser || !editingField || !editingField.name.trim()) return;
 
     try {
       await updateDoc(doc(db, 'fields', editingField.id), {
+        farmerUid: currentUser.uid,
         name: editingField.name.trim(),
         village: editingField.village.trim() || 'Village',
         district: editingField.district?.trim() || '',
@@ -438,16 +439,14 @@ export const GrowPortal: React.FC = () => {
             <span className="text-xl font-black text-white">{formatRupees(gradePrices.gradeA)}/kg</span>
           </div>
 
-          {fields.length > 0 && (
-            <button
-              onClick={() => setShowManageFieldsModal(true)}
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs font-semibold transition-colors"
-              title="Manage Registered Farms & Fields"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-              <span>Farms ({fields.length})</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowManageFieldsModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 hover:text-white rounded-full text-xs font-bold transition-all shadow-[0_0_12px_rgba(74,222,128,0.2)]"
+            title="Manage Registered Farms & Fields"
+          >
+            <Sprout className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Farms ({fields.length})</span>
+          </button>
 
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -522,6 +521,111 @@ export const GrowPortal: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-0.5">
             {ratedBags.length} verified reviews
           </div>
+        </div>
+      </div>
+
+      {/* Registered Farms Management Section - Farmer Direct Control */}
+      <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
+              <Sprout className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white">My Registered Farms</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {fields.length} {fields.length === 1 ? 'Farm' : 'Farms'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Farmers have direct control to edit details or delete their cultivation fields
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFieldModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Register New Farm</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Farm Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
+          {fields.length === 0 ? (
+            <div className="col-span-full p-6 text-center text-xs text-slate-400">
+              No farms registered yet. Click &ldquo;Register New Farm&rdquo; to add your first cultivation field.
+            </div>
+          ) : (
+            fields.map((f) => (
+              <div
+                key={f.id}
+                className={`p-3.5 rounded-xl border transition-all ${
+                  selectedFieldId === f.id
+                    ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_15px_rgba(74,222,128,0.15)]'
+                    : 'bg-white/[0.02] hover:bg-white/[0.04] border-white/10'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-white truncate flex items-center gap-1.5">
+                      <span>{f.name}</span>
+                      {selectedFieldId === f.id && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      📍 {f.village} {f.district ? `• ${f.district}` : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingField(f);
+                        setShowManageFieldsModal(true);
+                      }}
+                      className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/10 text-xs transition-colors"
+                      title="Edit Farm Details"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteField(f.id)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 text-xs transition-colors"
+                      title="Delete Farm"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFieldId(f.id)}
+                    className={`font-semibold transition-colors ${
+                      selectedFieldId === f.id
+                        ? 'text-emerald-400 cursor-default'
+                        : 'text-slate-400 hover:text-white underline'
+                    }`}
+                  >
+                    {selectedFieldId === f.id ? '✓ Selected for Harvest' : 'Set as Current Farm'}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

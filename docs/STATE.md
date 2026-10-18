@@ -18,12 +18,12 @@ All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, C
 
 | Portal | Role ID | Status | Key Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Grower** | `GROWER` | `DONE` | Harvest batch creation, Crate QR label generator, farm profile management (add/edit/delete), official admin pricing badge & lock. |
+| **Grower** | `GROWER` | `DONE` | Harvest batch creation, Crate QR label generator, farmer-direct farm management (register, edit, delete, switch active farm), official admin pricing badge & lock. |
 | **Move (Logistics)** | `DRIVER` | `DONE` | Vehicle auto-provisioning, GPS route tracking with hardware telemetry fallback, 1-click batch pickup & delivery completion. |
 | **Hub (Mandi Cold Storage)** | `MANDI` | `DONE` | Facility auto-provisioning, incoming delivery trucks list with 1-click intake to cold storage, dispatching to retail stores. |
 | **Shelf (Retail Stores)** | `RETAIL` | `DONE` | Store auto-provisioning, incoming dispatches list with 1-click receive onto shelf, stock display with live decay timer. |
 | **Table (Customer / Consumer)** | `CONSUMER` | `DONE` | Live produce browser across stores with 1-click purchase inspection, QR code verification, user settings access. |
-| **Control Admin** | `ADMIN` | `DONE` | Regulated rate configuration per size grade (A, B, C), registered farm overview with full edit and delete controls, system audits. |
+| **Control Admin** | `ADMIN` | `DONE` | Regulated rate configuration per size grade (A+, A, B, C), user verification approvals, IoT hardware telemetry binding, system audits. (Farm editing/deleting kept exclusively in Farmer portal). |
 
 ---
 
