@@ -184,3 +184,133 @@ export function formatStorageDuration(
   const remHours = hours % 24;
   return `${days}d ${remHours > 0 ? `${remHours}h` : ''}`;
 }
+
+/**
+ * Calculates Dew Point (°C) using the Magnus formula.
+ * The dew point is the temperature to which air must be cooled to become saturated with water vapor.
+ * If the facility temperature drops below dew point, water condenses on tomatoes causing rapid fungal rot.
+ */
+export function calculateDewPoint(tempC: number, humidityPct: number): number {
+  if (isNaN(tempC) || isNaN(humidityPct) || humidityPct <= 0) return tempC;
+  const a = 17.27;
+  const b = 237.7;
+  const alpha = ((a * tempC) / (b + tempC)) + Math.log(humidityPct / 100.0);
+  const dewPoint = (b * alpha) / (a - alpha);
+  return Math.round(dewPoint * 10) / 10;
+}
+
+/**
+ * Calculates Vapor Pressure Deficit (VPD in kPa).
+ * VPD measures the drying power of the air.
+ * - VPD > 1.2 kPa: Excessive transpiration, causing tomato weight loss and wrinkling.
+ * - VPD < 0.4 kPa: Air too humid, moisture condensation risk and pathogen development.
+ * - Optimal VPD: 0.4 – 0.8 kPa (preserves skin turgor and freshness).
+ */
+export function calculateVPD(tempC: number, humidityPct: number): number {
+  if (isNaN(tempC) || isNaN(humidityPct)) return 0.5;
+  const clampedHum = Math.min(100, Math.max(0, humidityPct));
+  // Saturated vapor pressure (kPa)
+  const vpSat = 0.61078 * Math.exp((17.27 * tempC) / (tempC + 237.3));
+  // Actual vapor pressure (kPa)
+  const vpAct = vpSat * (clampedHum / 100.0);
+  const vpd = Math.max(0, vpSat - vpAct);
+  return Math.round(vpd * 100) / 100;
+}
+
+/**
+ * Calculates Heat Index / Apparent Temperature (°C).
+ * Approximates how hot it feels when relative humidity is factored with actual air temperature.
+ */
+export function calculateHeatIndex(tempC: number, humidityPct: number): number {
+  if (isNaN(tempC) || isNaN(humidityPct)) return tempC;
+  if (tempC < 20.0) return tempC; // Heat index only applies meaningfully above 20°C
+  const t = tempC;
+  const r = humidityPct;
+  const hi = -8.78469475556 +
+    1.61139411 * t +
+    2.33854883889 * r -
+    0.14611605 * t * r -
+    0.012308094 * t * t -
+    0.0164248277778 * r * r +
+    0.002211732 * t * t * r +
+    0.00072546 * t * r * r -
+    0.000003582 * t * t * r * r;
+  return Math.round(hi * 10) / 10;
+}
+
+/**
+ * Evaluates holistic Mandi facility climate for fresh tomato preservation.
+ */
+export function evaluateMandiClimate(tempC?: number, humidityPct?: number): {
+  status: 'optimal' | 'stable' | 'warning' | 'critical';
+  label: string;
+  colorClass: string;
+  advice: string;
+  dewPoint: number;
+  vpd: number;
+  heatIndex: number;
+} {
+  const t = tempC ?? 14.0;
+  const h = humidityPct ?? 87.0;
+  const dp = calculateDewPoint(t, h);
+  const vpd = calculateVPD(t, h);
+  const hi = calculateHeatIndex(t, h);
+
+  if (t >= 12.0 && t <= 15.0 && h >= 85.0 && h <= 92.0) {
+    return {
+      status: 'optimal',
+      label: 'Optimal Chilled Storage',
+      colorClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40',
+      advice: 'Ideal climate: minimum respiration and moisture loss.',
+      dewPoint: dp,
+      vpd,
+      heatIndex: hi,
+    };
+  }
+
+  if (t <= 22.0 && h >= 70.0 && h <= 90.0) {
+    return {
+      status: 'stable',
+      label: 'Cool Ambient Transit',
+      colorClass: 'bg-sky-500/20 text-sky-300 border-sky-400/40',
+      advice: 'Safe for short-term Mandi holding (1–2 days).',
+      dewPoint: dp,
+      vpd,
+      heatIndex: hi,
+    };
+  }
+
+  if (t > 28.0) {
+    return {
+      status: 'critical',
+      label: 'Heat Spike Alert',
+      colorClass: 'bg-red-500/20 text-red-300 border-red-400/40',
+      advice: 'High temperatures accelerate ethylene production and softening. Dispatch urgently.',
+      dewPoint: dp,
+      vpd,
+      heatIndex: hi,
+    };
+  }
+
+  if (h > 94.0 || Math.abs(t - dp) < 1.0) {
+    return {
+      status: 'warning',
+      label: 'Condensation / Rot Risk',
+      colorClass: 'bg-amber-500/20 text-amber-300 border-amber-400/40',
+      advice: 'High humidity near dew point may form water droplets on tomato skins.',
+      dewPoint: dp,
+      vpd,
+      heatIndex: hi,
+    };
+  }
+
+  return {
+    status: 'warning',
+    label: 'Warm Ambient',
+    colorClass: 'bg-amber-500/20 text-amber-300 border-amber-400/40',
+    advice: 'Moderate temperature: monitor crate holding time.',
+    dewPoint: dp,
+    vpd,
+    heatIndex: hi,
+  };
+}

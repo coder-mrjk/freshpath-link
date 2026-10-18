@@ -1,7 +1,7 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.1.1  
+**Version**: 1.2.0  
 **Date**: October 18, 2026  
 **Status**: Approved  
 **Verified Against Commit**: `HEAD`  
@@ -10,7 +10,7 @@
 ---
 
 ## 1. Executive Summary
-All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) are active, functional, and connected with real-time Firestore synchronization. CI/CD automated deployments via GitHub Actions to Firebase Hosting are active on merge/push to `main`.
+All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) have been upgraded to high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
 
 ---
 
@@ -18,16 +18,17 @@ All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, C
 
 | Portal | Role ID | Status | Key Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Grower** | `GROWER` | `DONE` | Harvest batch creation, Crate QR label generator, farmer-direct farm management (register, edit, delete, switch active farm), official admin pricing badge & lock. |
-| **Move (Logistics)** | `DRIVER` | `DONE` | Vehicle auto-provisioning, GPS route tracking with hardware telemetry fallback, 1-click batch pickup & delivery completion. |
-| **Hub (Mandi Cold Storage)** | `MANDI` | `DONE` | Facility auto-provisioning, incoming delivery trucks list with 1-click intake to cold storage, dispatching to retail stores. |
-| **Shelf (Retail Stores)** | `RETAIL` | `DONE` | Store auto-provisioning, incoming dispatches list with 1-click receive onto shelf, stock display with live decay timer. |
-| **Table (Customer / Consumer)** | `CONSUMER` | `DONE` | Live produce browser across stores with 1-click purchase inspection, QR code verification, user settings access. |
-| **Control Admin** | `ADMIN` | `DONE` | Regulated rate configuration per size grade (A+, A, B, C), user verification approvals, IoT hardware telemetry binding, system audits. (Farm editing/deleting kept exclusively in Farmer portal). |
+| **Grower** | `GROWER` | `DONE` | Harvest crate creation with auto pricing, farmer farm management (register, edit, delete), real-time `onSnapshot` sync, **Pending Transport Handover Requests Gate** (approving/declining driver loading), and **Customer Verified Reviews & Ratings Ledger**. |
+| **Move (Logistics)** | `DRIVER` | `DONE` | Vehicle management, scanning crates sets `PENDING_PICKUP` awaiting farmer handover approval, live "Awaiting Farmer Handover Approval" ledger, real-time GPS hardware listener, and trip lifecycle. Zero demo simulators. |
+| **Hub (Mandi)** | `MANDI` | `DONE` | Direct Mandi DHT22 climate telemetry (Temperature, Humidity, Dew Point, VPD, Heat Index, Freshness badge), eliminated cold room unit requirements, removed demo injectors, real-time incoming delivery intake, and retail store dispatch. |
+| **Shelf (Retail Stores)** | `RETAIL` | `DONE` | Store management, real-time shelf inventory, removed Print Label & self-ratings, and added **Pending Customer Counter Payments Gate** with 1-click **Payment Received** verification. |
+| **Table (Customer / Consumer)** | `CONSUMER` | `DONE` | Live provenance browser with real-time `onSnapshot` sync, store details, "Digital Payments (UPI / Card): Coming Soon" banner, "Pay at Shop Counter" request, instant payment confirmation reveal, and **5-Star Direct Farmer Rating & Review modal**. |
+| **Control Admin** | `ADMIN` | `DONE` | Regulated rate configuration per size grade (A+, A, B, C), user verification approvals, direct Mandi DHT22 sensor node pairing, vehicle registration plate pairing notification fix, SMS verification line cleanup. |
 
 ---
 
 ## 3. Governance & Quality Gates
 - **Unit Tests**: 13/13 test files passing (68/68 test cases).
 - **TypeScript & Production Build**: Passing with zero type errors (`tsc && vite build`).
+- **Firestore Security Rules**: Strict role boundaries, lifecycle validation (`CREATED -> PENDING_PICKUP -> LOADED -> IN_TRANSIT -> IN_STORAGE -> DISPATCHED_TO_SHOP -> AT_SHOP -> PAYMENT_PENDING -> SOLD`), and rating updates. Validated with `firebase_validate_security_rules`.
 - **CI/CD Pipeline**: GitHub Actions `.github/workflows/firebase-hosting-merge.yml` deploying to Firebase Hosting project `freshpath-link`.

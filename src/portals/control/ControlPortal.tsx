@@ -46,7 +46,7 @@ export const ControlPortal: React.FC = () => {
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [vehicles, setVehicles] = useState<Array<{ id: string; driverUid: string; regNumber: string; gpsUnitId?: string }>>([]);
-  const [storageUnits, setStorageUnits] = useState<Array<{ id: string; mandiId: string; name: string; nodeUnitId?: string }>>([]);
+  const [mandis, setMandis] = useState<Array<{ id: string; name: string; area: string; mandiPersonUid?: string; nodeUnitId?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -56,8 +56,8 @@ export const ControlPortal: React.FC = () => {
   // Hardware Link Form State
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [gpsUnitIdInput, setGpsUnitIdInput] = useState('GPS-01');
-  const [selectedStorageId, setSelectedStorageId] = useState('');
-  const [sensorNodeIdInput, setSensorNodeIdInput] = useState('STORE-01');
+  const [selectedMandiId, setSelectedMandiId] = useState('');
+  const [sensorNodeIdInput, setSensorNodeIdInput] = useState('MANDI-DHT22-01');
 
   // Config State
   const [gradePrices, setGradePrices] = useState<GradePricing>(DEFAULT_GRADE_PRICING);
@@ -116,14 +116,15 @@ export const ControlPortal: React.FC = () => {
         setSelectedVehicleId(vList[0].id);
       }
 
-      // 4. Storage Units
-      const sSnap = await getDocs(collection(db, 'storageUnits'));
-      const sList: Array<{ id: string; mandiId: string; name: string; nodeUnitId?: string }> = [];
-      sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as any));
-      setStorageUnits(sList);
-      if (sList.length > 0 && !selectedStorageId) {
-        setSelectedStorageId(sList[0].id);
+      // 4. Mandis (for direct Mandi Climate DHT22 sensor binding)
+      const mSnap = await getDocs(collection(db, 'mandis'));
+      const mList: Array<{ id: string; name: string; area: string; mandiPersonUid?: string; nodeUnitId?: string }> = [];
+      mSnap.forEach((d) => mList.push({ id: d.id, ...d.data() } as any));
+      setMandis(mList);
+      if (mList.length > 0 && !selectedMandiId) {
+        setSelectedMandiId(mList[0].id);
       }
+
 
       // 5. Product rate & Grade Pricing
       const pricingDoc = await getDoc(doc(db, 'config', 'pricing'));
@@ -274,8 +275,11 @@ export const ControlPortal: React.FC = () => {
         { merge: true }
       );
 
+      const targetVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+      const vehicleDisplay = targetVehicle?.regNumber || selectedVehicleId;
+
       setMessage({
-        text: `Vehicle ${selectedVehicleId} linked to ${gpsUnitIdInput.trim().toUpperCase()}!`,
+        text: `Vehicle ${vehicleDisplay} linked to ${gpsUnitIdInput.trim().toUpperCase()}!`,
         type: 'success',
       });
       await loadData();
@@ -284,24 +288,28 @@ export const ControlPortal: React.FC = () => {
     }
   };
 
-  // Bind Sensor Node to Storage Unit
-  const handleLinkSensor = async (e: React.FormEvent) => {
+  // Bind DHT22 Sensor Node to Mandi directly
+  const handleLinkMandiSensor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStorageId || !sensorNodeIdInput.trim()) return;
+    if (!selectedMandiId || !sensorNodeIdInput.trim()) return;
 
     try {
-      const sRef = doc(db, 'storageUnits', selectedStorageId);
-      await updateDoc(sRef, {
-        nodeUnitId: sensorNodeIdInput.trim().toUpperCase(),
+      const nodeUnitId = sensorNodeIdInput.trim().toUpperCase();
+      const mRef = doc(db, 'mandis', selectedMandiId);
+      await updateDoc(mRef, {
+        nodeUnitId,
       });
 
+      const targetMandi = mandis.find((m) => m.id === selectedMandiId);
+      const mandiName = targetMandi?.name || selectedMandiId;
+
       setMessage({
-        text: `Storage unit linked to sensor node ${sensorNodeIdInput.trim().toUpperCase()}!`,
+        text: `Mandi "${mandiName}" linked to DHT22 sensor node ${nodeUnitId}!`,
         type: 'success',
       });
       await loadData();
     } catch (err: unknown) {
-      setMessage({ text: `Sensor node linking failed: ${(err as Error)?.message}`, type: 'error' });
+      setMessage({ text: `Mandi sensor linking failed: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
@@ -740,32 +748,32 @@ export const ControlPortal: React.FC = () => {
             </form>
           </div>
 
-          {/* Link Cold Storage to DHT22 Node */}
+          {/* Link Mandi Facility to DHT22 Climate Node */}
           <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
                 <Cpu className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">Storage Sensor Pairing</h3>
-                <p className="text-xs text-slate-400">Bind DHT22 telemetry node to Mandi bay</p>
+                <h3 className="font-bold text-sm text-white">Mandi Climate Sensor Pairing</h3>
+                <p className="text-xs text-slate-400">Bind DHT22 temperature & humidity sensor directly to Mandi</p>
               </div>
             </div>
 
-            <form onSubmit={handleLinkSensor} className="space-y-4">
+            <form onSubmit={handleLinkMandiSensor} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Select Cold Storage Unit
+                  Select Mandi Facility
                 </label>
                 <select
-                  value={selectedStorageId}
-                  onChange={(e) => setSelectedStorageId(e.target.value)}
+                  value={selectedMandiId}
+                  onChange={(e) => setSelectedMandiId(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
                 >
-                  {storageUnits.length === 0 && <option value="" className="bg-slate-900 text-white">No storage units registered</option>}
-                  {storageUnits.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                      {s.name} ({s.nodeUnitId ? `Node: ${s.nodeUnitId}` : 'Unlinked'})
+                  {mandis.length === 0 && <option value="" className="bg-slate-900 text-white">No mandis registered</option>}
+                  {mandis.map((m) => (
+                    <option key={m.id} value={m.id} className="bg-slate-900 text-white">
+                      {m.name} ({m.area}) — {m.nodeUnitId ? `Node: ${m.nodeUnitId}` : 'Unlinked'}
                     </option>
                   ))}
                 </select>
@@ -773,23 +781,23 @@ export const ControlPortal: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Sensor Node Unit ID
+                  DHT22 Sensor Node Unit ID
                 </label>
                 <input
                   type="text"
                   value={sensorNodeIdInput}
                   onChange={(e) => setSensorNodeIdInput(e.target.value)}
-                  placeholder="e.g. STORE-01"
+                  placeholder="e.g. MANDI-DHT22-01"
                   className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={storageUnits.length === 0}
+                disabled={mandis.length === 0}
                 className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(217,119,6,0.3)]"
               >
-                Bind Environmental Sensor
+                Bind Mandi Climate Sensor
               </button>
             </form>
           </div>
@@ -861,10 +869,6 @@ export const ControlPortal: React.FC = () => {
               <div className="flex justify-between items-center py-1 border-b border-white/10">
                 <span className="text-slate-400">Sign-In Providers:</span>
                 <span className="font-semibold text-white">Google OAuth 2.0 & Email/Password</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-white/10">
-                <span className="text-slate-400">SMS Verification:</span>
-                <span className="text-slate-400 font-mono">Fully Disabled</span>
               </div>
               <div className="flex justify-between items-center py-1 border-b border-white/10">
                 <span className="text-slate-400">Firestore Security:</span>

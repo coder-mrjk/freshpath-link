@@ -5,7 +5,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   addDoc,
   updateDoc,
@@ -41,6 +41,7 @@ import {
   Lock,
   Edit2,
   Trash2,
+  Truck,
 } from 'lucide-react';
 
 interface Field {
@@ -67,6 +68,17 @@ interface Bag {
   storageUnitId?: string;
   mandiId?: string;
   shopId?: string;
+  handlerUids?: string[];
+  pendingPickup?: {
+    driverUid: string;
+    driverName: string;
+    driverPassId?: string;
+    driverPhone?: string;
+    vehicleId?: string;
+    vehicleReg?: string;
+    tripId?: string;
+    requestedAt?: any;
+  };
   soldTo?: {
     consumerUid: string;
     consumerPassId: string;
@@ -95,6 +107,7 @@ export const GrowPortal: React.FC = () => {
   const [gradePrices, setGradePrices] = useState<GradePricing>(DEFAULT_GRADE_PRICING);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -127,30 +140,34 @@ export const GrowPortal: React.FC = () => {
   const [newFieldDistrict, setNewFieldDistrict] = useState('');
 
   const loadGrowData = async () => {
+    setLoading(true);
+    setTimeout(() => setLoading(false), 300);
+  };
+
+  useEffect(() => {
     if (!currentUser) return;
     setLoading(true);
     setError(null);
-    try {
-      // 1. Fetch Fields
-      const fieldsQ = query(collection(db, 'fields'), where('farmerUid', '==', currentUser.uid));
-      const fieldSnap = await getDocs(fieldsQ);
+
+    // 1. Fetch Fields real-time
+    const fieldsQ = query(collection(db, 'fields'), where('farmerUid', '==', currentUser.uid));
+    const unsubFields = onSnapshot(fieldsQ, (snap) => {
       const fieldList: Field[] = [];
-      fieldSnap.forEach((d) => fieldList.push({ id: d.id, ...d.data() } as Field));
-
+      snap.forEach((d) => fieldList.push({ id: d.id, ...d.data() } as Field));
       setFields(fieldList);
-      if (fieldList.length > 0 && !selectedFieldId) {
-        setSelectedFieldId(fieldList[0].id);
-      } else if (fieldList.length === 0) {
-        setSelectedFieldId('');
-      }
+      setSelectedFieldId((prev) => {
+        if (!prev) return fieldList[0]?.id || '';
+        return fieldList.some((f) => f.id === prev) ? prev : fieldList[0]?.id || '';
+      });
+    });
 
-      // 2. Fetch Bags
-      const bagsQ = query(collection(db, 'bags'), where('farmerUid', '==', currentUser.uid));
-      const bagSnap = await getDocs(bagsQ);
+    // 2. Fetch Bags real-time
+    const bagsQ = query(collection(db, 'bags'), where('farmerUid', '==', currentUser.uid));
+    const unsubBags = onSnapshot(bagsQ, async (snap) => {
       const bagList: Bag[] = [];
       const unitIdsToFetch = new Set<string>();
 
-      bagSnap.forEach((d) => {
+      snap.forEach((d) => {
         const data = { id: d.id, ...d.data() } as Bag;
         bagList.push(data);
         if (data.storageUnitId) {
@@ -158,19 +175,15 @@ export const GrowPortal: React.FC = () => {
         }
       });
 
-      // Sort by creation time desc
-      bagList.sort((a, b) => {
-        const timeA = a.createdAt?.seconds || 0;
-        const timeB = b.createdAt?.seconds || 0;
-        return timeB - timeA;
-      });
+      bagList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setBags(bagList);
+      setLoading(false);
 
-      // 3. Fetch Storage Unit live readings for crates in mandi
+      // Fetch Mandi / Storage live readings
       const newStorageMap: Record<string, StorageUnitInfo> = {};
       for (const unitId of Array.from(unitIdsToFetch)) {
         try {
-          const uSnap = await getDoc(doc(db, 'storageUnits', unitId));
+          const uSnap = await getDoc(doc(db, 'mandis', unitId));
           if (uSnap.exists()) {
             const uData = uSnap.data();
             newStorageMap[unitId] = {
@@ -178,14 +191,26 @@ export const GrowPortal: React.FC = () => {
               humidityPct: uData.currentHumidity ?? uData.latest?.humidityPct,
               name: uData.name,
             };
+          } else {
+            const legacySnap = await getDoc(doc(db, 'storageUnits', unitId));
+            if (legacySnap.exists()) {
+              const lData = legacySnap.data();
+              newStorageMap[unitId] = {
+                tempC: lData.currentTemp ?? lData.latest?.tempC,
+                humidityPct: lData.currentHumidity ?? lData.latest?.humidityPct,
+                name: lData.name,
+              };
+            }
           }
-        } catch (e) {
-          // ignore individual read errors
+        } catch {
+          // ignore
         }
       }
       setStorageMap(newStorageMap);
+    });
 
-      // 4. Fetch Configured Grade Pricing
+    // 3. Fetch Pricing Config
+    const loadPricing = async () => {
       try {
         const pricingSnap = await getDoc(doc(db, 'config', 'pricing'));
         if (pricingSnap.exists()) {
@@ -198,26 +223,92 @@ export const GrowPortal: React.FC = () => {
           };
           setGradePrices(loaded);
           setRatePerKg(getPriceForGrade(sizeGrade, loaded));
-        } else {
-          const prodSnap = await getDoc(doc(db, 'products', 'tomato'));
-          if (prodSnap.exists()) {
-            setRatePerKg(prodSnap.data().ratePerKg || 60);
+        }
+      } catch (e) {
+        console.warn('Failed to load pricing config:', e);
+      }
+    };
+    loadPricing();
+
+    return () => {
+      unsubFields();
+      unsubBags();
+    };
+  }, [currentUser]);
+
+  // Farmer Handover Approval Handlers
+  const handleApproveHandover = async (bag: Bag) => {
+    if (!currentUser || !bag.pendingPickup) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      const batch = writeBatch(db);
+      const tripId = bag.pendingPickup.tripId;
+
+      // 1. Update Bag to LOADED
+      batch.update(doc(db, 'bags', bag.id), {
+        status: 'LOADED',
+        holderUid: bag.pendingPickup.driverUid,
+        handlerUids: Array.from(new Set([...(bag.handlerUids || []), currentUser.uid, bag.pendingPickup.driverUid])),
+        updatedAt: serverTimestamp(),
+      });
+
+      // 2. Add crate to trip bagIds if tripId exists
+      if (tripId) {
+        const tripRef = doc(db, 'trips', tripId);
+        const tripSnap = await getDoc(tripRef);
+        if (tripSnap.exists()) {
+          const tripData = tripSnap.data();
+          const existingBagIds = tripData.bagIds || [];
+          if (!existingBagIds.includes(bag.id)) {
+            batch.update(tripRef, {
+              bagIds: [...existingBagIds, bag.id],
+              updatedAt: serverTimestamp(),
+            });
           }
         }
-      } catch (err) {
-        console.warn('Failed to load grade pricing config:', err);
       }
+
+      // 3. Append Event: HANDOVER_APPROVED
+      const eventRef = doc(collection(db, 'events'));
+      batch.set(eventRef, {
+        bagId: bag.id,
+        tripId: tripId || null,
+        type: 'HANDOVER_APPROVED',
+        byUid: currentUser.uid,
+        byRole: 'farmer',
+        byPassId: userProfile?.passId || 'FP-F-VERIFIED',
+        at: serverTimestamp(),
+        place: { text: bag.village },
+        note: `Farmer approved transport handover to driver ${bag.pendingPickup.driverName} (${bag.pendingPickup.vehicleReg || 'Truck'}).`,
+      });
+
+      await batch.commit();
+      setSuccessMsg(`Crate ${bag.id} handover approved! Crate is now loaded onto driver's transport vehicle.`);
     } catch (err: unknown) {
-      console.warn('Failed to load farmer data:', err);
-      setError((err as Error)?.message || 'Failed to load farm records.');
+      setError((err as Error)?.message || 'Failed to approve handover.');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadGrowData();
-  }, [currentUser]);
+  const handleDeclineHandover = async (bag: Bag) => {
+    if (!currentUser) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      await updateDoc(doc(db, 'bags', bag.id), {
+        status: 'CREATED',
+        pendingPickup: null,
+        updatedAt: serverTimestamp(),
+      });
+      setSuccessMsg(`Handover for crate ${bag.id} was declined.`);
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to decline handover.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleCreateField = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -379,6 +470,8 @@ export const GrowPortal: React.FC = () => {
         ).toFixed(1)
       : null;
 
+  const pendingHandoverBags = bags.filter((b) => b.status === 'PENDING_PICKUP');
+
   // Filter bags
   const filteredBags = bags.filter((b) => {
     if (filterStatus === 'ALL') return true;
@@ -504,6 +597,78 @@ export const GrowPortal: React.FC = () => {
         </div>
       </div>
 
+      {/* Pending Transport Handover Requests Gate */}
+      {pendingHandoverBags.length > 0 && (
+        <div className="relative backdrop-blur-xl bg-amber-500/[0.08] rounded-3xl border border-amber-400/40 p-6 shadow-2xl mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/20 rounded-xl text-amber-400 border border-amber-500/30">
+                <Truck className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-black text-sm text-white flex items-center gap-2">
+                  <span>Pending Transport Handover Requests ({pendingHandoverBags.length})</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/40">
+                    Action Required
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-300">
+                  A transport driver has scanned these crates. Review driver credentials and approve before crates leave your farm.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {pendingHandoverBags.map((bag) => (
+              <div
+                key={bag.id}
+                className="p-4 bg-slate-900/80 rounded-2xl border border-white/10 flex flex-col justify-between gap-3 shadow-lg"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-white text-sm">{bag.id}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Awaiting Farmer Approval
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-300 mt-2 space-y-1">
+                    <div>
+                      <strong className="text-white">Driver: </strong>
+                      {bag.pendingPickup?.driverName || 'Driver'} ({bag.pendingPickup?.driverPassId || 'FP-D-DRIVER'})
+                    </div>
+                    <div>
+                      <strong className="text-white">Vehicle: </strong>
+                      <span className="font-mono font-bold text-sky-300">{bag.pendingPickup?.vehicleReg || 'Transport Truck'}</span>
+                    </div>
+                    <div className="text-slate-400 text-[11px]">
+                      {bag.weightKg} kg • {bag.pieces} tomatoes • {bag.fieldName}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                  <button
+                    onClick={() => handleDeclineHandover(bag)}
+                    disabled={actionLoading}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    ✕ Decline
+                  </button>
+                  <button
+                    onClick={() => handleApproveHandover(bag)}
+                    disabled={actionLoading}
+                    className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(16,185,129,0.3)] transition-all"
+                  >
+                    ✓ Approve Handover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Registered Farms Management Section - Farmer Direct Control */}
       <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
@@ -613,6 +778,7 @@ export const GrowPortal: React.FC = () => {
       <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4">
         {[
           { key: 'ALL', label: `All Crates (${bags.length})` },
+          { key: 'PENDING_PICKUP', label: `Handover Pending (${pendingHandoverBags.length})` },
           { key: 'IN_STORAGE', label: `In Mandi Storage (${inMandiCount})` },
           { key: 'IN_TRANSIT', label: `In Transit (${bags.filter((b) => b.status === 'IN_TRANSIT').length})` },
           { key: 'SOLD', label: `Sold to Buyers (${soldCount})` },
@@ -784,6 +950,67 @@ export const GrowPortal: React.FC = () => {
           })
         )}
       </div>
+
+      {/* Customer Verified Reviews & Ratings Ledger */}
+      {ratedBags.length > 0 && (
+        <div className="mt-8 relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-3xl p-6 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-400">
+                <Star className="w-5 h-5 fill-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  <span>Customer Verified Reviews & Ratings</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    ★ {avgRating} / 5.0 ({ratedBags.length} reviews)
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Direct customer feedback and quality evaluations received from supermarket counters
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
+            {ratedBags.map((bag) => (
+              <div
+                key={bag.id}
+                className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-2xl flex flex-col justify-between gap-2"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-white">{bag.id}</span>
+                    <div className="flex items-center gap-0.5 text-amber-400">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          className={`w-3.5 h-3.5 ${
+                            s <= (bag.rating?.stars || 0)
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {bag.rating?.comment && (
+                    <p className="text-xs text-amber-100/90 italic mt-2">
+                      &ldquo;{bag.rating.comment}&rdquo;
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
+                  <span>Buyer: <strong className="text-slate-200">{bag.soldTo?.firstName || 'Verified Customer'}</strong></span>
+                  <span>{bag.rating?.at ? formatIST(bag.rating.at) : 'Recently'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Harvest Crate Modal */}
       {showHarvestModal && (

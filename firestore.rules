@@ -111,6 +111,13 @@ service cloud.firestore {
     //   - lat: number (optional)
     //   - lng: number (optional)
     //
+    // Subcollection: mandis/{mandiId}/readings/{readingId}
+    // Document ID: Auto-generated reading ID
+    // Fields:
+    //   - tempC: number (required)
+    //   - humidityPct: number (required)
+    //   - at: timestamp (required)
+    //
     // Collection: storageUnits/{unitId}
     // Document ID: Storage unit ID (e.g. 'STORE-01')
     // Fields:
@@ -149,7 +156,7 @@ service cloud.firestore {
     //   - pieces: number (required)
     //   - pricePerKg: number (required)
     //   - totalPrice: number (required)
-    //   - status: string ('CREATED'|'LOADED'|'IN_TRANSIT'|'IN_STORAGE'|'DISPATCHED_TO_SHOP'|'AT_SHOP'|'SOLD')
+    //   - status: string ('CREATED'|'PENDING_PICKUP'|'LOADED'|'IN_TRANSIT'|'IN_STORAGE'|'DISPATCHED_TO_SHOP'|'AT_SHOP'|'PAYMENT_PENDING'|'SOLD')
     //   - tripId: string (optional)
     //   - storageUnitId: string (optional)
     //   - mandiId: string (optional)
@@ -225,18 +232,34 @@ service cloud.firestore {
       let prev = resource.data.status;
       let next = request.resource.data.status;
       return isOwner() ||
+             // Driver pickup request
+             ((isApproved('driver') || signedIn()) && prev == 'CREATED' && next == 'PENDING_PICKUP') ||
+             // Farmer handover approval
+             ((isApproved('farmer') || signedIn()) && prev == 'PENDING_PICKUP' && next == 'LOADED') ||
+             // Farmer handover decline
+             ((isApproved('farmer') || signedIn()) && prev == 'PENDING_PICKUP' && next == 'CREATED') ||
+             // Trip transit (with backward compatible direct load/transit)
              ((isApproved('driver') || signedIn()) && prev == 'CREATED' && next == 'LOADED') ||
              ((isApproved('driver') || signedIn()) && (prev == 'LOADED' || prev == 'CREATED') && next == 'IN_TRANSIT') ||
+             // Mandi check-in
              ((isApproved('mandi') || signedIn()) && (prev == 'IN_TRANSIT' || prev == 'LOADED') && next == 'IN_STORAGE') ||
+             // Mandi dispatch
              ((isApproved('mandi') || signedIn()) && prev == 'IN_STORAGE' && next == 'DISPATCHED_TO_SHOP') ||
+             // Shop receiving
              ((isApproved('shop') || signedIn()) && (prev == 'DISPATCHED_TO_SHOP' || prev == 'IN_STORAGE') && next == 'AT_SHOP') ||
+             // Consumer counter payment request
+             ((isApproved('consumer') || signedIn()) && prev == 'AT_SHOP' && next == 'PAYMENT_PENDING') ||
+             // Shopkeeper payment received
+             ((isApproved('shop') || signedIn()) && prev == 'PAYMENT_PENDING' && next == 'SOLD') ||
+             // Direct purchase fallback
              ((isApproved('consumer') || signedIn()) && prev == 'AT_SHOP' && next == 'SOLD');
     }
 
     // Helper for consumer rating update on a sold bag
     function isValidBagRatingUpdate() {
       return resource.data.status == 'SOLD' &&
-             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating']);
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'updatedAt']) &&
+             signedIn();
     }
 
     // ===============================================================
@@ -303,7 +326,8 @@ service cloud.firestore {
     // Farm fields registered by farmers (both approved and newly registered) or owner
     match /fields/{fieldId} {
       allow read: if signedIn();
-      allow create, update: if isOwner() || (signedIn() && request.resource.data.farmerUid == request.auth.uid);
+      allow create: if isOwner() || (signedIn() && request.resource.data.farmerUid == request.auth.uid);
+      allow update: if isOwner() || (signedIn() && (request.resource.data.farmerUid == request.auth.uid || resource.data.farmerUid == request.auth.uid));
       allow delete: if isOwner() || (signedIn() && resource.data.farmerUid == request.auth.uid);
     }
 
@@ -332,11 +356,18 @@ service cloud.firestore {
     // Mandi warehouse locations
     match /mandis/{mandiId} {
       allow read: if signedIn();
-      allow create, update: if isOwner() || isApproved('mandi') || (signedIn() && request.resource.data.mandiPersonUid == request.auth.uid);
+      allow create, update: if isOwner() || isApproved('mandi') || (signedIn() && (request.resource.data.mandiPersonUid == request.auth.uid || resource.data.mandiPersonUid == request.auth.uid));
       allow delete: if isOwner() || (signedIn() && resource.data.mandiPersonUid == request.auth.uid);
+
+      // Telemetry readings subcollection for Mandi
+      match /readings/{readingId} {
+        allow read: if signedIn();
+        allow create: if isDevice(mandiId, 'storage') || isOwner() || isApproved('mandi') || signedIn();
+        allow update, delete: if isOwner();
+      }
     }
 
-    // Cold storage units within mandis
+    // Cold storage units within mandis (retained for backward compatibility)
     match /storageUnits/{unitId} {
       allow read: if signedIn();
       allow create, update: if isApproved('mandi') || isOwner() || signedIn() || isDevice(unitId, 'storage');
@@ -353,7 +384,8 @@ service cloud.firestore {
     // Retail shops
     match /shops/{shopId} {
       allow read: if signedIn();
-      allow create, update: if isApproved('shop') || isOwner() || (signedIn() && request.resource.data.shopPersonUid == request.auth.uid);
+      allow create: if isApproved('shop') || isOwner() || (signedIn() && request.resource.data.shopPersonUid == request.auth.uid);
+      allow update: if isOwner() || isApproved('shop') || (signedIn() && (request.resource.data.shopPersonUid == request.auth.uid || resource.data.shopPersonUid == request.auth.uid));
       allow delete: if isOwner() || (signedIn() && resource.data.shopPersonUid == request.auth.uid);
     }
 

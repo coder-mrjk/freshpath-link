@@ -5,7 +5,6 @@ import {
   collection,
   query,
   where,
-  getDocs,
   doc,
   getDoc,
   updateDoc,
@@ -13,6 +12,7 @@ import {
   addDoc,
   serverTimestamp,
   writeBatch,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { parseScannedBagId } from '../../lib/bagId';
@@ -27,7 +27,6 @@ import {
   AlertCircle,
   CheckCircle,
   ExternalLink,
-  Printer,
   Search,
   Settings,
   Plus,
@@ -35,6 +34,11 @@ import {
   Edit2,
   Trash2,
   Sparkles,
+  CreditCard,
+  Check,
+  Star,
+  PackageCheck,
+  UserCheck,
 } from 'lucide-react';
 
 interface Shop {
@@ -60,6 +64,22 @@ interface ShelfBag {
   harvestAt: any;
   createdAt: any;
   updatedAt?: any;
+  pendingBuyer?: {
+    uid: string;
+    name: string;
+    passId: string;
+    requestedAt?: any;
+  };
+  soldTo?: {
+    consumerUid: string;
+    consumerPassId: string;
+    firstName: string;
+  };
+  rating?: {
+    stars: number;
+    comment?: string;
+    at: any;
+  };
 }
 
 export const ShelfPortal: React.FC = () => {
@@ -69,80 +89,115 @@ export const ShelfPortal: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
+
+  // Bag collections in real-time
   const [shelfBags, setShelfBags] = useState<ShelfBag[]>([]);
+  const [pendingPaymentBags, setPendingPaymentBags] = useState<ShelfBag[]>([]);
+  const [soldBags, setSoldBags] = useState<ShelfBag[]>([]);
+  const [dispatchedBags, setDispatchedBags] = useState<ShelfBag[]>([]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFreshness, setFilterFreshness] = useState<'ALL' | 'FRESH' | 'SELL_SOON' | 'CHECK_QUALITY'>('ALL');
 
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Scanner modal
+  // Modals
   const [showScanner, setShowScanner] = useState(false);
-
-  // Shop setup modal
   const [showShopModal, setShowShopModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [dispatchedBags, setDispatchedBags] = useState<ShelfBag[]>([]);
   const [newShopName, setNewShopName] = useState('');
   const [newShopArea, setNewShopArea] = useState('');
 
-  const loadShelfData = async () => {
-    if (!currentUser) return;
-    setLoading(true);
-    setError(null);
-    try {
-      // 1. Fetch Shop for current user (or all if owner)
-      let sList: Shop[] = [];
-      if (isOwner) {
-        const sSnap = await getDocs(collection(db, 'shops'));
-        sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
-      } else {
-        const sQ = query(collection(db, 'shops'), where('shopPersonUid', '==', currentUser.uid));
-        const sSnap = await getDocs(sQ);
-        sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
-      }
-
-      setShops(sList);
-      const activeShop = sList.length > 0 ? (selectedShop ? sList.find((s) => s.id === selectedShop.id) || sList[0] : sList[0]) : null;
-      setSelectedShop(activeShop);
-
-      if (activeShop) {
-        // 2. Fetch Shelf Bags (status == 'AT_SHOP')
-        const bQ = query(
-          collection(db, 'bags'),
-          where('shopId', '==', activeShop.id),
-          where('status', '==', 'AT_SHOP')
-        );
-        const bSnap = await getDocs(bQ);
-        const bList: ShelfBag[] = [];
-        bSnap.forEach((d) => bList.push({ id: d.id, ...d.data() } as ShelfBag));
-        bList.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
-        setShelfBags(bList);
-      } else {
-        setShelfBags([]);
-      }
-
-      // 3. Fetch Dispatched Bags arriving from Mandi
-      const dispQ = query(
-        collection(db, 'bags'),
-        where('status', '==', 'DISPATCHED_TO_SHOP')
-      );
-      const dispSnap = await getDocs(dispQ);
-      const dispList: ShelfBag[] = [];
-      dispSnap.forEach((d) => dispList.push({ id: d.id, ...d.data() } as ShelfBag));
-      setDispatchedBags(dispList);
-    } catch (err: unknown) {
-      console.warn('Shelf portal load error:', err);
-      setError((err as Error)?.message || 'Failed to load retail shop data.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // 1. Real-time Shops Listener
   useEffect(() => {
-    loadShelfData();
-  }, [currentUser]);
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    const sQ = isOwner
+      ? collection(db, 'shops')
+      : query(collection(db, 'shops'), where('shopPersonUid', '==', currentUser.uid));
+
+    const unsubscribeShops = onSnapshot(
+      sQ,
+      (snapshot) => {
+        const sList: Shop[] = [];
+        snapshot.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
+        setShops(sList);
+
+        setSelectedShop((prev) => {
+          if (!prev) return sList[0] || null;
+          const matched = sList.find((s) => s.id === prev.id);
+          return matched || sList[0] || null;
+        });
+
+        setLoading(false);
+      },
+      (err) => {
+        console.warn('Real-time shops listener error:', err);
+        setError(err.message || 'Failed to sync retail stores.');
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribeShops();
+  }, [currentUser, isOwner]);
+
+  // 2. Real-time Dispatched Bags (arriving from Mandi)
+  useEffect(() => {
+    const dispQ = query(collection(db, 'bags'), where('status', '==', 'DISPATCHED_TO_SHOP'));
+    const unsubscribeDisp = onSnapshot(dispQ, (snapshot) => {
+      const list: ShelfBag[] = [];
+      snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as ShelfBag));
+      setDispatchedBags(list);
+    });
+
+    return () => unsubscribeDisp();
+  }, []);
+
+  // 3. Real-time Bags for Selected Shop (AT_SHOP, PAYMENT_PENDING, SOLD)
+  useEffect(() => {
+    if (!selectedShop) {
+      setShelfBags([]);
+      setPendingPaymentBags([]);
+      setSoldBags([]);
+      return;
+    }
+
+    // Query all crates for this shop
+    const shopBagsQ = query(collection(db, 'bags'), where('shopId', '==', selectedShop.id));
+    const unsubscribeBags = onSnapshot(shopBagsQ, (snapshot) => {
+      const onShelf: ShelfBag[] = [];
+      const pendingPay: ShelfBag[] = [];
+      const sold: ShelfBag[] = [];
+
+      snapshot.forEach((d) => {
+        const item = { id: d.id, ...d.data() } as ShelfBag;
+        if (item.status === 'AT_SHOP') {
+          onShelf.push(item);
+        } else if (item.status === 'PAYMENT_PENDING') {
+          pendingPay.push(item);
+        } else if (item.status === 'SOLD') {
+          sold.push(item);
+        }
+      });
+
+      // Sort by recent activity
+      onShelf.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+      pendingPay.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+      sold.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+
+      setShelfBags(onShelf);
+      setPendingPaymentBags(pendingPay);
+      setSoldBags(sold);
+    });
+
+    return () => unsubscribeBags();
+  }, [selectedShop?.id]);
 
   // Handle Receive Crate QR
   const handleReceiveBag = async (scannedValue: string) => {
@@ -155,6 +210,7 @@ export const ShelfPortal: React.FC = () => {
 
     setShowScanner(false);
     setError(null);
+    setActionLoading(true);
 
     try {
       const bagRef = doc(db, 'bags', bagId);
@@ -164,8 +220,8 @@ export const ShelfPortal: React.FC = () => {
       }
 
       const bagData = bagSnap.data();
-      // Valid transition: DISPATCHED_TO_SHOP -> AT_SHOP
-      if (bagData.status !== 'DISPATCHED_TO_SHOP') {
+      // Valid transition: DISPATCHED_TO_SHOP (or IN_STORAGE) -> AT_SHOP
+      if (bagData.status !== 'DISPATCHED_TO_SHOP' && bagData.status !== 'IN_STORAGE') {
         throw new Error(
           `Crate cannot be received. Current status is "${bagData.status}". Crates must be in "DISPATCHED_TO_SHOP" status from the Mandi.`
         );
@@ -177,6 +233,8 @@ export const ShelfPortal: React.FC = () => {
       batch.update(bagRef, {
         status: 'AT_SHOP',
         shopId: selectedShop.id,
+        shopName: selectedShop.name,
+        shopArea: selectedShop.area,
         holderUid: currentUser.uid,
         handlerUids: Array.from(new Set([...(bagData.handlerUids || []), currentUser.uid])),
         updatedAt: serverTimestamp(),
@@ -199,9 +257,74 @@ export const ShelfPortal: React.FC = () => {
 
       await batch.commit();
       setSuccessMsg(`Crate ${bagId} successfully received and placed on shelf!`);
-      await loadShelfData();
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to receive crate.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Counter Payment Received (Shopkeeper clicks "Payment Received")
+  const handleConfirmPaymentReceived = async (bag: ShelfBag) => {
+    if (!currentUser || !selectedShop) return;
+
+    setActionLoading(true);
+    setError(null);
+
+    try {
+      const buyerUid = bag.pendingBuyer?.uid || 'COUNTER_BUYER';
+      const buyerName = bag.pendingBuyer?.name || 'Walk-in Consumer';
+      const buyerPassId = bag.pendingBuyer?.passId || 'FP-C-COUNTER';
+
+      const batch = writeBatch(db);
+
+      // 1. Update Bag to SOLD
+      const bagRef = doc(db, 'bags', bag.id);
+      batch.update(bagRef, {
+        status: 'SOLD',
+        soldTo: {
+          consumerUid: buyerUid,
+          consumerPassId: buyerPassId,
+          firstName: buyerName,
+        },
+        paymentStatus: 'PAID_COUNTER',
+        soldAtShopId: selectedShop.id,
+        soldAtShopName: selectedShop.name,
+        updatedAt: serverTimestamp(),
+      });
+
+      // 2. Append Purchase record
+      const purchaseRef = doc(collection(db, 'purchases'));
+      batch.set(purchaseRef, {
+        bagId: bag.id,
+        consumerUid: buyerUid,
+        consumerPassId: buyerPassId,
+        price: bag.totalPrice,
+        paymentStatus: 'PAID_COUNTER',
+        shopId: selectedShop.id,
+        shopName: selectedShop.name,
+        at: serverTimestamp(),
+      });
+
+      // 3. Append Ledger Event: PURCHASED
+      const eventRef = doc(collection(db, 'events'));
+      batch.set(eventRef, {
+        bagId: bag.id,
+        type: 'PURCHASED',
+        byUid: currentUser.uid,
+        byRole: 'shop',
+        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
+        at: serverTimestamp(),
+        place: { text: `${selectedShop.name} (${selectedShop.area})` },
+        note: `Payment received in cash/counter by shopkeeper for buyer ${buyerName} (${buyerPassId}).`,
+      });
+
+      await batch.commit();
+      setSuccessMsg(`Payment received! Crate ${bag.id} marked SOLD. Consumer provenance unlocked.`);
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to confirm counter payment.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -221,7 +344,6 @@ export const ShelfPortal: React.FC = () => {
       setNewShopName('');
       setNewShopArea('');
       setSuccessMsg(`Retail Store "${newShopName.trim()}" registered successfully!`);
-      await loadShelfData();
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to create shop.');
     }
@@ -238,15 +360,8 @@ export const ShelfPortal: React.FC = () => {
         area: editingShop.area.trim(),
         updatedAt: serverTimestamp(),
       });
-      setShops((prev) =>
-        prev.map((s) => (s.id === editingShop.id ? editingShop : s))
-      );
-      if (selectedShop?.id === editingShop.id) {
-        setSelectedShop(editingShop);
-      }
       setEditingShop(null);
       setSuccessMsg(`Retail Store "${editingShop.name.trim()}" updated successfully!`);
-      await loadShelfData();
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to update shop.');
     }
@@ -259,13 +374,7 @@ export const ShelfPortal: React.FC = () => {
     }
     try {
       await deleteDoc(doc(db, 'shops', shopId));
-      setShops((prev) => prev.filter((s) => s.id !== shopId));
-      if (selectedShop?.id === shopId) {
-        const remaining = shops.filter((s) => s.id !== shopId);
-        setSelectedShop(remaining.length > 0 ? remaining[0] : null);
-      }
       setSuccessMsg(`Retail Store "${name}" deleted.`);
-      await loadShelfData();
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to delete shop.');
     }
@@ -275,12 +384,12 @@ export const ShelfPortal: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-        <p className="text-xs text-slate-400">Loading retail shelf inventory...</p>
+        <p className="text-xs text-slate-400">Connecting to retail store shelf inventory...</p>
       </div>
     );
   }
 
-  // Filter & Search Logic
+  // Filter & Search Logic for Shelf Crates
   const filteredBags = shelfBags.filter((b) => {
     const matchesSearch =
       b.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -315,7 +424,7 @@ export const ShelfPortal: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black tracking-tight text-white">Shelf Portal</h1>
+              <h1 className="text-2xl font-black tracking-tight text-white">Shelf &amp; Store Portal</h1>
               {(userProfile?.fullName || userProfile?.firstName) && (
                 <span className="text-xs font-semibold bg-purple-950/60 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/40">
                   {userProfile.fullName || userProfile.firstName}
@@ -339,8 +448,8 @@ export const ShelfPortal: React.FC = () => {
               </select>
             ) : (
               <p className="text-xs text-purple-200/80 mt-0.5">
-                Retailer: <strong className="text-white">{selectedShop?.name || 'No Shop Registered'}</strong>
-                {selectedShop?.area && <span> • {selectedShop.area}</span>}
+                Retail Store: <strong className="text-white">{selectedShop?.name || 'No Shop Registered'}</strong>
+                {selectedShop?.area && <span> • 📍 {selectedShop.area}</span>}
                 {userProfile?.fullName && <span> • Manager: <strong className="text-white">{userProfile.fullName}</strong></span>}
                 {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
               </p>
@@ -400,7 +509,70 @@ export const ShelfPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Registered Retail Stores Management Section - Retailer Direct Control */}
+      {/* PENDING COUNTER PAYMENTS GATE (Real-time Customer Scan & Pay) */}
+      {pendingPaymentBags.length > 0 && (
+        <div className="relative backdrop-blur-xl bg-gradient-to-r from-emerald-950/70 via-emerald-900/40 to-slate-900/80 rounded-3xl border-2 border-emerald-500/50 p-6 shadow-2xl mb-8 animate-pulse-border">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-white">Pending Counter Payments</h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500 text-slate-950">
+                    {pendingPaymentBags.length} Waiting
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Shoppers scanned crate QR at your counter. Confirm physical payment received to unlock their provenance and farmer rating.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pendingPaymentBags.map((bag) => (
+              <div
+                key={bag.id}
+                className="p-4 bg-slate-900/90 border border-emerald-500/30 rounded-2xl flex flex-col justify-between gap-3 shadow-lg"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="font-mono text-sm font-black text-white">{bag.id}</span>
+                    <span className="text-base font-black text-emerald-400">
+                      {formatRupees(bag.totalPrice)}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-slate-300 space-y-1">
+                    <p className="flex items-center gap-1.5">
+                      <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Customer: <strong className="text-white">{bag.pendingBuyer?.name || 'Walk-in Buyer'}</strong></span>
+                      <span className="font-mono text-[10px] text-slate-400">({bag.pendingBuyer?.passId || '–'})</span>
+                    </p>
+                    <p className="text-slate-400">
+                      Produce: {bag.weightKg} kg tomatoes ({bag.pieces} pcs) • Farmer: {bag.farmerFirstName}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleConfirmPaymentReceived(bag)}
+                  disabled={actionLoading}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 rounded-xl text-xs font-black shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2 touch-target"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Payment Received (₹{bag.totalPrice})</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Registered Retail Stores Management Section */}
       <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
@@ -415,7 +587,7 @@ export const ShelfPortal: React.FC = () => {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Retailers have direct control to register, edit location details, or delete retail stores
+                Retailers have direct control to register, edit location details, or manage retail stores
               </p>
             </div>
           </div>
@@ -500,7 +672,7 @@ export const ShelfPortal: React.FC = () => {
                     {selectedShop?.id === s.id ? '✓ Active Store' : 'Set as Active'}
                   </button>
                   <span className="text-[10px] text-slate-400">
-                    {shelfBags.filter((b) => b.shopId === s.id).length} Crates
+                    {shelfBags.filter((b) => b.shopId === s.id).length} on Shelf
                   </span>
                 </div>
               </div>
@@ -524,7 +696,7 @@ export const ShelfPortal: React.FC = () => {
             Total Weight
           </div>
           <div className="text-2xl font-black text-white mt-1">{totalWeightKg} kg</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Fresh stock</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Fresh produce stock</div>
         </div>
 
         <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
@@ -534,15 +706,15 @@ export const ShelfPortal: React.FC = () => {
           <div className="text-2xl font-black text-emerald-400 mt-1">
             {formatRupees(totalShelfValue)}
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">At ₹60 / kg</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Total retail value</div>
         </div>
 
         <div className="relative backdrop-blur-xl bg-white/[0.03] p-4 rounded-2xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Avg Freshness
           </div>
-          <div className="text-2xl font-black text-leaf-400 mt-1">{avgFreshness}%</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Quality rating</div>
+          <div className="text-2xl font-black text-emerald-400 mt-1">{avgFreshness}%</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Quality score</div>
         </div>
       </div>
 
@@ -557,7 +729,7 @@ export const ShelfPortal: React.FC = () => {
               </h3>
             </div>
             <span className="text-[10px] text-purple-300 font-semibold bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
-              Ready for Supermarket Shelf
+              Ready for Store Shelf
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -631,7 +803,7 @@ export const ShelfPortal: React.FC = () => {
       </div>
 
       {/* Shelf Crates List */}
-      <div className="space-y-4">
+      <div className="space-y-4 mb-8">
         {filteredBags.length === 0 ? (
           <div className="backdrop-blur-xl bg-white/[0.03] p-12 rounded-3xl border border-white/[0.08] text-center shadow-xl">
             <Store className="w-12 h-12 text-slate-500 mx-auto mb-3" />
@@ -645,7 +817,7 @@ export const ShelfPortal: React.FC = () => {
               onClick={() => setShowScanner(true)}
               className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-full text-xs font-bold shadow-[0_4px_20px_rgba(147,51,234,0.35)] transition-all"
             >
-              Scan & Receive Crates
+              Scan &amp; Receive Crates
             </button>
           </div>
         ) : (
@@ -706,26 +878,17 @@ export const ShelfPortal: React.FC = () => {
                 {/* Actions Bar */}
                 <div className="pt-3 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] text-slate-400">
-                    {bag.pieces} tomatoes in crate
+                    {bag.pieces} tomatoes in crate • Ready for shopper scan
                   </span>
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => navigate(`/print/${bag.id}`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-white/10 transition-colors touch-target"
-                      title="Print Shelf Barcode Tag"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Print Label</span>
-                    </button>
-
-                    <button
                       onClick={() => navigate(`/b/${bag.id}`)}
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-300 rounded-xl text-xs font-bold transition-colors touch-target"
-                      title="Customer QR provenance page"
+                      title="Open Consumer Provenance Page"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Consumer View</span>
+                      <span>View Consumer Page</span>
                     </button>
                   </div>
                 </div>
@@ -734,6 +897,59 @@ export const ShelfPortal: React.FC = () => {
           })
         )}
       </div>
+
+      {/* Recent Store Sales Ledger */}
+      {soldBags.length > 0 && (
+        <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] p-6 shadow-xl mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <PackageCheck className="w-5 h-5 text-emerald-400" />
+              <h3 className="font-bold text-sm text-white">
+                Completed Counter Sales ({soldBags.length})
+              </h3>
+            </div>
+            <span className="text-xs text-slate-400">
+              Total Revenue: <strong className="text-emerald-400">{formatRupees(soldBags.reduce((acc, b) => acc + (b.totalPrice || 0), 0))}</strong>
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {soldBags.map((bag) => (
+              <div
+                key={bag.id}
+                className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono font-bold text-white">{bag.id}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      ✓ Counter Paid
+                    </span>
+                    {bag.rating && (
+                      <span className="flex items-center gap-1 text-amber-400 font-bold text-[11px]">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        {bag.rating.stars} Stars
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-300">
+                    Buyer: <strong className="text-white">{bag.soldTo?.firstName || 'Customer'}</strong> ({bag.soldTo?.consumerPassId || '–'}) • {bag.weightKg} kg tomatoes
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <div className="font-bold text-emerald-400 text-sm">
+                    {formatRupees(bag.totalPrice)}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {bag.updatedAt ? formatIST(bag.updatedAt) : 'Recently'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Register Store Modal */}
       {showShopModal && (
@@ -875,7 +1091,7 @@ export const ShelfPortal: React.FC = () => {
       <UserSettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
-        onProfileUpdated={loadShelfData}
+        onProfileUpdated={() => {}}
         portalRole="shop"
       />
     </div>

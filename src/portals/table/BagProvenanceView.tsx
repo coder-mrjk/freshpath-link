@@ -8,8 +8,10 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
   writeBatch,
   serverTimestamp,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { formatIST, timeAgoIST } from '../../lib/time';
@@ -31,7 +33,10 @@ import {
   CreditCard,
   Layers,
   LogIn,
-  UserCheck,
+  Store,
+  Clock,
+  DollarSign,
+  Check,
 } from 'lucide-react';
 
 interface BagData {
@@ -49,13 +54,22 @@ interface BagData {
   benefitsNote?: string;
   pricePerKg: number;
   totalPrice: number;
-  status: 'CREATED' | 'LOADED' | 'IN_TRANSIT' | 'IN_STORAGE' | 'DISPATCHED_TO_SHOP' | 'AT_SHOP' | 'SOLD';
+  status: 'CREATED' | 'PENDING_PICKUP' | 'LOADED' | 'IN_TRANSIT' | 'IN_STORAGE' | 'DISPATCHED_TO_SHOP' | 'AT_SHOP' | 'PAYMENT_PENDING' | 'SOLD';
   tripId?: string;
   storageUnitId?: string;
   mandiId?: string;
+  mandiName?: string;
   shopId?: string;
+  shopName?: string;
+  shopArea?: string;
   harvestAt: any;
   createdAt: any;
+  pendingBuyer?: {
+    uid: string;
+    name: string;
+    passId: string;
+    requestedAt?: any;
+  };
   soldTo?: {
     consumerUid: string;
     consumerPassId: string;
@@ -121,73 +135,119 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
 
-  const fetchBagJourney = async () => {
+  // Real-time synchronization for crate provenance
+  useEffect(() => {
+    if (!bagId) return;
     setLoading(true);
     setError(null);
-    try {
-      // 1. Fetch Bag
-      const bSnap = await getDoc(doc(db, 'bags', bagId));
-      if (!bSnap.exists()) {
-        throw new Error(`Crate "${bagId}" not found in provenance registry.`);
-      }
-      const bData = { id: bSnap.id, ...bSnap.data() } as BagData;
-      setBag(bData);
 
-      // 2. Fetch Trip if present
-      if (bData.tripId) {
-        const tSnap = await getDoc(doc(db, 'trips', bData.tripId));
-        if (tSnap.exists()) {
-          setTrip({ id: tSnap.id, ...tSnap.data() } as TripData);
+    const bagRef = doc(db, 'bags', bagId);
+    const unsubscribeBag = onSnapshot(
+      bagRef,
+      async (bSnap) => {
+        if (!bSnap.exists()) {
+          setError(`Crate "${bagId}" not found in provenance registry.`);
+          setLoading(false);
+          return;
         }
-      }
 
-      // 3. Fetch Storage Unit and Telemetry readings if present
-      if (bData.storageUnitId) {
-        const uSnap = await getDoc(doc(db, 'storageUnits', bData.storageUnitId));
-        if (uSnap.exists()) {
-          const uData = uSnap.data();
-          const rSnap = await getDocs(
-            collection(db, 'storageUnits', bData.storageUnitId, 'readings')
-          );
-          const rList: StorageReading[] = [];
-          rSnap.forEach((d) => rList.push(d.data() as StorageReading));
-          const stats = calculateStorageTelemetryStats(rList);
+        const bData = { id: bSnap.id, ...bSnap.data() } as BagData;
+        setBag(bData);
+        setLoading(false);
 
-          setStorageInfo({
-            name: uData.name || 'Cold Room',
-            nodeUnitId: uData.nodeUnitId || 'STORE-01',
-            minTemp: stats.minTemp,
-            maxTemp: stats.maxTemp,
-            avgTemp: stats.avgTemp,
-            avgHumidity: stats.avgHumidity,
-          });
+        // Auto open rating modal if crate was just confirmed sold to current consumer and not yet rated
+        if (bData.status === 'SOLD' && bData.soldTo?.consumerUid === currentUser?.uid && !bData.rating) {
+          setShowRatingModal(true);
         }
+
+        // Fetch Trip if present
+        if (bData.tripId) {
+          try {
+            const tSnap = await getDoc(doc(db, 'trips', bData.tripId));
+            if (tSnap.exists()) {
+              setTrip({ id: tSnap.id, ...tSnap.data() } as TripData);
+            }
+          } catch (e) {
+            console.warn('Trip fetch error:', e);
+          }
+        }
+
+        // Fetch Mandi or Storage Unit Telemetry readings
+        if (bData.mandiId) {
+          try {
+            const mSnap = await getDoc(doc(db, 'mandis', bData.mandiId));
+            if (mSnap.exists()) {
+              const mData = mSnap.data();
+              const rSnap = await getDocs(collection(db, 'mandis', bData.mandiId, 'readings'));
+              const rList: StorageReading[] = [];
+              rSnap.forEach((d) => rList.push(d.data() as StorageReading));
+              const stats = calculateStorageTelemetryStats(rList);
+
+              setStorageInfo({
+                name: mData.name || 'Mandi Facility',
+                nodeUnitId: mData.nodeUnitId || 'Direct Mandi DHT22',
+                minTemp: stats.minTemp,
+                maxTemp: stats.maxTemp,
+                avgTemp: stats.avgTemp,
+                avgHumidity: stats.avgHumidity,
+              });
+            }
+          } catch (e) {
+            console.warn('Mandi readings fetch error:', e);
+          }
+        } else if (bData.storageUnitId) {
+          try {
+            const uSnap = await getDoc(doc(db, 'storageUnits', bData.storageUnitId));
+            if (uSnap.exists()) {
+              const uData = uSnap.data();
+              const rSnap = await getDocs(
+                collection(db, 'storageUnits', bData.storageUnitId, 'readings')
+              );
+              const rList: StorageReading[] = [];
+              rSnap.forEach((d) => rList.push(d.data() as StorageReading));
+              const stats = calculateStorageTelemetryStats(rList);
+
+              setStorageInfo({
+                name: uData.name || 'Cold Storage',
+                nodeUnitId: uData.nodeUnitId || 'STORE-01',
+                minTemp: stats.minTemp,
+                maxTemp: stats.maxTemp,
+                avgTemp: stats.avgTemp,
+                avgHumidity: stats.avgHumidity,
+              });
+            }
+          } catch (e) {
+            console.warn('Storage unit readings fetch error:', e);
+          }
+        }
+
+        // Fetch Immutable Ledger Events
+        try {
+          const eQ = query(collection(db, 'events'), where('bagId', '==', bagId));
+          const eSnap = await getDocs(eQ);
+          const eList: LedgerEvent[] = [];
+          eSnap.forEach((d) => eList.push({ id: d.id, ...d.data() } as LedgerEvent));
+          eList.sort((a, b) => (a.at?.seconds || 0) - (b.at?.seconds || 0));
+          setEvents(eList);
+        } catch (e) {
+          console.warn('Events fetch error:', e);
+        }
+      },
+      (err) => {
+        console.warn('Provenance onSnapshot error:', err);
+        setError(err.message || 'Failed to sync crate provenance.');
+        setLoading(false);
       }
+    );
 
-      // 4. Fetch Immutable Ledger Events
-      const eQ = query(collection(db, 'events'), where('bagId', '==', bagId));
-      const eSnap = await getDocs(eQ);
-      const eList: LedgerEvent[] = [];
-      eSnap.forEach((d) => eList.push({ id: d.id, ...d.data() } as LedgerEvent));
-      eList.sort((a, b) => (a.at?.seconds || 0) - (b.at?.seconds || 0));
-      setEvents(eList);
-    } catch (err: unknown) {
-      console.warn('Provenance load error:', err);
-      setError((err as Error)?.message || 'Failed to retrieve crate provenance.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => unsubscribeBag();
+  }, [bagId, currentUser?.uid]);
 
-  useEffect(() => {
-    fetchBagJourney();
-  }, [bagId]);
-
-  // Handle Confirm Purchase
-  const handleConfirmPurchase = async () => {
+  // Consumer initiates Pay at Shop Counter
+  const handleRequestCounterPayment = async () => {
     if (!bag || !currentUser) return;
     if (bag.status !== 'AT_SHOP') {
-      setError(`Cannot purchase. Crate status is ${bag.status} (only crates AT_SHOP can be purchased).`);
+      setError(`Cannot request payment. Crate status is ${bag.status} (only crates on shelf can be purchased).`);
       return;
     }
 
@@ -196,57 +256,28 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
 
     try {
       const consumerPassId = userProfile?.passId || `FP-C-${currentUser.uid.slice(0, 6).toUpperCase()}`;
-      const consumerName = userProfile?.firstName || 'Consumer';
+      const consumerName = userProfile?.fullName || userProfile?.firstName || 'Consumer';
 
-      const batch = writeBatch(db);
-
-      // 1. Update Bag to SOLD
-      batch.update(doc(db, 'bags', bag.id), {
-        status: 'SOLD',
-        soldTo: {
-          consumerUid: currentUser.uid,
-          consumerPassId,
-          firstName: consumerName,
+      await updateDoc(doc(db, 'bags', bag.id), {
+        status: 'PAYMENT_PENDING',
+        pendingBuyer: {
+          uid: currentUser.uid,
+          name: consumerName,
+          passId: consumerPassId,
+          requestedAt: serverTimestamp(),
         },
         updatedAt: serverTimestamp(),
       });
 
-      // 2. Insert Purchases record
-      const purchaseRef = doc(collection(db, 'purchases'));
-      batch.set(purchaseRef, {
-        bagId: bag.id,
-        consumerUid: currentUser.uid,
-        consumerPassId,
-        price: bag.totalPrice,
-        at: serverTimestamp(),
-        paymentStatus: 'NOT_ENABLED',
-      });
-
-      // 3. Append Ledger Event: PURCHASED
-      const eventRef = doc(collection(db, 'events'));
-      batch.set(eventRef, {
-        bagId: bag.id,
-        type: 'PURCHASED',
-        byUid: currentUser.uid,
-        byRole: 'consumer',
-        byPassId: consumerPassId,
-        at: serverTimestamp(),
-        place: { text: 'Retail Store' },
-        note: `Purchased by verified consumer ${consumerName} (${consumerPassId}).`,
-      });
-
-      await batch.commit();
-      setSuccessMsg('Purchase confirmed! Thank you for buying farm-direct produce.');
-      await fetchBagJourney();
-      setShowRatingModal(true);
+      setSuccessMsg(`Payment request sent to shop counter! Please pay at the counter.`);
     } catch (err: unknown) {
-      setError((err as Error)?.message || 'Failed to complete purchase.');
+      setError((err as Error)?.message || 'Failed to submit counter payment request.');
     } finally {
       setIsPurchasing(false);
     }
   };
 
-  // Handle Rating Submission
+  // Consumer submits 5-star rating for Farmer
   const handleSubmitRating = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bag || !currentUser) return;
@@ -263,9 +294,10 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
 
       const batch = writeBatch(db);
 
-      // 1. Update Bag rating
+      // 1. Update Bag rating & updatedAt
       batch.update(doc(db, 'bags', bag.id), {
         rating: ratingData,
+        updatedAt: serverTimestamp(),
       });
 
       // 2. Append Ledger Event: RATED
@@ -277,13 +309,13 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
         byRole: 'consumer',
         byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'FP-C-VERIFIED'),
         at: serverTimestamp(),
-        note: `Rated ${selectedStars} stars: "${ratingComment.trim() || 'No comment'}"`,
+        place: { text: bag.shopName ? `${bag.shopName} (${bag.shopArea || 'Store'})` : 'Retail Store' },
+        note: `Rated ${selectedStars} stars for farmer ${bag.farmerFirstName}: "${ratingComment.trim() || 'No comment'}"`,
       });
 
       await batch.commit();
       setShowRatingModal(false);
-      setSuccessMsg('Your review and rating have been recorded on the permanent ledger!');
-      await fetchBagJourney();
+      setSuccessMsg('Your review and rating have been recorded on the immutable ledger!');
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to submit rating.');
     } finally {
@@ -322,7 +354,8 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
 
   const freshness = calculateFreshness(bag.harvestAt);
   const uniqueHandlers = Array.from(new Set(events.map((e) => e.byPassId || e.byRole))).length;
-  const isBuyer = bag.soldTo?.consumerUid === currentUser?.uid;
+  const isBuyer = bag.soldTo?.consumerUid === currentUser?.uid || isOwner;
+  const isPendingBuyer = bag.pendingBuyer?.uid === currentUser?.uid;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
@@ -364,23 +397,36 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               className={`text-xs font-black px-3 py-1 rounded-full shadow-xs uppercase tracking-wider border ${
                 bag.status === 'SOLD'
                   ? 'bg-purple-500/20 border-purple-400/30 text-purple-300'
+                  : bag.status === 'PAYMENT_PENDING'
+                  ? 'bg-amber-500/20 border-amber-400/30 text-amber-300'
                   : bag.status === 'AT_SHOP'
                   ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300'
-                  : 'bg-amber-500/20 border-amber-400/30 text-amber-300'
+                  : 'bg-slate-700/40 border-slate-600/30 text-slate-300'
               }`}
             >
-              {bag.status === 'SOLD' ? '✓ Purchased' : bag.status.replace('_', ' ')}
+              {bag.status === 'SOLD'
+                ? '✓ Verified Purchase'
+                : bag.status === 'PAYMENT_PENDING'
+                ? '⏳ Awaiting Counter Payment'
+                : bag.status === 'AT_SHOP'
+                ? 'On Retail Shelf'
+                : bag.status.replace('_', ' ')}
             </span>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-black text-white">Fresh Farm Tomatoes</h1>
+              <h1 className="text-2xl font-black text-white">Farm-Direct Fresh Produce</h1>
               <p className="text-xs text-red-200/80 mt-1 flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-red-400" />
                 <span>
                   {bag.fieldName}, {bag.village}
                 </span>
+                {bag.shopName && (
+                  <span className="text-slate-300 font-semibold">
+                    • Sold at <strong className="text-white">{bag.shopName}</strong> ({bag.shopArea || 'Store'})
+                  </span>
+                )}
               </p>
             </div>
 
@@ -488,7 +534,7 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
                 Origin: <strong className="text-white">{trip.originText}</strong>
               </span>
               <span>
-                Destination: <strong className="text-white">{trip.destinationMandiName || 'Central Mandi'}</strong>
+                Destination Mandi: <strong className="text-white">{trip.destinationMandiName || 'Central Hub'}</strong>
               </span>
             </div>
 
@@ -501,12 +547,12 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
           </div>
         )}
 
-        {/* Mandi Cold Storage Telemetry Summary */}
+        {/* Mandi Climate & Storage Telemetry Summary */}
         {storageInfo && (
           <div className="p-6 border-b border-white/[0.08] bg-white/[0.01]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
               <Warehouse className="w-4 h-4 text-amber-400" />
-              <span>Cold Storage Telemetry ({storageInfo.name})</span>
+              <span>Mandi Climate Telemetry ({storageInfo.name})</span>
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -588,7 +634,7 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
           </div>
         </div>
 
-        {/* Existing Rating Card if already rated */}
+        {/* Existing Verified Review if present */}
         {bag.rating && (
           <div className="p-6 bg-amber-500/10 border-t border-amber-500/20">
             <div className="flex items-center justify-between mb-2">
@@ -615,78 +661,120 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
           </div>
         )}
 
-        {/* Purchase Action Box */}
-        {bag.status === 'AT_SHOP' && (
-          <div className="p-6 bg-white/[0.02] border-t border-white/[0.08]">
-            {!currentUser ? (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-red-400" />
-                    <span>Ready for Purchase ({formatRupees(bag.totalPrice)})</span>
-                  </h4>
-                  <p className="text-xs text-slate-400 mt-1 max-w-md">
-                    Sign in or create a consumer account to confirm this purchase, save it in your personal history, and unlock direct farmer reviews.
-                  </p>
+        {/* CONSUMER COUNTER PURCHASE WORKFLOW ACTIONS */}
+        <div className="p-6 bg-white/[0.02] border-t border-white/[0.08]">
+          {/* 1. STATE: AT_SHOP (Ready to pay at counter) */}
+          {bag.status === 'AT_SHOP' && (
+            <div>
+              {/* Digital payment coming soon notice */}
+              <div className="mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-purple-300">
+                  <CreditCard className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span><strong>Digital Payments (UPI / Cards):</strong> Coming soon. Pay cash/counter at retail billing desk.</span>
                 </div>
-                <Link
-                  to={`/auth/consumer?redirect=${encodeURIComponent(`/b/${bag.id}`)}`}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(193,18,31,0.3)] transition-all touch-target inline-flex items-center justify-center gap-2 whitespace-nowrap"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Sign In to Buy & Save</span>
-                </Link>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0">
+                  Coming Soon
+                </span>
               </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Purchase as Verified Consumer</span>
-                  </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Logged in as <strong className="text-white">{userProfile?.fullName || userProfile?.firstName || 'Consumer'}</strong>. Confirm purchase to lock provenance.
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  {/* Disabled Digital Payment */}
-                  <button
-                    disabled
-                    className="px-3.5 py-2.5 bg-white/5 border border-white/10 text-slate-500 rounded-xl text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
-                    title="Coming in future release"
+              {!currentUser ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-red-400" />
+                      <span>Ready for Purchase ({formatRupees(bag.totalPrice)})</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md">
+                      Sign in or create a consumer account to confirm this counter purchase and submit your direct rating to the farmer.
+                    </p>
+                  </div>
+                  <Link
+                    to={`/auth/consumer?redirect=${encodeURIComponent(`/b/${bag.id}`)}`}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(193,18,31,0.3)] transition-all touch-target inline-flex items-center justify-center gap-2 whitespace-nowrap"
                   >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    <span>Digital Pay (Soon)</span>
-                  </button>
+                    <LogIn className="w-4 h-4" />
+                    <span>Sign In to Buy Produce</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                      <Store className="w-4 h-4 text-emerald-400" />
+                      <span>Found at {bag.shopName || 'Retail Store'} ({formatRupees(bag.totalPrice)})</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Tap below to send a payment notification to the shopkeeper's desk.
+                    </p>
+                  </div>
 
                   <button
-                    onClick={handleConfirmPurchase}
+                    onClick={handleRequestCounterPayment}
                     disabled={isPurchasing}
-                    className="flex-1 sm:flex-none px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(193,18,31,0.35)] transition-all touch-target"
+                    className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 text-slate-950 rounded-xl text-xs font-black shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition-all touch-target flex items-center justify-center gap-2"
                   >
-                    {isPurchasing ? 'Processing...' : 'Confirm Purchase'}
+                    <DollarSign className="w-4 h-4 stroke-[3]" />
+                    <span>{isPurchasing ? 'Notifying Desk...' : `Pay at Shop Counter (₹${bag.totalPrice})`}</span>
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
-        {/* Rate Button if bought by this user and not yet rated */}
-        {bag.status === 'SOLD' && isBuyer && !bag.rating && (
-          <div className="p-4 bg-amber-500/10 border-t border-amber-500/20 text-center">
-            <button
-              onClick={() => setShowRatingModal(true)}
-              className="px-5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(217,119,6,0.3)] transition-all"
-            >
-              Rate this Produce (1–5 Stars)
-            </button>
-          </div>
-        )}
+          {/* 2. STATE: PAYMENT_PENDING (Waiting for Shopkeeper to confirm receipt) */}
+          {bag.status === 'PAYMENT_PENDING' && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500/20 rounded-xl text-amber-300 animate-pulse">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-white">Awaiting Shopkeeper Confirmation</h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      Live Syncing
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-200/90 mt-1">
+                    {isPendingBuyer
+                      ? `Please pay ₹${bag.totalPrice} at the retail counter. The shopkeeper has received your request. Once verified, this screen will update automatically to unlock your direct farmer rating!`
+                      : `Counter payment requested for buyer ${bag.pendingBuyer?.name || 'Customer'}. Awaiting shopkeeper confirmation.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. STATE: SOLD (Payment Verified) */}
+          {bag.status === 'SOLD' && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/20 rounded-xl text-emerald-400">
+                  <Check className="w-6 h-6 stroke-[3]" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-white">Payment Confirmed &amp; Provenance Verified</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Verified counter purchase for <strong className="text-white">{bag.soldTo?.firstName}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {isBuyer && !bag.rating && (
+                <button
+                  onClick={() => setShowRatingModal(true)}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black shadow-[0_4px_16px_rgba(245,158,11,0.35)] transition-all flex items-center justify-center gap-2 touch-target"
+                >
+                  <Star className="w-4 h-4 fill-current stroke-current" />
+                  <span>Rate this Produce (1–5 Stars)</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Rating Modal */}
+      {/* 5-Star Farmer Rating Modal */}
       {showRatingModal && (
         <div
           className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
@@ -697,9 +785,9 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-bold text-base text-white mb-2">Rate Your Tomatoes</h3>
+              <h3 className="font-bold text-base text-white mb-1">Rate Your Farm Tomatoes</h3>
               <p className="text-xs text-slate-400 mb-4">
-                Share your direct feedback for farmer <strong className="text-white">{bag.farmerFirstName}</strong>.
+                Share direct verified feedback for farmer <strong className="text-emerald-300">{bag.farmerFirstName}</strong> ({bag.village}).
               </p>
 
               <form onSubmit={handleSubmitRating} className="space-y-4">
@@ -712,7 +800,7 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
                       className="p-1 touch-target transition-transform hover:scale-110"
                     >
                       <Star
-                        className={`w-7 h-7 ${
+                        className={`w-8 h-8 ${
                           star <= selectedStars
                             ? 'fill-amber-400 text-amber-400'
                             : 'text-slate-600'
@@ -724,13 +812,13 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Comment (Optional)
+                    Direct Feedback for Farmer (Optional)
                   </label>
                   <textarea
                     rows={3}
                     value={ratingComment}
                     onChange={(e) => setRatingComment(e.target.value)}
-                    placeholder="e.g. Delicious, fresh taste and crisp texture!"
+                    placeholder="e.g. Incredibly fresh, crisp skin, and natural farm taste!"
                     className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
@@ -741,14 +829,14 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
                     onClick={() => setShowRatingModal(false)}
                     className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
                   >
-                    Skip
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submittingRating}
-                    className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(217,119,6,0.3)] transition-all"
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black shadow-[0_4px_16px_rgba(245,158,11,0.3)] transition-all"
                   >
-                    {submittingRating ? 'Saving...' : 'Submit Rating'}
+                    {submittingRating ? 'Recording...' : 'Submit Rating'}
                   </button>
                 </div>
               </form>

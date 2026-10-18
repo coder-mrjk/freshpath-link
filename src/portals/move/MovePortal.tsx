@@ -4,7 +4,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   setDoc,
   doc,
   getDoc,
@@ -94,6 +94,9 @@ export const MovePortal: React.FC = () => {
   const [availableBags, setAvailableBags] = useState<
     Array<{ id: string; weightKg: number; farmerFirstName: string; village: string; pieces: number }>
   >([]);
+  const [pendingApprovalBags, setPendingApprovalBags] = useState<
+    Array<{ id: string; weightKg: number; farmerFirstName: string; village: string; pieces: number }>
+  >([]);
 
   // Modals
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -111,100 +114,114 @@ export const MovePortal: React.FC = () => {
   // Scanner Modal
   const [showScanner, setShowScanner] = useState(false);
 
-  // Live GPS Status
+  // Live Hardware GPS Status
   const [gpsUnitData, setGpsUnitData] = useState<GPSUnitData | null>(null);
 
   // Vehicle Management State
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
+  // Real-time listener for Vehicle GPS hardware unit
+  useEffect(() => {
+    const gpsId = selectedVehicle?.gpsUnitId || 'GPS-01';
+    const unsubGps = onSnapshot(doc(db, 'gpsUnits', gpsId), (snap) => {
+      if (snap.exists()) {
+        setGpsUnitData(snap.data() as GPSUnitData);
+      } else {
+        setGpsUnitData(null);
+      }
+    });
+    return () => unsubGps();
+  }, [selectedVehicle?.gpsUnitId]);
+
   const loadMoveData = async () => {
+    // Kept as manual refresh trigger if needed
+    setLoading(true);
+    setTimeout(() => setLoading(false), 300);
+  };
+
+  useEffect(() => {
     if (!currentUser) return;
     setLoading(true);
     setError(null);
-    try {
-      // 1. Fetch ALL Vehicles for Driver (Driver can hold more than 1 vehicle)
-      const vQ = isOwner
-        ? collection(db, 'vehicles')
-        : query(collection(db, 'vehicles'), where('driverUid', '==', currentUser.uid));
-      const vSnap = await getDocs(vQ);
+
+    // 1. Fetch ALL Vehicles for Driver (Driver can hold more than 1 vehicle)
+    const vQ = isOwner
+      ? collection(db, 'vehicles')
+      : query(collection(db, 'vehicles'), where('driverUid', '==', currentUser.uid));
+    const unsubVehicles = onSnapshot(vQ, (snap) => {
       const vList: Vehicle[] = [];
-      vSnap.forEach((d) => {
-        vList.push({ id: d.id, ...d.data() } as Vehicle);
-      });
-
+      snap.forEach((d) => vList.push({ id: d.id, ...d.data() } as Vehicle));
       setVehicles(vList);
-
-      const activeVeh = vList.length > 0
-        ? (selectedVehicle ? vList.find((v) => v.id === selectedVehicle.id) || vList[0] : vList[0])
-        : null;
-      setSelectedVehicle(activeVeh);
-      if (activeVeh && !selectedTripVehicleId) {
-        setSelectedTripVehicleId(activeVeh.id);
+      setSelectedVehicle((prev) => {
+        if (!prev) return vList[0] || null;
+        return vList.find((v) => v.id === prev.id) || vList[0] || null;
+      });
+      if (vList.length > 0 && !selectedTripVehicleId) {
+        setSelectedTripVehicleId(vList[0].id);
       }
+    });
 
-      // 2. Fetch Mandis
-      const mSnap = await getDocs(collection(db, 'mandis'));
+    // 2. Fetch Mandis
+    const unsubMandis = onSnapshot(collection(db, 'mandis'), (snap) => {
       const mList: Mandi[] = [];
-      mSnap.forEach((d) => mList.push({ id: d.id, ...d.data() } as Mandi));
+      snap.forEach((d) => mList.push({ id: d.id, ...d.data() } as Mandi));
       setMandis(mList);
       if (mList.length > 0 && !selectedMandiId) {
         setSelectedMandiId(mList[0].id);
       }
+    });
 
-      // 3. Fetch Registered Farms added by Farmers from fields collection
-      const fSnap = await getDocs(collection(db, 'fields'));
+    // 3. Fetch Registered Farms added by Farmers from fields collection
+    const unsubFarms = onSnapshot(collection(db, 'fields'), (snap) => {
       const fList: Array<{ id: string; name: string; village: string; district?: string }> = [];
-      fSnap.forEach((d) => fList.push({ id: d.id, ...d.data() } as any));
+      snap.forEach((d) => fList.push({ id: d.id, ...d.data() } as any));
       setRegisteredFarms(fList);
       if (fList.length > 0 && !selectedFarmId) {
         setSelectedFarmId(fList[0].id);
         setOriginText(`${fList[0].name} (${fList[0].village})`);
       }
+    });
 
-      // 4. Fetch Driver Trips
-      const tQ = isOwner
-        ? collection(db, 'trips')
-        : query(collection(db, 'trips'), where('driverUid', '==', currentUser.uid));
-      const tSnap = await getDocs(tQ);
+    // 4. Fetch Driver Trips
+    const tQ = isOwner
+      ? collection(db, 'trips')
+      : query(collection(db, 'trips'), where('driverUid', '==', currentUser.uid));
+    const unsubTrips = onSnapshot(tQ, (snap) => {
       const tList: Trip[] = [];
-      tSnap.forEach((d) => tList.push({ id: d.id, ...d.data() } as Trip));
+      snap.forEach((d) => tList.push({ id: d.id, ...d.data() } as Trip));
       tList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setTrips(tList);
 
-      // Active trip
       const ongoing = tList.find((t) => t.status === 'IN_TRANSIT' || t.status === 'DRAFT');
       setActiveTrip(ongoing || tList[0] || null);
-
-      // 5. Fetch GPS Unit
-      const gpsId = activeVeh?.gpsUnitId || null;
-      if (gpsId) {
-        const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
-        if (gpsSnap.exists()) {
-          setGpsUnitData(gpsSnap.data() as GPSUnitData);
-        } else {
-          setGpsUnitData(null);
-        }
-      } else {
-        setGpsUnitData(null);
-      }
-
-      // 6. Fetch Available Crates ready for pickup from farms
-      const bQ = query(collection(db, 'bags'), where('status', '==', 'CREATED'));
-      const bSnap = await getDocs(bQ);
-      const bList: Array<{ id: string; weightKg: number; farmerFirstName: string; village: string; pieces: number }> = [];
-      bSnap.forEach((d) => bList.push({ id: d.id, ...d.data() } as any));
-      setAvailableBags(bList);
-    } catch (err: unknown) {
-      console.warn('Move portal load error:', err);
-      setError((err as Error)?.message || 'Failed to load driver trips.');
-    } finally {
       setLoading(false);
-    }
-  };
+    });
 
-  useEffect(() => {
-    loadMoveData();
-  }, [currentUser]);
+    // 5. Fetch Bags ready for pickup & awaiting farmer approval
+    const bQ = collection(db, 'bags');
+    const unsubBags = onSnapshot(bQ, (snap) => {
+      const avail: Array<{ id: string; weightKg: number; farmerFirstName: string; village: string; pieces: number }> = [];
+      const pending: Array<{ id: string; weightKg: number; farmerFirstName: string; village: string; pieces: number }> = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.status === 'CREATED') {
+          avail.push({ id: d.id, ...data } as any);
+        } else if (data.status === 'PENDING_PICKUP' && data.pendingPickup?.driverUid === currentUser.uid) {
+          pending.push({ id: d.id, ...data } as any);
+        }
+      });
+      setAvailableBags(avail);
+      setPendingApprovalBags(pending);
+    });
+
+    return () => {
+      unsubVehicles();
+      unsubMandis();
+      unsubFarms();
+      unsubTrips();
+      unsubBags();
+    };
+  }, [currentUser, isOwner]);
 
   // Quick Add Vehicle
   const handleQuickAddVehicle = async (e: React.FormEvent) => {
@@ -314,9 +331,12 @@ export const MovePortal: React.FC = () => {
     }
   };
 
-  // Scan & Load Crate
+  // Scan & Load Crate (with Farmer Handover Approval Gate)
   const handleScanLoadBag = async (scannedValue: string) => {
-    if (!activeTrip || !currentUser) return;
+    if (!activeTrip || !currentUser) {
+      setError('Please select or create an active trip before scanning crates.');
+      return;
+    }
     const bagId = parseScannedBagId(scannedValue);
     if (!bagId) {
       setError('Scanned code is not a valid FreshPath crate ID.');
@@ -335,52 +355,67 @@ export const MovePortal: React.FC = () => {
       }
 
       const bagData = bagSnap.data();
+      if (bagData.status === 'LOADED' && activeTrip.bagIds.includes(bagId)) {
+        throw new Error(`Crate ${bagId} is already approved and loaded on this trip.`);
+      }
+
+      if (bagData.status === 'PENDING_PICKUP') {
+        throw new Error(`Crate ${bagId} is already awaiting farmer handover approval.`);
+      }
+
       if (bagData.status !== 'CREATED' && bagData.status !== 'LOADED') {
         throw new Error(
-          `Crate cannot be loaded. Current status is ${bagData.status} (only CREATED crates can be loaded).`
+          `Crate cannot be loaded. Current status is ${bagData.status} (only freshly harvested CREATED crates can be transported).`
         );
       }
 
-      if (activeTrip.bagIds.includes(bagId)) {
-        throw new Error(`Crate ${bagId} is already loaded on this trip.`);
+      if (bagData.status === 'CREATED') {
+        const batch = writeBatch(db);
+        batch.update(bagRef, {
+          status: 'PENDING_PICKUP',
+          pendingPickup: {
+            driverUid: currentUser.uid,
+            driverName: userProfile?.fullName || userProfile?.firstName || 'Transport Driver',
+            driverPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'FP-D-DRIVER'),
+            driverPhone: userProfile?.phone || '',
+            vehicleId: selectedVehicle?.id || '',
+            vehicleReg: selectedVehicle?.regNumber || 'Vehicle',
+            tripId: activeTrip.id,
+            requestedAt: serverTimestamp(),
+          },
+          tripId: activeTrip.id,
+          updatedAt: serverTimestamp(),
+        });
+
+        const eventRef = doc(collection(db, 'events'));
+        batch.set(eventRef, {
+          bagId,
+          tripId: activeTrip.id,
+          type: 'PICKUP_REQUESTED',
+          byUid: currentUser.uid,
+          byRole: 'driver',
+          byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'FP-D-DRIVER'),
+          at: serverTimestamp(),
+          place: { text: activeTrip.originText },
+          note: `Driver requested transport pickup for vehicle ${selectedVehicle?.regNumber || 'Truck'}. Awaiting farmer handover approval.`,
+        });
+
+        await batch.commit();
+        setSuccessMsg(`Crate ${bagId} scanned! Handover request sent to farmer. Waiting for farmer approval in their Grow Portal.`);
+        return;
       }
 
-      const batch = writeBatch(db);
-
-      // 1. Update Trip bagIds
-      const updatedBagIds = [...activeTrip.bagIds, bagId];
-      batch.update(doc(db, 'trips', activeTrip.id), {
-        bagIds: updatedBagIds,
-        updatedAt: serverTimestamp(),
-      });
-
-      // 2. Update Bag status
-      batch.update(bagRef, {
-        status: 'LOADED',
-        tripId: activeTrip.id,
-        holderUid: currentUser.uid,
-        handlerUids: Array.from(new Set([...(bagData.handlerUids || []), currentUser.uid])),
-        updatedAt: serverTimestamp(),
-      });
-
-      // 3. Append Event
-      const eventRef = doc(collection(db, 'events'));
-      batch.set(eventRef, {
-        bagId,
-        tripId: activeTrip.id,
-        type: 'LOADED',
-        byUid: currentUser.uid,
-        byRole: 'driver',
-        byPassId: userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'UNVERIFIED'),
-        at: serverTimestamp(),
-        place: { text: activeTrip.originText },
-        note: `Loaded into vehicle ${selectedVehicle?.regNumber || 'Truck'}.`,
-      });
-
-      await batch.commit();
-
-      setSuccessMsg(`Successfully loaded crate ${bagId} into trip!`);
-      await loadMoveData();
+      // If already LOADED (approved by farmer)
+      if (bagData.status === 'LOADED' && !activeTrip.bagIds.includes(bagId)) {
+        const batch = writeBatch(db);
+        const updatedBagIds = [...activeTrip.bagIds, bagId];
+        batch.update(doc(db, 'trips', activeTrip.id), {
+          bagIds: updatedBagIds,
+          updatedAt: serverTimestamp(),
+        });
+        await batch.commit();
+        setSuccessMsg(`Crate ${bagId} added to active trip.`);
+      }
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to load crate.');
     } finally {
@@ -553,39 +588,6 @@ export const MovePortal: React.FC = () => {
     }
   };
 
-  // Simulator for Offline / Demo Testing
-  const handleSimulateGPSFix = async () => {
-    const gpsId = selectedVehicle?.gpsUnitId || 'GPS-01';
-    try {
-      const isStart = activeTrip?.status === 'DRAFT';
-      const lat = isStart ? 11.748 : 11.9338;
-      const lng = isStart ? 79.7714 : 79.8297;
-
-      await setDoc(
-        doc(db, 'gpsUnits', gpsId),
-        {
-          vehicleId: selectedVehicle?.id || 'TN01AB1234',
-          latest: {
-            lat,
-            lng,
-            speedKmph: 32.0,
-            sats: 8,
-            hdop: 1.1,
-            valid: true,
-            fixAt: new Date().toISOString(),
-          },
-          receivedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-
-      setSuccessMsg(`Injected fresh GPS fix for ${gpsId} (${lat}, ${lng})!`);
-      await loadMoveData();
-    } catch (err: unknown) {
-      setError((err as Error)?.message || 'Failed to simulate GPS.');
-    }
-  };
-
   const gpsEvaluation = evaluateFix(gpsUnitData);
 
   if (loading) {
@@ -720,16 +722,6 @@ export const MovePortal: React.FC = () => {
             </p>
           </div>
         </div>
-
-        {/* Demo GPS Simulator Button */}
-        <button
-          onClick={handleSimulateGPSFix}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-white/10 transition-colors"
-          title="Inject fresh GPS satellite fix for testing"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-          <span>Simulate GPS Fix</span>
-        </button>
       </div>
 
       {/* Registered Vehicles Management Section - Driver Direct Control */}
@@ -931,6 +923,39 @@ export const MovePortal: React.FC = () => {
                     <span className="text-[10px] text-emerald-400 font-sans font-bold">✓ Loaded</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Crates Awaiting Farmer Handover Approval */}
+            {activeTrip.status === 'DRAFT' && pendingApprovalBags.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-amber-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                    <span>Awaiting Farmer Handover Approval ({pendingApprovalBags.length})</span>
+                  </span>
+                  <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    Live Syncing
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {pendingApprovalBags.map((b) => (
+                    <div
+                      key={b.id}
+                      className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/30 text-xs font-mono font-bold text-white flex items-center justify-between"
+                    >
+                      <div>
+                        <div>{b.id}</div>
+                        <div className="text-[10px] text-amber-200/70 font-sans font-normal mt-0.5">
+                          {b.weightKg} kg • {b.farmerFirstName}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-amber-300 font-sans font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        ⏳ Pending Approval
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
