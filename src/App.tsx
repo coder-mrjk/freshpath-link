@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { EntrancePage } from './portals/entrance/EntrancePage';
@@ -13,10 +13,8 @@ import {
   Warehouse,
   Store,
   ShoppingBasket,
-  Cpu,
 } from 'lucide-react';
 import { ControlPortal } from './portals/control/ControlPortal';
-import { DemoPortal } from './portals/demo/DemoPortal';
 import { GrowPortal } from './portals/grow/GrowPortal';
 import { PrintLabelPage } from './portals/grow/PrintLabelPage';
 import { MovePortal } from './portals/move/MovePortal';
@@ -27,6 +25,33 @@ import { PublicBagPage } from './portals/table/PublicBagPage';
 
 const AppContent: React.FC = () => {
   const { userProfile, isOwner, logout, currentUser } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.startsWith('/grow')) {
+      document.title = 'Farmer Grow Portal • FreshPath Link';
+    } else if (path.startsWith('/move')) {
+      document.title = 'Driver Move Portal • FreshPath Link';
+    } else if (path.startsWith('/hub')) {
+      document.title = 'Mandi Hub Portal • FreshPath Link';
+    } else if (path.startsWith('/shelf')) {
+      document.title = 'Retail Shelf Portal • FreshPath Link';
+    } else if (path.startsWith('/control')) {
+      document.title = 'Control Portal • FreshPath Link';
+    } else if (path.startsWith('/table')) {
+      document.title = 'Consumer Table • FreshPath Link';
+    } else if (path.startsWith('/b/')) {
+      document.title = 'Crate Provenance • FreshPath Link';
+    } else if (path.startsWith('/print/')) {
+      document.title = 'Crate Label Printer • FreshPath Link';
+    } else if (path.startsWith('/auth/')) {
+      document.title = 'Sign In • FreshPath Link';
+    } else {
+      document.title = 'FreshPath Link • Farm-to-Table Provenance';
+    }
+  }, [location.pathname]);
+
   const displayName =
     userProfile?.fullName ||
     userProfile?.firstName ||
@@ -43,7 +68,7 @@ const AppContent: React.FC = () => {
       </div>
 
       {/* Glassmorphism Navbar Area */}
-      <div className="relative z-40 backdrop-blur-xl bg-slate-900/65 border-b border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)]">
+      <div className="relative z-40">
         <Navbar
           userRole={isOwner ? 'owner' : userProfile?.role}
           displayName={displayName}
@@ -70,22 +95,6 @@ const AppContent: React.FC = () => {
                 targetRole="control"
               >
                 <ControlPortal />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/demo"
-            element={
-              <ProtectedRoute
-                allowedRoles={[]}
-                allowOwner={true}
-                portalName="Testing & Simulation Suite"
-                portalDescription="Owner simulation suite for generating supply chain test data, injecting hardware telemetry, and managing database state."
-                portalIcon={Cpu}
-                targetRole="control"
-              >
-                <DemoPortal />
               </ProtectedRoute>
             }
           />

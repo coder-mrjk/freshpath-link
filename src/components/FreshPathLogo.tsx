@@ -8,11 +8,12 @@ interface Props {
 export const FreshPathLogo: React.FC<Props> = ({ className = 'w-10 h-10', size }) => {
   return (
     <img
-      src="/logo192.png"
-      alt="FreshPath Link"
+      src="/freshpath-logo.png"
+      alt="FreshPath Link Logo"
       width={size || undefined}
       height={size || undefined}
-      className={className}
+      className={`object-contain rounded-2xl drop-shadow-md select-none ${className}`}
+      loading="eager"
     />
   );
 };

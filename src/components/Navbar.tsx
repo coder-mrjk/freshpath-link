@@ -28,7 +28,7 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, displayN
               <img
                 src="/logo192.png"
                 alt="FreshPath Link"
-                className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/20 shadow-md"
+                className="w-9 h-9 object-contain drop-shadow-[0_0_12px_rgba(193,18,31,0.35)]"
               />
             </div>
             <div className="flex flex-col">

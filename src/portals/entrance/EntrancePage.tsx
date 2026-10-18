@@ -93,11 +93,11 @@ export const EntrancePage: React.FC = () => {
       <div className="relative max-w-4xl mx-auto z-10">
         {/* Hero */}
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
-          <div className="inline-block p-1 rounded-3xl bg-white/[0.04] border border-white/10 shadow-[0_0_35px_rgba(193,18,31,0.35)] backdrop-blur-2xl mb-6 hover:scale-105 transition-transform duration-300">
+          <div className="inline-block p-1.5 rounded-3xl bg-white/[0.04] border border-white/10 shadow-[0_0_35px_rgba(193,18,31,0.35)] backdrop-blur-2xl mb-6 hover:scale-105 transition-transform duration-300">
             <img
               src="/logo192.png"
               alt="FreshPath Link"
-              className="w-20 h-20 rounded-2xl shadow-[0_0_30px_rgba(193,18,31,0.3)] object-cover"
+              className="w-20 h-20 object-contain drop-shadow-[0_0_25px_rgba(193,18,31,0.35)]"
             />
           </div>
 

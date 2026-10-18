@@ -13,8 +13,8 @@ export default defineConfig({
         name: 'FreshPath Link',
         short_name: 'FreshPath',
         description: 'Auditable farm-to-table tomato tracking system',
-        theme_color: '#D62828',
-        background_color: '#FAFAF7',
+        theme_color: '#0F172A',
+        background_color: '#0F172A',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
