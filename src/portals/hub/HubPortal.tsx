@@ -97,6 +97,7 @@ export const HubPortal: React.FC = () => {
   // Dispatch Modal
   const [dispatchBag, setDispatchBag] = useState<StoredBag | null>(null);
   const [selectedShopId, setSelectedShopId] = useState('');
+  const [incomingBags, setIncomingBags] = useState<StoredBag[]>([]);
 
   // Settings & Registration Modals
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -121,7 +122,7 @@ export const HubPortal: React.FC = () => {
       }
 
       // Auto-provision mandi and cold storage if mandi operator has none
-      if (mandiList.length === 0 && !isOwner) {
+      if (mandiList.length === 0) {
         const defaultMandiName = `${userProfile?.fullName || userProfile?.firstName || 'Agro'} Mandi`;
         const defaultArea = userProfile?.addressText || 'Market Yard';
         try {
@@ -209,10 +210,35 @@ export const HubPortal: React.FC = () => {
         setStoredBags([]);
       }
 
-      // 5. Fetch Retail Shops for dispatch
+      // 5. Fetch incoming crates in transit from farms
+      const inQ = query(collection(db, 'bags'), where('status', '==', 'IN_TRANSIT'));
+      const inSnap = await getDocs(inQ);
+      const inList: StoredBag[] = [];
+      inSnap.forEach((d) => inList.push({ id: d.id, ...d.data() } as StoredBag));
+      setIncomingBags(inList);
+
+      // 6. Fetch Retail Shops for dispatch
       const sSnap = await getDocs(collection(db, 'shops'));
       const sList: Shop[] = [];
       sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
+
+      if (sList.length === 0) {
+        try {
+          const autoShopRef = await addDoc(collection(db, 'shops'), {
+            name: 'FreshPath Retail Mart',
+            area: 'Metro Central',
+            createdAt: serverTimestamp(),
+          });
+          sList.push({
+            id: autoShopRef.id,
+            name: 'FreshPath Retail Mart',
+            area: 'Metro Central',
+          });
+        } catch {
+          // ignore
+        }
+      }
+
       setShops(sList);
       if (sList.length > 0) {
         setSelectedShopId(sList[0].id);
@@ -701,6 +727,54 @@ export const HubPortal: React.FC = () => {
                 Heat Spike (31.5°C)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Incoming / Arriving Crates from Transit */}
+      {incomingBags.length > 0 && (
+        <div className="relative backdrop-blur-xl bg-amber-500/[0.05] rounded-3xl border border-amber-500/20 p-6 shadow-xl mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+              <h3 className="font-bold text-sm text-white">
+                Arriving Delivery Trucks ({incomingBags.length} Crates In Transit)
+              </h3>
+            </div>
+            <span className="text-[10px] text-amber-300 font-semibold bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+              Ready for Cold Storage Check-in
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {incomingBags.map((b) => (
+              <div
+                key={b.id}
+                className="p-3 bg-slate-900/80 border border-white/10 rounded-2xl flex flex-col justify-between gap-3 shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-mono text-xs font-bold text-white truncate">{b.id}</span>
+                    <span className="text-[10px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20">
+                      In Transit
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Farmer: <strong className="text-white">{b.farmerFirstName}</strong> ({b.village})
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {b.weightKg} kg • {b.pieces} pcs • ₹{b.totalPrice}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleReceiveBag(b.id)}
+                  disabled={actionLoading || !selectedUnit}
+                  className="w-full py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-[0_2px_10px_rgba(217,119,6,0.3)]"
+                >
+                  Receive into Storage
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}

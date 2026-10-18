@@ -8,6 +8,8 @@ import {
   getDocs,
   doc,
   addDoc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
   writeBatch,
   getDoc,
@@ -36,6 +38,9 @@ import {
   Users,
   CheckCircle,
   Settings,
+  Lock,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 interface Field {
@@ -112,8 +117,10 @@ export const GrowPortal: React.FC = () => {
   // Filter State
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
-  // New Field Modal
+  // Field Management Modals
   const [showFieldModal, setShowFieldModal] = useState(false);
+  const [showManageFieldsModal, setShowManageFieldsModal] = useState(false);
+  const [editingField, setEditingField] = useState<Field | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldVillage, setNewFieldVillage] = useState(userProfile?.addressText || '');
@@ -263,6 +270,45 @@ export const GrowPortal: React.FC = () => {
     }
   };
 
+  const handleUpdateField = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingField || !editingField.name.trim()) return;
+
+    try {
+      await updateDoc(doc(db, 'fields', editingField.id), {
+        name: editingField.name.trim(),
+        village: editingField.village.trim() || 'Village',
+        district: editingField.district?.trim() || '',
+        updatedAt: serverTimestamp(),
+      });
+
+      setFields((prev) =>
+        prev.map((f) => (f.id === editingField.id ? editingField : f))
+      );
+      setEditingField(null);
+      setSuccessMsg('Farm details updated successfully!');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update farm details.');
+    }
+  };
+
+  const handleDeleteField = async (fieldId: string) => {
+    if (!window.confirm('Are you sure you want to delete this farm? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'fields', fieldId));
+      setFields((prev) => prev.filter((f) => f.id !== fieldId));
+      if (selectedFieldId === fieldId) {
+        const remaining = fields.filter((f) => f.id !== fieldId);
+        setSelectedFieldId(remaining.length > 0 ? remaining[0].id : '');
+      }
+      setSuccessMsg('Farm deleted successfully!');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete farm.');
+    }
+  };
+
   const handleCreateBag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !userProfile) return;
@@ -278,7 +324,8 @@ export const GrowPortal: React.FC = () => {
     try {
       const currentField = fields.find((f) => f.id === selectedFieldId) || fields[0];
       const bagId = generateBagId();
-      const totalPrice = calculateTotalPrice(weightKg, ratePerKg);
+      const officialRate = getPriceForGrade(sizeGrade, gradePrices);
+      const totalPrice = calculateTotalPrice(weightKg, officialRate);
 
       const batch = writeBatch(db);
 
@@ -297,7 +344,7 @@ export const GrowPortal: React.FC = () => {
         sizeGrade,
         benefitsNote: benefitsNote.trim(),
         harvestAt: serverTimestamp(),
-        pricePerKg: ratePerKg,
+        pricePerKg: officialRate,
         totalPrice,
         status: 'CREATED',
         holderUid: currentUser.uid,
@@ -384,11 +431,23 @@ export const GrowPortal: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <span className="text-[10px] uppercase font-bold text-emerald-300/80 tracking-wider block">
-              Tomato Rate
+            <span className="text-[10px] uppercase font-bold text-emerald-300/80 tracking-wider block flex items-center justify-end gap-1">
+              <Lock className="w-2.5 h-2.5 text-amber-400" />
+              <span>Admin Rate</span>
             </span>
-            <span className="text-xl font-black text-white">{formatRupees(ratePerKg)}/kg</span>
+            <span className="text-xl font-black text-white">{formatRupees(gradePrices.gradeA)}/kg</span>
           </div>
+
+          {fields.length > 0 && (
+            <button
+              onClick={() => setShowManageFieldsModal(true)}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs font-semibold transition-colors"
+              title="Manage Registered Farms & Fields"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span>Farms ({fields.length})</span>
+            </button>
+          )}
 
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -672,13 +731,25 @@ export const GrowPortal: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-slate-300">Field / Farm</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowFieldModal(true)}
-                    className="text-[11px] font-bold text-emerald-400 hover:underline"
-                  >
-                    + Add Field
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {fields.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowManageFieldsModal(true)}
+                        className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3 h-3 text-slate-400" />
+                        <span>Manage</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowFieldModal(true)}
+                      className="text-[11px] font-bold text-emerald-400 hover:underline"
+                    >
+                      + Add Field
+                    </button>
+                  </div>
                 </div>
                 {fields.length === 0 ? (
                   <button
@@ -759,26 +830,29 @@ export const GrowPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Rate Adjustment */}
+              {/* Rate Adjustment (Locked to Control Admin) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-300">Rate (₹ per kg)</label>
-                  <span className="text-[10px] text-emerald-400 font-semibold">
-                    Suggested for {sizeGrade}: ₹{getPriceForGrade(sizeGrade, gradePrices)}/kg
+                  <label className="block text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Rate (₹ per kg)</span>
+                  </label>
+                  <span className="text-[10px] text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                    Control Admin Mandated
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400 font-bold text-xs">₹</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={ratePerKg}
-                    onChange={(e) => setRatePerKg(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white font-bold focus:outline-none focus:border-emerald-500/50"
-                  />
-                  <span className="text-xs text-slate-400">/kg</span>
+                <div className="flex items-center justify-between p-2.5 bg-slate-800/90 border border-white/10 rounded-xl">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400 font-bold text-xs">₹</span>
+                    <span className="text-base font-black text-white">{getPriceForGrade(sizeGrade, gradePrices)}</span>
+                    <span className="text-xs text-slate-400">/kg</span>
+                    <span className="text-[11px] text-emerald-400 font-semibold ml-2">({sizeGrade})</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 italic">Fixed rate • Admin governed</span>
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  The rate per kg can only be edited by Control Admin to protect market integrity.
+                </p>
               </div>
 
               {/* Value Calculation */}
@@ -788,11 +862,11 @@ export const GrowPortal: React.FC = () => {
                     Calculated Crate Total
                   </span>
                   <span className="text-xs text-emerald-200">
-                    {weightKg} kg × ₹{ratePerKg}/kg ({sizeGrade})
+                    {weightKg} kg × ₹{getPriceForGrade(sizeGrade, gradePrices)}/kg ({sizeGrade})
                   </span>
                 </div>
                 <span className="text-xl font-black text-emerald-400">
-                  {formatRupees(calculateTotalPrice(weightKg, ratePerKg))}
+                  {formatRupees(calculateTotalPrice(weightKg, getPriceForGrade(sizeGrade, gradePrices)))}
                 </span>
               </div>
 
@@ -895,6 +969,150 @@ export const GrowPortal: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Fields / Farms Modal */}
+      {showManageFieldsModal && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => {
+            setShowManageFieldsModal(false);
+            setEditingField(null);
+          }}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-lg my-8 transform overflow-hidden rounded-2xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <div>
+                  <h3 className="font-bold text-base text-white">Manage Farms & Fields</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Edit farm details or delete obsolete farms</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManageFieldsModal(false);
+                    setShowFieldModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-xl text-xs font-bold border border-emerald-500/30 transition-colors"
+                >
+                  + Add New
+                </button>
+              </div>
+
+              {/* Editing Form if a field is actively being edited */}
+              {editingField ? (
+                <form onSubmit={handleUpdateField} className="space-y-3 p-4 bg-slate-800/80 rounded-xl border border-emerald-500/30 mb-4">
+                  <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">
+                    Edit Farm Details
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Farm / Field Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingField.name}
+                      onChange={(e) => setEditingField({ ...editingField, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Village</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingField.village}
+                        onChange={(e) => setEditingField({ ...editingField, village: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">District</label>
+                      <input
+                        type="text"
+                        value={editingField.district || ''}
+                        onChange={(e) => setEditingField({ ...editingField, district: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingField(null)}
+                      className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-xs font-bold shadow-md"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {/* List of Farms */}
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {fields.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-slate-400">
+                    No farms registered yet. Click &ldquo;+ Add New&rdquo; to add your first farm.
+                  </div>
+                ) : (
+                  fields.map((f) => (
+                    <div
+                      key={f.id}
+                      className="p-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 rounded-xl flex items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm text-white truncate">{f.name}</div>
+                        <div className="text-xs text-slate-400">
+                          {f.village} {f.district ? `• ${f.district}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingField(f)}
+                          className="p-2 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/10 text-xs transition-colors"
+                          title="Edit Farm"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteField(f.id)}
+                          className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 text-xs transition-colors"
+                          title="Delete Farm"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-white/10 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManageFieldsModal(false);
+                    setEditingField(null);
+                  }}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-colors"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -75,7 +75,7 @@ const AppContent: React.FC = () => {
           userRole={isOwner ? 'owner' : userProfile?.role}
           displayName={displayName}
           passId={userProfile?.passId}
-          onLogout={userProfile || isOwner ? logout : undefined}
+          onLogout={currentUser || userProfile || isOwner ? logout : undefined}
         />
       </div>
 

@@ -30,6 +30,7 @@ import {
   Search,
   Settings,
   Plus,
+  Sparkles,
 } from 'lucide-react';
 
 interface Shop {
@@ -77,6 +78,7 @@ export const ShelfPortal: React.FC = () => {
   // Shop setup modal
   const [showShopModal, setShowShopModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [dispatchedBags, setDispatchedBags] = useState<ShelfBag[]>([]);
   const [newShopName, setNewShopName] = useState('Fresh Basket Supermarket');
   const [newShopArea, setNewShopArea] = useState('Adyar, Chennai');
 
@@ -97,7 +99,7 @@ export const ShelfPortal: React.FC = () => {
       }
 
       // Auto-provision shop if retailer has none
-      if (sList.length === 0 && !isOwner) {
+      if (sList.length === 0) {
         const defaultShopName = `${userProfile?.fullName || userProfile?.firstName || 'Fresh'} Basket Store`;
         const defaultArea = userProfile?.addressText || 'Market Center';
         try {
@@ -138,6 +140,16 @@ export const ShelfPortal: React.FC = () => {
       } else {
         setShelfBags([]);
       }
+
+      // 3. Fetch Dispatched Bags arriving from Mandi
+      const dispQ = query(
+        collection(db, 'bags'),
+        where('status', '==', 'DISPATCHED_TO_SHOP')
+      );
+      const dispSnap = await getDocs(dispQ);
+      const dispList: ShelfBag[] = [];
+      dispSnap.forEach((d) => dispList.push({ id: d.id, ...d.data() } as ShelfBag));
+      setDispatchedBags(dispList);
     } catch (err: unknown) {
       console.warn('Shelf portal load error:', err);
       setError((err as Error)?.message || 'Failed to load retail shop data.');
@@ -397,6 +409,54 @@ export const ShelfPortal: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-0.5">Quality rating</div>
         </div>
       </div>
+
+      {/* Arriving Crates Dispatched from Mandi */}
+      {dispatchedBags.length > 0 && (
+        <div className="relative backdrop-blur-xl bg-purple-500/[0.05] rounded-3xl border border-purple-500/20 p-6 shadow-xl mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              <h3 className="font-bold text-sm text-white">
+                Arriving Mandi Dispatches ({dispatchedBags.length} Crates Ready for Shelf)
+              </h3>
+            </div>
+            <span className="text-[10px] text-purple-300 font-semibold bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
+              Ready for Supermarket Shelf
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {dispatchedBags.map((b) => (
+              <div
+                key={b.id}
+                className="p-3 bg-slate-900/80 border border-white/10 rounded-2xl flex flex-col justify-between gap-3 shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-mono text-xs font-bold text-white truncate">{b.id}</span>
+                    <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                      Dispatched
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Farmer: <strong className="text-white">{b.farmerFirstName}</strong> ({b.village})
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {b.weightKg} kg • {b.pieces} pcs • ₹{b.totalPrice}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleReceiveBag(b.id)}
+                  disabled={!selectedShop}
+                  className="w-full py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold transition-all shadow-[0_2px_10px_rgba(147,51,234,0.3)]"
+                >
+                  Receive onto Shelf
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter & Search Header */}
       <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-2xl border border-white/[0.08] p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">

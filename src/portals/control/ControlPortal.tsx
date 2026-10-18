@@ -30,6 +30,9 @@ import {
   LogOut,
   Lock,
   Settings,
+  Sprout,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 export const ControlPortal: React.FC = () => {
@@ -42,9 +45,11 @@ export const ControlPortal: React.FC = () => {
   } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'approvals' | 'users' | 'hardware' | 'security' | 'config'>('approvals');
+  const [activeTab, setActiveTab] = useState<'approvals' | 'users' | 'farms' | 'hardware' | 'security' | 'config'>('approvals');
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [farms, setFarms] = useState<Array<{ id: string; name: string; village: string; district?: string; farmerUid?: string }>>([]);
+  const [editingFarm, setEditingFarm] = useState<{ id: string; name: string; village: string; district?: string } | null>(null);
   const [vehicles, setVehicles] = useState<Array<{ id: string; driverUid: string; regNumber: string; gpsUnitId?: string }>>([]);
   const [storageUnits, setStorageUnits] = useState<Array<{ id: string; mandiId: string; name: string; nodeUnitId?: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -132,10 +137,49 @@ export const ControlPortal: React.FC = () => {
           setGradePrices((prev) => ({ ...prev, gradeA: prodDoc.data().ratePerKg }));
         }
       }
+
+      // 6. Registered Farms / Fields
+      const fSnap = await getDocs(collection(db, 'fields'));
+      const fList: Array<{ id: string; name: string; village: string; district?: string; farmerUid?: string }> = [];
+      fSnap.forEach((d) => fList.push({ id: d.id, ...d.data() } as any));
+      setFarms(fList);
     } catch (err: unknown) {
       console.warn('Control portal load error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateFarm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFarm || !editingFarm.name.trim()) return;
+    try {
+      await updateDoc(doc(db, 'fields', editingFarm.id), {
+        name: editingFarm.name.trim(),
+        village: editingFarm.village.trim() || 'Village',
+        district: editingFarm.district?.trim() || '',
+        updatedAt: serverTimestamp(),
+      });
+      setFarms((prev) =>
+        prev.map((f) => (f.id === editingFarm.id ? { ...f, ...editingFarm } : f))
+      );
+      setEditingFarm(null);
+      setMessage({ text: 'Farm details updated successfully!', type: 'success' });
+    } catch (err: unknown) {
+      setMessage({ text: `Failed to update farm: ${(err as Error)?.message}`, type: 'error' });
+    }
+  };
+
+  const handleDeleteFarm = async (farmId: string) => {
+    if (!window.confirm('Control Admin: Are you sure you want to delete this farm from the registry?')) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'fields', farmId));
+      setFarms((prev) => prev.filter((f) => f.id !== farmId));
+      setMessage({ text: 'Farm deleted from registry.', type: 'success' });
+    } catch (err: unknown) {
+      setMessage({ text: `Failed to delete farm: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
@@ -454,6 +498,18 @@ export const ControlPortal: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('farms')}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'farms'
+              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+          }`}
+        >
+          <Sprout className="w-4 h-4" />
+          <span>Registered Farms ({farms.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('hardware')}
           className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'hardware'
@@ -675,6 +731,134 @@ export const ControlPortal: React.FC = () => {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Registered Farms & Fields */}
+      {activeTab === 'farms' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white">Registered Farms & Cultivation Fields</h2>
+              <p className="text-xs text-slate-400">Centrally view, edit details, or purge farms across all farmers</p>
+            </div>
+            <span className="text-xs text-slate-400 font-mono">{farms.length} registered</span>
+          </div>
+
+          {/* Edit Farm Form */}
+          {editingFarm && (
+            <form onSubmit={handleUpdateFarm} className="p-5 backdrop-blur-xl bg-slate-800/90 rounded-2xl border border-red-500/30 space-y-3 shadow-xl">
+              <div className="text-xs font-bold text-red-400 uppercase tracking-wider">
+                Edit Farm Information (Control Admin Override)
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Farm Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingFarm.name}
+                    onChange={(e) => setEditingFarm({ ...editingFarm, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-red-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Village</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingFarm.village}
+                    onChange={(e) => setEditingFarm({ ...editingFarm, village: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-red-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">District</label>
+                  <input
+                    type="text"
+                    value={editingFarm.district || ''}
+                    onChange={(e) => setEditingFarm({ ...editingFarm, district: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-red-500/50"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingFarm(null)}
+                  className="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold shadow-md"
+                >
+                  Save Farm Changes
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Farms Table */}
+          <div className="backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/[0.02] text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3.5 px-4">Farm / Field Name</th>
+                    <th className="py-3.5 px-4">Village</th>
+                    <th className="py-3.5 px-4">District</th>
+                    <th className="py-3.5 px-4">Farmer UID</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {farms.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                        No farms registered yet in the system.
+                      </td>
+                    </tr>
+                  ) : (
+                    farms.map((f) => (
+                      <tr key={f.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
+                          <Sprout className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{f.name}</span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-300">{f.village}</td>
+                        <td className="py-3 px-4 text-slate-400">{f.district || '—'}</td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-400 truncate max-w-[140px]">
+                          {f.farmerUid || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingFarm({ id: f.id, name: f.name, village: f.village, district: f.district })}
+                              className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/10 transition-colors"
+                              title="Edit Farm"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFarm(f.id)}
+                              className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors"
+                              title="Delete Farm"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

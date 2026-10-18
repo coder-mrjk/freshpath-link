@@ -14,6 +14,7 @@ import { parseScannedBagId } from '../../lib/bagId';
 import { formatIST, timeAgoIST } from '../../lib/time';
 import { formatRupees } from '../../lib/price';
 import { QRScannerModal } from '../../components/QRScannerModal';
+import { UserSettingsModal } from '../../components/UserSettingsModal';
 import { BagProvenanceView } from './BagProvenanceView';
 import {
   Salad,
@@ -24,6 +25,8 @@ import {
   ChevronRight,
   LogIn,
   History,
+  Settings,
+  Sparkles,
 } from 'lucide-react';
 
 interface PurchaseRecord {
@@ -70,8 +73,23 @@ export const TablePortal: React.FC = () => {
     });
   };
 
-  // Scanner modal
+  // Scanner & Settings modals
   const [showScanner, setShowScanner] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [availableProduce, setAvailableProduce] = useState<any[]>([]);
+
+  const loadAvailableProduce = async () => {
+    try {
+      const qShop = query(collection(db, 'bags'), where('status', '==', 'AT_SHOP'));
+      const snap = await getDocs(qShop);
+      const list: any[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+      setAvailableProduce(list);
+    } catch {
+      // ignore
+    }
+  };
 
   const loadPurchaseHistory = async () => {
     if (!currentUser) return;
@@ -123,7 +141,8 @@ export const TablePortal: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'HISTORY') {
+    loadAvailableProduce();
+    if (activeTab === 'HISTORY' || currentUser) {
       loadPurchaseHistory();
     }
   }, [activeTab, currentUser]);
@@ -182,6 +201,17 @@ export const TablePortal: React.FC = () => {
               <span>Sign In / Register</span>
             </Link>
           ) : null}
+
+          {currentUser && (
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="p-2.5 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-full text-xs transition-colors touch-target"
+              title="User Settings"
+              aria-label="Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
 
           <button
             onClick={() => setShowScanner(true)}
@@ -276,6 +306,57 @@ export const TablePortal: React.FC = () => {
               </button>
             </form>
           </div>
+
+          {/* Fresh Produce Available in Supermarket Stores */}
+          {availableProduce.length > 0 && (
+            <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-red-400" />
+                  <h3 className="font-bold text-sm text-white">
+                    Fresh Tomatoes Available in Retail Stores ({availableProduce.length})
+                  </h3>
+                </div>
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-bold">
+                  On Shelves Now
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {availableProduce.map((b) => (
+                  <div
+                    key={b.id}
+                    className="p-4 bg-slate-900/80 border border-white/10 rounded-2xl flex flex-col justify-between gap-3 shadow-md hover:border-red-500/40 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="font-mono text-xs font-bold text-white truncate">{b.id}</span>
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                          {formatRupees(b.totalPrice)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300">
+                        Farmer: <strong className="text-white">{b.farmerFirstName}</strong> ({b.village})
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {b.weightKg} kg • {b.pieces} pcs • {b.sizeGrade || 'Grade A'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recordRecentScan(b.id);
+                        setSelectedBagId(b.id);
+                      }}
+                      className="w-full py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <span>Inspect & Buy</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Recently Inspected Crates */}
           {recentScans.length > 0 && (
@@ -393,6 +474,13 @@ export const TablePortal: React.FC = () => {
         onClose={() => setShowScanner(false)}
         onScanSuccess={handleScanSuccess}
         title="Scan Crate QR to Verify Provenance"
+      />
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        portalRole="consumer"
       />
     </div>
   );
