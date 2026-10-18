@@ -1,10 +1,10 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.1.0  
+**Version**: 1.1.1  
 **Date**: October 18, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `1d69caae69aab7f725fe3c54f3d4a0380b28df76`  
+**Verified Against Commit**: `HEAD`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---

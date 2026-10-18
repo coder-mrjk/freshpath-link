@@ -95,27 +95,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper to ensure owner records are synchronized in Firestore
   const syncOwnerStatus = async (user: User): Promise<boolean> => {
     const isOwnerEmail = user.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+    const isOwnerUid = user.uid === 'oMl0ziVO7aWj9MH26ocPGH41fG12';
+
+    if (!isOwnerEmail && !isOwnerUid) {
+      setIsOwner(false);
+      return false;
+    }
 
     try {
       const ownerDocRef = doc(db, 'owners', user.uid);
       const ownerDoc = await getDoc(ownerDocRef);
 
-      if (ownerDoc.exists() || isOwnerEmail) {
-        setIsOwner(true);
-        // Ensure owner doc is saved in Firestore
-        if (!ownerDoc.exists() && isOwnerEmail) {
-          await setDoc(ownerDocRef, {
-            uid: user.uid,
-            email: user.email,
-            role: 'owner',
-            createdAt: serverTimestamp(),
-          }, { merge: true });
-        }
-        return true;
+      setIsOwner(true);
+      // Ensure owner doc is saved in Firestore
+      if (!ownerDoc.exists() && isOwnerEmail) {
+        await setDoc(ownerDocRef, {
+          uid: user.uid,
+          email: user.email,
+          role: 'owner',
+          createdAt: serverTimestamp(),
+        }, { merge: true });
       }
+      return true;
     } catch (err) {
       console.warn('Error checking owner status in owners collection:', err);
-      if (isOwnerEmail) {
+      if (isOwnerEmail || isOwnerUid) {
         setIsOwner(true);
         return true;
       }
@@ -168,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               passId: 'FP-OWNER-0001',
               firstName: user.displayName?.split(' ')[0] || 'Owner',
               fullName: user.displayName || user.email || 'System Owner',
-              phone: user.phoneNumber || '+919876543210',
+              phone: user.phoneNumber || '9790416096',
               addressText: 'FreshPath Central Operations',
               preferredLang: (localStorage.getItem('freshpath_lang') as 'en' | 'ta') || 'en',
             };

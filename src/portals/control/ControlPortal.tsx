@@ -69,6 +69,13 @@ export const ControlPortal: React.FC = () => {
     }
   }, [isOwner, authLoading, navigate]);
 
+  // Strict Root Owner identification helper
+  const isRootOwnerUser = (u: { email?: string; uid?: string } | null | undefined): boolean => {
+    if (!u) return false;
+    const email = (u.email || '').toLowerCase().trim();
+    return email === OWNER_EMAIL.toLowerCase() || u.uid === 'oMl0ziVO7aWj9MH26ocPGH41fG12';
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -84,14 +91,17 @@ export const ControlPortal: React.FC = () => {
       const allList: UserProfile[] = [];
       allSnap.forEach((d) => {
         const data = d.data() as UserProfile;
-        const isThisOwner =
-          data.role === 'owner' ||
-          d.id === currentUser?.uid ||
-          (data as any).email === OWNER_EMAIL;
+        const isThisOwner = isRootOwnerUser({ email: (data as any).email, uid: d.id });
         if (isThisOwner) {
           data.role = 'owner';
           data.status = 'approved';
-          data.passId = data.passId || 'FP-OWNER-0001';
+          data.passId = 'FP-OWNER-0001';
+        } else if (data.role === 'owner') {
+          // Demote any non-owner document falsely marked as owner
+          data.role = 'consumer';
+          if (data.passId === 'FP-OWNER-0001') {
+            data.passId = undefined;
+          }
         }
         allList.push({ ...data, uid: d.id });
       });
@@ -206,7 +216,7 @@ export const ControlPortal: React.FC = () => {
   // Suspend/Restore/Reject
   const handleUpdateStatus = async (uid: string, status: 'suspended' | 'rejected' | 'approved') => {
     const targetUser = allUsers.find((u) => u.uid === uid);
-    if (targetUser?.role === 'owner' || uid === currentUser?.uid) {
+    if (isRootOwnerUser({ email: (targetUser as any)?.email, uid })) {
       setMessage({ text: 'Root System Owner status is protected and cannot be altered.', type: 'error' });
       return;
     }
@@ -223,8 +233,9 @@ export const ControlPortal: React.FC = () => {
   };
 
   // Delete user from directory
-  const handleDeleteUser = async (uid: string, role: string) => {
-    if (role === 'owner' || uid === currentUser?.uid) {
+  const handleDeleteUser = async (uid: string, _role: string) => {
+    const targetUser = allUsers.find((u) => u.uid === uid);
+    if (isRootOwnerUser({ email: (targetUser as any)?.email, uid })) {
       setMessage({ text: 'Root System Owner cannot be deleted.', type: 'error' });
       return;
     }
@@ -378,8 +389,7 @@ export const ControlPortal: React.FC = () => {
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
               Administered by: <strong>{userProfile?.fullName || currentUser?.displayName || currentUser?.email || OWNER_EMAIL}</strong>
-              {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
-              <span> • Hardware Binding & Verification</span>
+              {userProfile?.phone && <span> • {userProfile.phone}</span>}
             </p>
           </div>
         </div>
@@ -411,11 +421,10 @@ export const ControlPortal: React.FC = () => {
 
       {message && (
         <div
-          className={`mb-6 p-4 rounded-2xl text-xs font-semibold flex items-center justify-between backdrop-blur-md shadow-lg ${
-            message.type === 'success'
-              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
-              : 'bg-red-500/10 text-red-300 border border-red-500/30'
-          }`}
+          className={`mb-6 p-4 rounded-2xl text-xs font-semibold flex items-center justify-between backdrop-blur-md shadow-lg ${message.type === 'success'
+            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+            : 'bg-red-500/10 text-red-300 border border-red-500/30'
+            }`}
         >
           <span>{message.text}</span>
           <button onClick={() => setMessage(null)} className="underline text-[11px] ml-4 hover:opacity-80">
@@ -428,11 +437,10 @@ export const ControlPortal: React.FC = () => {
       <div className="flex flex-wrap gap-2 pb-3 mb-6">
         <button
           onClick={() => setActiveTab('approvals')}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'approvals'
-              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
-              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
-          }`}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'approvals'
+            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+            : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+            }`}
         >
           <span>Pending Approvals</span>
           {pendingUsers.length > 0 && (
@@ -444,11 +452,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'users'
-              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
-              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
-          }`}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'users'
+            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+            : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+            }`}
         >
           <Users className="w-4 h-4" />
           <span>User Directory ({allUsers.length})</span>
@@ -456,11 +463,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('hardware')}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'hardware'
-              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
-              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
-          }`}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'hardware'
+            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+            : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+            }`}
         >
           <Radio className="w-4 h-4" />
           <span>IoT Hardware Binding</span>
@@ -468,11 +474,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('security')}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'security'
-              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
-              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
-          }`}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'security'
+            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+            : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+            }`}
         >
           <ShieldCheck className="w-4 h-4" />
           <span>System Security</span>
@@ -480,11 +485,10 @@ export const ControlPortal: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('config')}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'config'
-              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
-              : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
-          }`}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'config'
+            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border border-red-500/30 shadow-[0_0_20px_0_rgba(193,18,31,0.3)]'
+            : 'backdrop-blur-md bg-white/[0.03] text-slate-300 border border-white/10 hover:bg-white/[0.08] hover:text-white'
+            }`}
         >
           <DollarSign className="w-4 h-4" />
           <span>Rates & Configuration</span>
@@ -594,10 +598,7 @@ export const ControlPortal: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/[0.06]">
                   {filteredUsers.map((u) => {
-                    const isRootOwner =
-                      u.role === 'owner' ||
-                      u.uid === currentUser?.uid ||
-                      (u as any).email === OWNER_EMAIL;
+                    const isRootOwner = isRootOwnerUser({ email: (u as any).email, uid: u.uid });
                     return (
                       <tr key={u.uid} className="hover:bg-white/[0.02] transition-colors">
                         <td className="px-4 py-3 font-mono font-bold text-red-400">
@@ -620,13 +621,12 @@ export const ControlPortal: React.FC = () => {
                         <td className="px-4 py-3 text-slate-400">{u.addressText || '—'}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
-                              isRootOwner || u.status === 'approved'
-                                ? 'bg-emerald-500/15 border border-emerald-400/30 text-emerald-300'
-                                : u.status === 'pending'
+                            className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${isRootOwner || u.status === 'approved'
+                              ? 'bg-emerald-500/15 border border-emerald-400/30 text-emerald-300'
+                              : u.status === 'pending'
                                 ? 'bg-amber-500/15 border border-amber-400/30 text-amber-300'
                                 : 'bg-red-500/15 border border-red-400/30 text-red-300'
-                            }`}
+                              }`}
                           >
                             {isRootOwner ? 'Approved' : u.status}
                           </span>

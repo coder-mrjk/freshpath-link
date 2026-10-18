@@ -118,9 +118,8 @@ export const DemoPortal: React.FC = () => {
       for (const uDoc of usersSnap.docs) {
         const uData = uDoc.data();
         const isOwnerDoc =
-          uDoc.id === currentUser?.uid ||
-          uData.email === OWNER_EMAIL ||
-          uData.role === 'owner';
+          (uData.email && uData.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) ||
+          uDoc.id === 'oMl0ziVO7aWj9MH26ocPGH41fG12';
 
         if (isOwnerDoc) {
           // Preserve and ensure clean owner status
