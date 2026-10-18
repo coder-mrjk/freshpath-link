@@ -25,6 +25,8 @@ import {
 } from '../../lib/price';
 import { formatIST, timeAgoIST } from '../../lib/time';
 import { calculateFreshness } from '../../lib/freshness';
+import { initRemoteConfig, getRemoteNumber } from '../../lib/remoteConfig';
+import { showLocalNotification } from '../../lib/notifications';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   Sprout,
@@ -179,6 +181,15 @@ export const GrowPortal: React.FC = () => {
       setBags(bagList);
       setLoading(false);
 
+      // Check if new handover requests arrived and trigger web notification
+      const pendingHandover = bagList.find((b) => b.status === 'PENDING_PICKUP');
+      if (pendingHandover) {
+        showLocalNotification('🚚 Transport Handover Request', {
+          body: `Vehicle ${pendingHandover.pendingPickup?.vehicleReg || 'Truck'} requested to load crate ${pendingHandover.id}. Tap to approve.`,
+          tag: `handover-${pendingHandover.id}`,
+        });
+      }
+
       // Fetch Mandi / Storage live readings
       const newStorageMap: Record<string, StorageUnitInfo> = {};
       for (const unitId of Array.from(unitIdsToFetch)) {
@@ -209,23 +220,34 @@ export const GrowPortal: React.FC = () => {
       setStorageMap(newStorageMap);
     });
 
-    // 3. Fetch Pricing Config
+    // 3. Fetch Pricing Config (Remote Config 0-cost + Firestore fallback)
     const loadPricing = async () => {
       try {
+        await initRemoteConfig();
+        const rcPricing: GradePricing = {
+          gradeAPlus: getRemoteNumber('regulated_price_grade_a_plus') || DEFAULT_GRADE_PRICING.gradeAPlus,
+          gradeA: getRemoteNumber('regulated_price_grade_a') || DEFAULT_GRADE_PRICING.gradeA,
+          gradeB: getRemoteNumber('regulated_price_grade_b') || DEFAULT_GRADE_PRICING.gradeB,
+          gradeC: getRemoteNumber('regulated_price_grade_c') || DEFAULT_GRADE_PRICING.gradeC,
+        };
+
         const pricingSnap = await getDoc(doc(db, 'config', 'pricing'));
         if (pricingSnap.exists()) {
           const p = pricingSnap.data() as GradePricing;
           const loaded: GradePricing = {
-            gradeAPlus: p.gradeAPlus ?? DEFAULT_GRADE_PRICING.gradeAPlus,
-            gradeA: p.gradeA ?? DEFAULT_GRADE_PRICING.gradeA,
-            gradeB: p.gradeB ?? DEFAULT_GRADE_PRICING.gradeB,
-            gradeC: p.gradeC ?? DEFAULT_GRADE_PRICING.gradeC,
+            gradeAPlus: p.gradeAPlus ?? rcPricing.gradeAPlus,
+            gradeA: p.gradeA ?? rcPricing.gradeA,
+            gradeB: p.gradeB ?? rcPricing.gradeB,
+            gradeC: p.gradeC ?? rcPricing.gradeC,
           };
           setGradePrices(loaded);
           setRatePerKg(getPriceForGrade(sizeGrade, loaded));
+        } else {
+          setGradePrices(rcPricing);
+          setRatePerKg(getPriceForGrade(sizeGrade, rcPricing));
         }
       } catch (e) {
-        console.warn('Failed to load pricing config:', e);
+        console.warn('Failed to load pricing config (using defaults):', e);
       }
     };
     loadPricing();

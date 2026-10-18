@@ -19,6 +19,7 @@ import { parseScannedBagId } from '../../lib/bagId';
 import { formatIST, timeAgoIST } from '../../lib/time';
 import { formatRupees } from '../../lib/price';
 import { calculateFreshness } from '../../lib/freshness';
+import { showLocalNotification } from '../../lib/notifications';
 import { QRScannerModal } from '../../components/QRScannerModal';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
@@ -194,6 +195,15 @@ export const ShelfPortal: React.FC = () => {
       setShelfBags(onShelf);
       setPendingPaymentBags(pendingPay);
       setSoldBags(sold);
+
+      // Trigger notification if customer is waiting to pay
+      if (pendingPay.length > 0) {
+        const waitingBag = pendingPay[0];
+        showLocalNotification('💰 Customer Payment Ready', {
+          body: `Shopper ${waitingBag.pendingBuyer?.name || 'Customer'} is waiting to pay ₹${waitingBag.totalPrice} for Crate ${waitingBag.id}.`,
+          tag: `pending-payment-${waitingBag.id}`,
+        });
+      }
     });
 
     return () => unsubscribeBags();

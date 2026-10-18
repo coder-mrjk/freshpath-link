@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
+import { BroadcastBanner } from './components/BroadcastBanner';
 import { EntrancePage } from './portals/entrance/EntrancePage';
 import { AuthPage } from './portals/entrance/AuthPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -71,6 +72,7 @@ const AppContent: React.FC = () => {
 
       {/* Glassmorphism Navbar Area */}
       <div className="relative z-40">
+        <BroadcastBanner />
         <Navbar
           userRole={isOwner ? 'owner' : userProfile?.role}
           displayName={displayName}

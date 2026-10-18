@@ -18,6 +18,7 @@ import { formatIST, timeAgoIST } from '../../lib/time';
 import { formatRupees } from '../../lib/price';
 import { calculateFreshness } from '../../lib/freshness';
 import { calculateStorageTelemetryStats, StorageReading } from '../../lib/storage';
+import { showLocalNotification } from '../../lib/notifications';
 import { TripMap } from '../../components/TripMap';
 import { GPSFix } from '../../lib/gps';
 import {
@@ -158,6 +159,10 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
         // Auto open rating modal if crate was just confirmed sold to current consumer and not yet rated
         if (bData.status === 'SOLD' && bData.soldTo?.consumerUid === currentUser?.uid && !bData.rating) {
           setShowRatingModal(true);
+          showLocalNotification('🎉 Payment Confirmed & Provenance Verified!', {
+            body: `Your farm produce is verified! Tap to submit a 5-star review for farmer ${bData.farmerFirstName}.`,
+            tag: `sold-${bData.id}`,
+          });
         }
 
         // Fetch Trip if present

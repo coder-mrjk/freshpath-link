@@ -18,10 +18,13 @@ import {
   AlertCircle,
   Truck,
   Sprout,
-  Warehouse,
   Plus,
   Save,
+  Bell,
+  BellRing,
+  Warehouse,
 } from 'lucide-react';
+import { requestNotificationPermission, showLocalNotification } from '../lib/notifications';
 
 interface Props {
   isOpen: boolean;
@@ -71,6 +74,25 @@ export const UserSettingsModal: React.FC<Props> = ({
   const [addressText, setAddressText] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  );
+
+  const handleEnableNotifications = async () => {
+    const token = await requestNotificationPermission(currentUser?.uid);
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotifPermission(Notification.permission);
+    }
+    if (token) {
+      showLocalNotification('🔔 FreshPath Notifications Active', {
+        body: 'You will receive instant alerts for driver arrivals, crate handovers, and counter payments.',
+        tag: 'freshpath-welcome',
+      });
+      setMessage({ text: 'Push notifications enabled successfully!', type: 'success' });
+    } else {
+      setMessage({ text: 'Notification permission was not granted by your browser.', type: 'error' });
+    }
+  };
 
   // Role entities
   const [fields, setFields] = useState<FieldItem[]>([]);
@@ -467,6 +489,51 @@ export const UserSettingsModal: React.FC<Props> = ({
               </button>
             </div>
           </form>
+
+          {/* PUSH NOTIFICATIONS & ALERTS SECTION */}
+          <div className="mt-6 pt-5 border-t border-white/10">
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className={`p-2.5 rounded-xl border shrink-0 ${
+                  notifPermission === 'granted'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                }`}>
+                  {notifPermission === 'granted' ? <BellRing className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white">Push Notifications &amp; Alerts</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      notifPermission === 'granted'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : notifPermission === 'denied'
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      {notifPermission === 'granted' ? 'Active' : notifPermission === 'denied' ? 'Blocked in Browser' : 'Not Enabled'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md">
+                    Receive instant push alerts on your phone or desktop when a driver requests crate pickup, a customer pays at the counter, or order status changes.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleEnableNotifications}
+                className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 touch-target ${
+                  notifPermission === 'granted'
+                    ? 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>{notifPermission === 'granted' ? 'Test Alert Chime' : 'Enable Notifications'}</span>
+              </button>
+            </div>
+          </div>
 
           {/* ROLE-SPECIFIC ENTITY SECTIONS (Only shown for matching non-owner roles) */}
           {(activeRole === 'farmer' || activeRole === 'driver' || activeRole === 'mandi') && (
