@@ -448,9 +448,9 @@ export const HubPortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Hub Portal</h1>
-              {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-amber-950/60 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40" title="Unique Pass ID">
-                  {userProfile.passId}
+              {(userProfile?.fullName || userProfile?.firstName) && (
+                <span className="text-xs font-semibold bg-amber-950/60 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40">
+                  {userProfile.fullName || userProfile.firstName}
                 </span>
               )}
             </div>

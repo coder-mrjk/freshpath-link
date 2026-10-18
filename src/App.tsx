@@ -26,7 +26,12 @@ import { TablePortal } from './portals/table/TablePortal';
 import { PublicBagPage } from './portals/table/PublicBagPage';
 
 const AppContent: React.FC = () => {
-  const { userProfile, isOwner, logout } = useAuth();
+  const { userProfile, isOwner, logout, currentUser } = useAuth();
+  const displayName =
+    userProfile?.fullName ||
+    userProfile?.firstName ||
+    currentUser?.displayName ||
+    (isOwner ? 'System Owner' : undefined);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0F172A] text-[#dae2fd] relative selection:bg-red-600/30 selection:text-white">
@@ -41,6 +46,7 @@ const AppContent: React.FC = () => {
       <div className="relative z-40 backdrop-blur-xl bg-slate-900/65 border-b border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)]">
         <Navbar
           userRole={isOwner ? 'owner' : userProfile?.role}
+          displayName={displayName}
           passId={userProfile?.passId}
           onLogout={userProfile || isOwner ? logout : undefined}
         />

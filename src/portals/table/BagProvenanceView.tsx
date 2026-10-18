@@ -629,7 +629,7 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
                     <span>Purchase as Verified Consumer</span>
                   </h4>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Logged in as <strong className="text-white">{userProfile?.firstName || 'Consumer'}</strong> ({userProfile?.passId || 'Verified'}). Confirm purchase to lock provenance.
+                    Logged in as <strong className="text-white">{userProfile?.fullName || userProfile?.firstName || 'Consumer'}</strong>. Confirm purchase to lock provenance.
                   </p>
                 </div>
 

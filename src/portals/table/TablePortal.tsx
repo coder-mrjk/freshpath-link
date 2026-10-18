@@ -157,15 +157,16 @@ export const TablePortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Table Portal</h1>
-              {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-red-950/60 text-red-300 px-2.5 py-0.5 rounded-full border border-red-500/40">
-                  {userProfile.passId}
+              {(userProfile?.fullName || userProfile?.firstName) && (
+                <span className="text-xs font-semibold bg-red-950/60 text-red-300 px-2.5 py-0.5 rounded-full border border-red-500/40">
+                  {userProfile.fullName || userProfile.firstName}
                 </span>
               )}
             </div>
             <p className="text-xs text-red-200/80 mt-0.5">
               Consumer:{' '}
-              <strong className="text-white">{userProfile?.firstName || 'Guest Shopper'}</strong>
+              <strong className="text-white">{userProfile?.fullName || userProfile?.firstName || 'Guest Shopper'}</strong>
+              {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
               {!currentUser && ' • Sign in to save your history'}
             </p>
           </div>

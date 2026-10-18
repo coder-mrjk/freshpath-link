@@ -9,10 +9,11 @@ interface Props {
   portalName?: string;
   userRole?: 'farmer' | 'driver' | 'mandi' | 'shop' | 'consumer' | 'owner';
   passId?: string;
+  displayName?: string;
   onLogout?: () => void;
 }
 
-export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout }) => {
+export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, displayName, onLogout }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
@@ -55,10 +56,10 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, onLogout
               </span>
             )}
 
-            {passId && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 bg-white/5 border border-white/10 rounded-full text-slate-300 backdrop-blur-md">
-                <User className="w-3 h-3 text-slate-400" />
-                {passId}
+            {(displayName || passId) && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 bg-white/5 border border-white/10 rounded-full text-slate-200 backdrop-blur-md">
+                <User className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="max-w-[160px] truncate">{displayName || passId}</span>
               </span>
             )}
 

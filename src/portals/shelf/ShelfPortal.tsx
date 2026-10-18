@@ -255,9 +255,9 @@ export const ShelfPortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black tracking-tight text-white">Shelf Portal</h1>
-              {userProfile?.passId && (
-                <span className="text-xs font-mono font-bold bg-purple-950/60 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/40" title="Unique Pass ID">
-                  {userProfile.passId}
+              {(userProfile?.fullName || userProfile?.firstName) && (
+                <span className="text-xs font-semibold bg-purple-950/60 text-purple-300 px-2.5 py-0.5 rounded-full border border-purple-500/40">
+                  {userProfile.fullName || userProfile.firstName}
                 </span>
               )}
             </div>

@@ -114,7 +114,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           </div>
           <h2 className="text-xl font-black text-charcoal">Approval Pending</h2>
           <p className="text-xs text-gray-600 mt-2 mb-2">
-            Your registration as <strong>{userProfile.role}</strong> ({userProfile.passId || 'Pending ID'}) is awaiting verification by the Mandi / Admin supervisor.
+            Your registration as <strong>{userProfile.fullName || userProfile.firstName || userProfile.role}</strong> ({userProfile.role}) is awaiting verification by the Mandi / Admin supervisor.
           </p>
           <p className="text-[11px] text-gray-400 mb-6">
             Once approved, you will have immediate real-time access to the {portalName}.
@@ -170,7 +170,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           </div>
           <h2 className="text-xl font-black text-charcoal">Role Mismatch</h2>
           <p className="text-xs text-gray-600 mt-2 mb-6">
-            You are currently signed in as a verified <strong>{userProfile.role.toUpperCase()}</strong> ({userProfile.passId}). The {portalName} is reserved for {allowedRoles.join(', ')} users.
+            You are currently signed in as <strong>{userProfile.fullName || userProfile.firstName || userProfile.role.toUpperCase()}</strong> ({userProfile.role.toUpperCase()}). The {portalName} is reserved for {allowedRoles.join(', ')} users.
           </p>
           <div className="space-y-2">
             <Link

@@ -35,6 +35,7 @@ export const ControlPortal: React.FC = () => {
   const {
     isOwner,
     currentUser,
+    userProfile,
     loading: authLoading,
     logout,
   } = useAuth();
@@ -337,9 +338,16 @@ export const ControlPortal: React.FC = () => {
               <span className="text-[10px] font-mono font-bold bg-red-500/20 border border-red-400/40 text-red-300 px-2.5 py-0.5 rounded-full">
                 ROOT OWNER
               </span>
+              {(userProfile?.fullName || currentUser?.displayName) && (
+                <span className="text-xs font-semibold bg-white/5 border border-white/10 text-slate-200 px-2.5 py-0.5 rounded-full">
+                  {userProfile?.fullName || currentUser?.displayName}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Administered by: <strong>{currentUser?.email || OWNER_EMAIL}</strong> • Hardware Binding & Verification
+              Administered by: <strong>{userProfile?.fullName || currentUser?.displayName || currentUser?.email || OWNER_EMAIL}</strong>
+              {userProfile?.phone && <span> • 📞 {userProfile.phone}</span>}
+              <span> • Hardware Binding & Verification</span>
             </p>
           </div>
         </div>

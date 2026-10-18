@@ -322,17 +322,22 @@ export const UserSettingsModal: React.FC<Props> = ({
           </div>
 
           {/* Unique Pass ID Notice */}
-          <div className="mt-2 p-3 bg-white/[0.03] border border-white/10 rounded-2xl flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                Unique Pass ID
+          <div className="mt-2 p-3.5 bg-slate-800/60 border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3 shadow-inner">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 font-mono text-xs font-bold">
+                ID
               </div>
-              <div className="text-sm font-mono font-black text-emerald-400 mt-0.5">
-                {userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'Pending Issuance')}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Supply Chain Pass ID
+                </div>
+                <div className="text-sm font-mono font-black text-emerald-400 tracking-tight">
+                  {userProfile?.passId || (isOwner ? 'FP-OWNER-0001' : 'Pending Issuance')}
+                </div>
               </div>
             </div>
-            <span className="text-[11px] text-slate-400 italic text-right max-w-[240px]">
-              System supply chain pass identifier (not your display name)
+            <span className="text-[11px] text-slate-400 italic text-right max-w-[220px]">
+              Unique supply chain identifier (your display name is edited below)
             </span>
           </div>
         </div>
