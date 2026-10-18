@@ -120,6 +120,56 @@ export const HubPortal: React.FC = () => {
         mSnap.forEach((d) => mandiList.push({ id: d.id, ...d.data() } as Mandi));
       }
 
+      // Auto-provision mandi and cold storage if mandi operator has none
+      if (mandiList.length === 0 && !isOwner) {
+        const defaultMandiName = `${userProfile?.fullName || userProfile?.firstName || 'Agro'} Mandi`;
+        const defaultArea = userProfile?.addressText || 'Market Yard';
+        try {
+          const mandiRef = await addDoc(collection(db, 'mandis'), {
+            mandiPersonUid: currentUser.uid,
+            name: defaultMandiName,
+            area: defaultArea,
+            createdAt: serverTimestamp(),
+          });
+          const autoMandi: Mandi = {
+            id: mandiRef.id,
+            mandiPersonUid: currentUser.uid,
+            name: defaultMandiName,
+            area: defaultArea,
+          };
+          mandiList.push(autoMandi);
+
+          const autoUnit: StorageUnit = {
+            id: 'STORE-01',
+            mandiId: mandiRef.id,
+            name: 'Cold Storage Room 1',
+            nodeUnitId: 'STORE-01',
+            currentTemp: 13.5,
+            currentHumidity: 88.0,
+            latest: {
+              tempC: 13.5,
+              humidityPct: 88.0,
+              at: new Date().toISOString(),
+            },
+            targetTempMin: 12.0,
+            targetTempMax: 15.0,
+            targetHumidityMin: 85.0,
+            targetHumidityMax: 90.0,
+            capacityCrates: 200,
+          };
+          await setDoc(
+            doc(db, 'storageUnits', 'STORE-01'),
+            {
+              ...autoUnit,
+              createdAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (mErr) {
+          console.warn('Auto-provisioning mandi error:', mErr);
+        }
+      }
+
       setMandis(mandiList);
       const activeMandi = mandiList.length > 0 ? mandiList[0] : null;
       setSelectedMandi(activeMandi);

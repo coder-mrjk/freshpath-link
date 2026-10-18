@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  addDoc,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -93,6 +94,29 @@ export const ShelfPortal: React.FC = () => {
         const sQ = query(collection(db, 'shops'), where('shopPersonUid', '==', currentUser.uid));
         const sSnap = await getDocs(sQ);
         sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
+      }
+
+      // Auto-provision shop if retailer has none
+      if (sList.length === 0 && !isOwner) {
+        const defaultShopName = `${userProfile?.fullName || userProfile?.firstName || 'Fresh'} Basket Store`;
+        const defaultArea = userProfile?.addressText || 'Market Center';
+        try {
+          const shopRef = await addDoc(collection(db, 'shops'), {
+            shopPersonUid: currentUser.uid,
+            name: defaultShopName,
+            area: defaultArea,
+            createdAt: serverTimestamp(),
+          });
+          const autoShop: Shop = {
+            id: shopRef.id,
+            shopPersonUid: currentUser.uid,
+            name: defaultShopName,
+            area: defaultArea,
+          };
+          sList.push(autoShop);
+        } catch (sErr) {
+          console.warn('Auto-provisioning shop error:', sErr);
+        }
       }
 
       setShops(sList);

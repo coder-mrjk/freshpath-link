@@ -13,8 +13,10 @@ import {
   Warehouse,
   Store,
   ShoppingBasket,
+  Cpu,
 } from 'lucide-react';
 import { ControlPortal } from './portals/control/ControlPortal';
+import { DemoPortal } from './portals/demo/DemoPortal';
 import { GrowPortal } from './portals/grow/GrowPortal';
 import { PrintLabelPage } from './portals/grow/PrintLabelPage';
 import { MovePortal } from './portals/move/MovePortal';
@@ -95,6 +97,22 @@ const AppContent: React.FC = () => {
                 targetRole="control"
               >
                 <ControlPortal />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/demo"
+            element={
+              <ProtectedRoute
+                allowedRoles={[]}
+                allowOwner={true}
+                portalName="Testing & Simulation Suite"
+                portalDescription="Owner simulation suite for generating supply chain test data, injecting hardware telemetry, and managing database state."
+                portalIcon={Cpu}
+                targetRole="control"
+              >
+                <DemoPortal />
               </ProtectedRoute>
             }
           />

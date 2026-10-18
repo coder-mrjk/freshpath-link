@@ -121,6 +121,31 @@ export const MovePortal: React.FC = () => {
       vSnap.forEach((d) => {
         vList.push({ id: d.id, ...d.data() } as Vehicle);
       });
+
+      // Auto-provision initial vehicle if driver has none
+      if (vList.length === 0 && !isOwner) {
+        const defaultReg = `TN 31 DRV ${currentUser.uid.slice(0, 4).toUpperCase()}`;
+        const defaultVehId = defaultReg.replace(/\s+/g, '').toUpperCase();
+        const autoVeh: Vehicle = {
+          id: defaultVehId,
+          driverUid: currentUser.uid,
+          regNumber: defaultReg,
+          vehicleType: 'Pickup Truck',
+          capacityKg: 1500,
+          gpsUnitId: 'GPS-01',
+          status: 'ACTIVE',
+        };
+        try {
+          await setDoc(doc(db, 'vehicles', defaultVehId), {
+            ...autoVeh,
+            createdAt: serverTimestamp(),
+          });
+          vList.push(autoVeh);
+        } catch (vErr) {
+          console.warn('Auto-provisioning initial vehicle error:', vErr);
+        }
+      }
+
       setVehicles(vList);
 
       const activeVeh = vList.length > 0

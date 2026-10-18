@@ -196,7 +196,8 @@ service cloud.firestore {
 
     function isOwner() {
       return signedIn() && (
-        (request.auth.token.email != null && request.auth.token.email == 'tonightgamermrjk@gmail.com') ||
+        request.auth.uid == 'oMl0ziVO7aWj9MH26ocPGH41fG12' ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'tonightgamermrjk@gmail.com') ||
         exists(/databases/$(database)/documents/owners/$(request.auth.uid))
       );
     }
@@ -270,7 +271,10 @@ service cloud.firestore {
     // System owners: Root administrators
     match /owners/{uid} {
       allow read: if signedIn();
-      allow write: if isOwner();
+      allow write: if isOwner() || (signedIn() && (
+        request.auth.uid == 'oMl0ziVO7aWj9MH26ocPGH41fG12' ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'tonightgamermrjk@gmail.com')
+      ));
     }
 
     // Role-specific pass ID counters (atomic increments by owner or during signup/approval)

@@ -129,6 +129,29 @@ export const GrowPortal: React.FC = () => {
       const fieldSnap = await getDocs(fieldsQ);
       const fieldList: Field[] = [];
       fieldSnap.forEach((d) => fieldList.push({ id: d.id, ...d.data() } as Field));
+
+      // Auto-provision primary field if farmer doesn't have any field yet
+      if (fieldList.length === 0) {
+        const defaultName = `${userProfile?.fullName || userProfile?.firstName || 'Farmer'}'s Field`;
+        const defaultVillage = userProfile?.addressText || 'Tamil Nadu';
+        try {
+          const autoRef = await addDoc(collection(db, 'fields'), {
+            farmerUid: currentUser.uid,
+            name: defaultName,
+            village: defaultVillage,
+            district: '',
+            createdAt: serverTimestamp(),
+          });
+          fieldList.push({
+            id: autoRef.id,
+            name: defaultName,
+            village: defaultVillage,
+          });
+        } catch (fErr) {
+          console.warn('Auto-provisioning initial field error:', fErr);
+        }
+      }
+
       setFields(fieldList);
       if (fieldList.length > 0 && !selectedFieldId) {
         setSelectedFieldId(fieldList[0].id);
