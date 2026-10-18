@@ -504,7 +504,7 @@ export const MovePortal: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Top Banner - Blue Gradient Glass */}
       <div className="bg-gradient-to-r from-blue-900/60 to-blue-800/40 backdrop-blur-xl border border-blue-500/20 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -927,72 +927,80 @@ export const MovePortal: React.FC = () => {
 
       {/* Quick Add Vehicle Modal */}
       {showAddVehicleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-white">
-            <h3 className="font-bold text-base text-white mb-1">Register Transport Vehicle</h3>
-            <p className="text-[11px] text-slate-400 mb-4">
-              Add another vehicle to your driver fleet profile
-            </p>
-            <form onSubmit={handleQuickAddVehicle} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Registration Number
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newRegNumber}
-                  onChange={(e) => setNewRegNumber(e.target.value.toUpperCase())}
-                  placeholder="e.g. TN 31 AB 1234"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-blue-500/50"
-                />
-              </div>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setShowAddVehicleModal(false)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-1">Register Transport Vehicle</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Add another vehicle to your driver fleet profile
+              </p>
+              <form onSubmit={handleQuickAddVehicle} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Registration Number
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newRegNumber}
+                    onChange={(e) => setNewRegNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. TN 31 AB 1234"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-blue-500/50"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Vehicle Type
-                </label>
-                <select
-                  value={newVehicleType}
-                  onChange={(e) => setNewVehicleType(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
-                >
-                  <option value="Pickup Truck">Pickup Truck</option>
-                  <option value="LCV Mini Truck">LCV Mini Truck</option>
-                  <option value="Heavy Truck">Heavy Truck</option>
-                  <option value="Three Wheeler">Three Wheeler</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Vehicle Type
+                  </label>
+                  <select
+                    value={newVehicleType}
+                    onChange={(e) => setNewVehicleType(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                  >
+                    <option value="Pickup Truck">Pickup Truck</option>
+                    <option value="LCV Mini Truck">LCV Mini Truck</option>
+                    <option value="Heavy Truck">Heavy Truck</option>
+                    <option value="Three Wheeler">Three Wheeler</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Payload Capacity (kg)
-                </label>
-                <input
-                  type="number"
-                  value={newCapacityKg}
-                  onChange={(e) => setNewCapacityKg(e.target.value)}
-                  placeholder="1000"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Payload Capacity (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={newCapacityKg}
+                    onChange={(e) => setNewCapacityKg(e.target.value)}
+                    placeholder="1000"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                  />
+                </div>
 
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddVehicleModal(false)}
-                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow transition-all"
-                >
-                  Save Vehicle
-                </button>
-              </div>
-            </form>
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddVehicleModal(false)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow transition-all"
+                  >
+                    Save Vehicle
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
