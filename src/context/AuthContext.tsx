@@ -258,46 +258,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       await setDoc(doc(db, 'users', user.uid), profile);
-
-      // Auto-provision initial role record for Google Sign-In users
-      const displayName = user.displayName || user.email || 'User';
-      if (targetRole === 'farmer') {
-        await addDoc(collection(db, 'fields'), {
-          farmerUid: user.uid,
-          name: `${displayName}'s Farm Field`,
-          village: 'Tamil Nadu',
-          district: '',
-          createdAt: serverTimestamp(),
-        });
-      } else if (targetRole === 'driver') {
-        const vReg = `TN 31 DRV ${user.uid.slice(0, 4).toUpperCase()}`;
-        const vehicleId = vReg.replace(/\s+/g, '').toUpperCase();
-        await setDoc(doc(db, 'vehicles', vehicleId), {
-          driverUid: user.uid,
-          regNumber: vReg,
-          vehicleType: 'Pickup Truck',
-          capacityKg: 1500,
-          gpsUnitId: 'GPS-01',
-          status: 'ACTIVE',
-          createdAt: serverTimestamp(),
-        });
-      } else if (targetRole === 'mandi') {
-        const mandiRef = await addDoc(collection(db, 'mandis'), {
-          mandiPersonUid: user.uid,
-          name: `${displayName} Agro Mandi`,
-          area: 'Tamil Nadu',
-          createdAt: serverTimestamp(),
-        });
-        await setDoc(doc(db, 'storageUnits', 'STORE-01'), {
-          mandiId: mandiRef.id,
-          name: 'Cold Storage Room 1',
-          nodeUnitId: 'STORE-01',
-          currentTemp: 13.5,
-          currentHumidity: 88.0,
-          latest: { tempC: 13.5, humidityPct: 88.0, at: new Date().toISOString() },
-          createdAt: serverTimestamp(),
-        }, { merge: true });
-      }
     }
 
     return { user, isNewUser: !userDoc.exists() };

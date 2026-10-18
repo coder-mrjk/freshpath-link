@@ -333,14 +333,14 @@ service cloud.firestore {
     match /mandis/{mandiId} {
       allow read: if signedIn();
       allow create, update: if isOwner() || isApproved('mandi') || (signedIn() && request.resource.data.mandiPersonUid == request.auth.uid);
-      allow delete: if isOwner();
+      allow delete: if isOwner() || (signedIn() && resource.data.mandiPersonUid == request.auth.uid);
     }
 
     // Cold storage units within mandis
     match /storageUnits/{unitId} {
       allow read: if signedIn();
       allow create, update: if isApproved('mandi') || isOwner() || signedIn() || isDevice(unitId, 'storage');
-      allow delete: if isOwner();
+      allow delete: if isOwner() || isApproved('mandi') || signedIn();
 
       // Telemetry readings subcollection (DHT22 temp & humidity)
       match /readings/{readingId} {
@@ -354,7 +354,7 @@ service cloud.firestore {
     match /shops/{shopId} {
       allow read: if signedIn();
       allow create, update: if isApproved('shop') || isOwner() || (signedIn() && request.resource.data.shopPersonUid == request.auth.uid);
-      allow delete: if isOwner();
+      allow delete: if isOwner() || (signedIn() && resource.data.shopPersonUid == request.auth.uid);
     }
 
     // Produce bags: Public read for consumer QR tracing (/b/<bagId>)

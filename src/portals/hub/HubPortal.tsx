@@ -8,6 +8,8 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
   writeBatch,
   addDoc,
@@ -42,6 +44,8 @@ import {
   Clock,
   Settings,
   Plus,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 interface Mandi {
@@ -94,6 +98,10 @@ export const HubPortal: React.FC = () => {
   const [newUnitName, setNewUnitName] = useState('Cold Room A');
   const [newNodeId, setNewNodeId] = useState('STORE-01');
 
+  // Mandi & Storage Unit Edit State
+  const [editingMandi, setEditingMandi] = useState<Mandi | null>(null);
+  const [editingUnit, setEditingUnit] = useState<StorageUnit | null>(null);
+
   // Dispatch Modal
   const [dispatchBag, setDispatchBag] = useState<StoredBag | null>(null);
   const [selectedShopId, setSelectedShopId] = useState('');
@@ -121,58 +129,8 @@ export const HubPortal: React.FC = () => {
         mSnap.forEach((d) => mandiList.push({ id: d.id, ...d.data() } as Mandi));
       }
 
-      // Auto-provision mandi and cold storage if mandi operator has none
-      if (mandiList.length === 0) {
-        const defaultMandiName = `${userProfile?.fullName || userProfile?.firstName || 'Agro'} Mandi`;
-        const defaultArea = userProfile?.addressText || 'Market Yard';
-        try {
-          const mandiRef = await addDoc(collection(db, 'mandis'), {
-            mandiPersonUid: currentUser.uid,
-            name: defaultMandiName,
-            area: defaultArea,
-            createdAt: serverTimestamp(),
-          });
-          const autoMandi: Mandi = {
-            id: mandiRef.id,
-            mandiPersonUid: currentUser.uid,
-            name: defaultMandiName,
-            area: defaultArea,
-          };
-          mandiList.push(autoMandi);
-
-          const autoUnit: StorageUnit = {
-            id: 'STORE-01',
-            mandiId: mandiRef.id,
-            name: 'Cold Storage Room 1',
-            nodeUnitId: 'STORE-01',
-            currentTemp: 13.5,
-            currentHumidity: 88.0,
-            latest: {
-              tempC: 13.5,
-              humidityPct: 88.0,
-              at: new Date().toISOString(),
-            },
-            targetTempMin: 12.0,
-            targetTempMax: 15.0,
-            targetHumidityMin: 85.0,
-            targetHumidityMax: 90.0,
-            capacityCrates: 200,
-          };
-          await setDoc(
-            doc(db, 'storageUnits', 'STORE-01'),
-            {
-              ...autoUnit,
-              createdAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-        } catch (mErr) {
-          console.warn('Auto-provisioning mandi error:', mErr);
-        }
-      }
-
       setMandis(mandiList);
-      const activeMandi = mandiList.length > 0 ? mandiList[0] : null;
+      const activeMandi = mandiList.length > 0 ? (selectedMandi ? mandiList.find((m) => m.id === selectedMandi.id) || mandiList[0] : mandiList[0]) : null;
       setSelectedMandi(activeMandi);
 
       if (activeMandi) {
@@ -222,23 +180,6 @@ export const HubPortal: React.FC = () => {
       const sList: Shop[] = [];
       sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
 
-      if (sList.length === 0) {
-        try {
-          const autoShopRef = await addDoc(collection(db, 'shops'), {
-            name: 'FreshPath Retail Mart',
-            area: 'Metro Central',
-            createdAt: serverTimestamp(),
-          });
-          sList.push({
-            id: autoShopRef.id,
-            name: 'FreshPath Retail Mart',
-            area: 'Metro Central',
-          });
-        } catch {
-          // ignore
-        }
-      }
-
       setShops(sList);
       if (sList.length > 0) {
         setSelectedShopId(sList[0].id);
@@ -258,43 +199,116 @@ export const HubPortal: React.FC = () => {
 
     setActionLoading(true);
     try {
-      const mandiRef = await addDoc(collection(db, 'mandis'), {
+      await addDoc(collection(db, 'mandis'), {
         mandiPersonUid: currentUser.uid,
         name: newMandiName.trim(),
         area: newMandiArea.trim() || userProfile?.addressText || 'Tamil Nadu',
         createdAt: serverTimestamp(),
       });
 
-      // Also create first storage unit
-      const unitId = 'STORE-01';
-      await setDoc(doc(db, 'storageUnits', unitId), {
-        mandiId: mandiRef.id,
-        name: 'Cold Storage Room 1',
-        nodeUnitId: unitId,
-        currentTemp: 13.5,
-        currentHumidity: 88.0,
-        latest: {
-          tempC: 13.5,
-          humidityPct: 88.0,
-          at: new Date().toISOString(),
-        },
-        targetTempMin: 12.0,
-        targetTempMax: 15.0,
-        targetHumidityMin: 85.0,
-        targetHumidityMax: 90.0,
-        capacityCrates: 200,
-        createdAt: serverTimestamp(),
-      });
-
       setShowRegisterMandiModal(false);
       setNewMandiName('');
       setNewMandiArea('');
-      setSuccessMsg(`Mandi "${newMandiName.trim()}" registered successfully!`);
+      setSuccessMsg(`Mandi "${newMandiName.trim()}" registered successfully! You can now add cold storage rooms.`);
       await loadHubData();
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to register mandi.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Update Mandi
+  const handleUpdateMandi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !editingMandi || !editingMandi.name.trim()) return;
+
+    try {
+      await updateDoc(doc(db, 'mandis', editingMandi.id), {
+        name: editingMandi.name.trim(),
+        area: editingMandi.area.trim(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setMandis((prev) =>
+        prev.map((m) => (m.id === editingMandi.id ? editingMandi : m))
+      );
+      if (selectedMandi?.id === editingMandi.id) {
+        setSelectedMandi(editingMandi);
+      }
+      setEditingMandi(null);
+      setSuccessMsg(`Mandi "${editingMandi.name.trim()}" updated successfully!`);
+      await loadHubData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update mandi.');
+    }
+  };
+
+  // Delete Mandi
+  const handleDeleteMandi = async (mandiId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete Mandi "${name}"? This will also remove its configured storage rooms.`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'mandis', mandiId));
+      setMandis((prev) => prev.filter((m) => m.id !== mandiId));
+      if (selectedMandi?.id === mandiId) {
+        const remaining = mandis.filter((m) => m.id !== mandiId);
+        setSelectedMandi(remaining.length > 0 ? remaining[0] : null);
+      }
+      setSuccessMsg(`Mandi "${name}" deleted successfully!`);
+      await loadHubData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete mandi.');
+    }
+  };
+
+  // Update Storage Unit
+  const handleUpdateStorageUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !editingUnit || !editingUnit.name.trim()) return;
+
+    try {
+      await updateDoc(doc(db, 'storageUnits', editingUnit.id), {
+        name: editingUnit.name.trim(),
+        targetTempMin: Number(editingUnit.targetTempMin) || 12.0,
+        targetTempMax: Number(editingUnit.targetTempMax) || 15.0,
+        targetHumidityMin: Number(editingUnit.targetHumidityMin) || 85.0,
+        targetHumidityMax: Number(editingUnit.targetHumidityMax) || 90.0,
+        capacityCrates: Number(editingUnit.capacityCrates) || 200,
+        updatedAt: serverTimestamp(),
+      });
+
+      setStorageUnits((prev) =>
+        prev.map((u) => (u.id === editingUnit.id ? editingUnit : u))
+      );
+      if (selectedUnit?.id === editingUnit.id) {
+        setSelectedUnit(editingUnit);
+      }
+      setEditingUnit(null);
+      setSuccessMsg(`Cold storage room "${editingUnit.name.trim()}" updated successfully!`);
+      await loadHubData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update storage unit.');
+    }
+  };
+
+  // Delete Storage Unit
+  const handleDeleteStorageUnit = async (unitId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete Cold Storage Room "${name}"?`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'storageUnits', unitId));
+      setStorageUnits((prev) => prev.filter((u) => u.id !== unitId));
+      if (selectedUnit?.id === unitId) {
+        const remaining = storageUnits.filter((u) => u.id !== unitId);
+        setSelectedUnit(remaining.length > 0 ? remaining[0] : null);
+      }
+      setSuccessMsg(`Cold storage room "${name}" deleted.`);
+      await loadHubData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete storage unit.');
     }
   };
 
@@ -557,15 +571,13 @@ export const HubPortal: React.FC = () => {
         </div>
 
         <div className="flex items-center flex-wrap gap-2">
-          {!selectedMandi && (
-            <button
-              onClick={() => setShowRegisterMandiModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 rounded-full text-xs font-bold transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Register Mandi</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowRegisterMandiModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 rounded-full text-xs font-bold transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Mandi</span>
+          </button>
 
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -605,6 +617,199 @@ export const HubPortal: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Mandi & Cold Storage Management Section - Mandi Operator Direct Control */}
+      <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-400">
+              <Warehouse className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white">My Mandi Facilities & Cold Rooms</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {mandis.length} {mandis.length === 1 ? 'Mandi' : 'Mandis'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Mandi operators have direct control to register, edit details, or delete facility & storage rooms
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRegisterMandiModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Register New Mandi</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Mandis Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
+          {mandis.length === 0 ? (
+            <div className="col-span-full p-6 text-center text-xs text-slate-400">
+              No Mandi facilities registered yet. Click &ldquo;Register New Mandi&rdquo; to add your wholesale hub.
+            </div>
+          ) : (
+            mandis.map((m) => (
+              <div
+                key={m.id}
+                className={`p-3.5 rounded-xl border transition-all ${
+                  selectedMandi?.id === m.id
+                    ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_15px_rgba(217,119,6,0.15)]'
+                    : 'bg-white/[0.02] hover:bg-white/[0.04] border-white/10'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-white truncate flex items-center gap-1.5">
+                      <span>{m.name}</span>
+                      {selectedMandi?.id === m.id && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      📍 {m.area}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingMandi(m)}
+                      className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/10 text-xs transition-colors"
+                      title="Edit Mandi Details"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMandi(m.id, m.name)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 text-xs transition-colors"
+                      title="Delete Mandi"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMandi(m);
+                    }}
+                    className={`font-semibold transition-colors ${
+                      selectedMandi?.id === m.id
+                        ? 'text-amber-400 cursor-default'
+                        : 'text-slate-400 hover:text-white underline'
+                    }`}
+                  >
+                    {selectedMandi?.id === m.id ? '✓ Active Mandi' : 'Select Mandi'}
+                  </button>
+                  <span className="text-[10px] text-slate-400">
+                    {storageUnits.filter((u) => u.mandiId === m.id).length} Cold Rooms
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Cold Storage Units for Active Mandi */}
+        {selectedMandi && (
+          <div className="mt-6 pt-4 border-t border-white/[0.08]">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Thermometer className="w-3.5 h-3.5 text-amber-400" />
+                <span>Cold Storage Rooms in &ldquo;{selectedMandi.name}&rdquo; ({storageUnits.length})</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowNewUnitModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg border border-amber-500/30 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Cold Room</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {storageUnits.length === 0 ? (
+                <div className="col-span-full p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl text-center text-xs text-slate-400">
+                  No cold storage rooms configured for this Mandi yet. Click &ldquo;Add Cold Room&rdquo; to create one.
+                </div>
+              ) : (
+                storageUnits.map((u) => (
+                  <div
+                    key={u.id}
+                    className={`p-3 rounded-xl border transition-all ${
+                      selectedUnit?.id === u.id
+                        ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_12px_rgba(217,119,6,0.15)]'
+                        : 'bg-white/[0.02] border-white/10 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs text-white truncate flex items-center gap-1">
+                          <span>{u.name}</span>
+                          <span className="font-mono text-[10px] text-slate-400">({u.nodeUnitId})</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Temp: {u.targetTempMin || 12}°C – {u.targetTempMax || 15}°C • Cap: {u.capacityCrates || 200} crates
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingUnit(u)}
+                          className="p-1 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded border border-white/10 text-[10px] transition-colors"
+                          title="Edit Cold Room"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStorageUnit(u.id, u.name)}
+                          className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded border border-red-500/20 text-[10px] transition-colors"
+                          title="Delete Cold Room"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUnit(u);
+                          loadReadings(u.id);
+                        }}
+                        className={`font-semibold ${
+                          selectedUnit?.id === u.id ? 'text-amber-400' : 'text-slate-400 hover:text-white underline'
+                        }`}
+                      >
+                        {selectedUnit?.id === u.id ? '✓ Selected for Telemetry' : 'View Telemetry'}
+                      </button>
+                      <span className="font-mono text-slate-400">
+                        {u.currentTemp ? `${u.currentTemp}°C` : '–'} | {u.currentHumidity ? `${u.currentHumidity}%` : '–'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Storage Units Selector Bar */}
       <div className="flex items-center justify-between mb-4">
@@ -1033,6 +1238,157 @@ export const HubPortal: React.FC = () => {
                     className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow transition-all"
                   >
                     {actionLoading ? 'Saving...' : 'Register Mandi'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Mandi Modal */}
+      {editingMandi && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setEditingMandi(null)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-1">Edit Mandi Facility</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Update mandi name and market yard location
+              </p>
+              <form onSubmit={handleUpdateMandi} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Mandi Business Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingMandi.name}
+                    onChange={(e) => setEditingMandi({ ...editingMandi, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Market Yard Area / Address
+                  </label>
+                  <input
+                    type="text"
+                    value={editingMandi.area}
+                    onChange={(e) => setEditingMandi({ ...editingMandi, area: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingMandi(null)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow transition-all"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Storage Unit Modal */}
+      {editingUnit && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setEditingUnit(null)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-1">Edit Cold Storage Room</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Update storage parameters and envelope targets
+              </p>
+              <form onSubmit={handleUpdateStorageUnit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Room Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingUnit.name}
+                    onChange={(e) => setEditingUnit({ ...editingUnit, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Min Temp (°C)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={editingUnit.targetTempMin || 12}
+                      onChange={(e) => setEditingUnit({ ...editingUnit, targetTempMin: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Max Temp (°C)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={editingUnit.targetTempMax || 15}
+                      onChange={(e) => setEditingUnit({ ...editingUnit, targetTempMax: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Capacity (crates)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingUnit.capacityCrates || 200}
+                    onChange={(e) => setEditingUnit({ ...editingUnit, capacityCrates: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingUnit(null)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow transition-all"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </form>

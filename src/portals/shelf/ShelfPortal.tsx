@@ -8,7 +8,8 @@ import {
   getDocs,
   doc,
   getDoc,
-  setDoc,
+  updateDoc,
+  deleteDoc,
   addDoc,
   serverTimestamp,
   writeBatch,
@@ -30,6 +31,9 @@ import {
   Search,
   Settings,
   Plus,
+  PlusCircle,
+  Edit2,
+  Trash2,
   Sparkles,
 } from 'lucide-react';
 
@@ -64,6 +68,7 @@ export const ShelfPortal: React.FC = () => {
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+  const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [shelfBags, setShelfBags] = useState<ShelfBag[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFreshness, setFilterFreshness] = useState<'ALL' | 'FRESH' | 'SELL_SOON' | 'CHECK_QUALITY'>('ALL');
@@ -79,8 +84,8 @@ export const ShelfPortal: React.FC = () => {
   const [showShopModal, setShowShopModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [dispatchedBags, setDispatchedBags] = useState<ShelfBag[]>([]);
-  const [newShopName, setNewShopName] = useState('Fresh Basket Supermarket');
-  const [newShopArea, setNewShopArea] = useState('Adyar, Chennai');
+  const [newShopName, setNewShopName] = useState('');
+  const [newShopArea, setNewShopArea] = useState('');
 
   const loadShelfData = async () => {
     if (!currentUser) return;
@@ -98,31 +103,8 @@ export const ShelfPortal: React.FC = () => {
         sSnap.forEach((d) => sList.push({ id: d.id, ...d.data() } as Shop));
       }
 
-      // Auto-provision shop if retailer has none
-      if (sList.length === 0) {
-        const defaultShopName = `${userProfile?.fullName || userProfile?.firstName || 'Fresh'} Basket Store`;
-        const defaultArea = userProfile?.addressText || 'Market Center';
-        try {
-          const shopRef = await addDoc(collection(db, 'shops'), {
-            shopPersonUid: currentUser.uid,
-            name: defaultShopName,
-            area: defaultArea,
-            createdAt: serverTimestamp(),
-          });
-          const autoShop: Shop = {
-            id: shopRef.id,
-            shopPersonUid: currentUser.uid,
-            name: defaultShopName,
-            area: defaultArea,
-          };
-          sList.push(autoShop);
-        } catch (sErr) {
-          console.warn('Auto-provisioning shop error:', sErr);
-        }
-      }
-
       setShops(sList);
-      const activeShop = sList.length > 0 ? sList[0] : null;
+      const activeShop = sList.length > 0 ? (selectedShop ? sList.find((s) => s.id === selectedShop.id) || sList[0] : sList[0]) : null;
       setSelectedShop(activeShop);
 
       if (activeShop) {
@@ -223,26 +205,69 @@ export const ShelfPortal: React.FC = () => {
     }
   };
 
-  // Create / Update Shop Profile
-  const handleSaveShop = async (e: React.FormEvent) => {
+  // Create Shop
+  const handleCreateShop = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !newShopName.trim() || !newShopArea.trim()) return;
+    if (!currentUser || !newShopName.trim()) return;
 
     try {
-      const shopId = selectedShop?.id || `shop-${currentUser.uid.slice(0, 8)}`;
-      const shopData: Shop = {
-        id: shopId,
+      await addDoc(collection(db, 'shops'), {
         shopPersonUid: currentUser.uid,
         name: newShopName.trim(),
-        area: newShopArea.trim(),
-      };
-
-      await setDoc(doc(db, 'shops', shopId), shopData, { merge: true });
+        area: newShopArea.trim() || userProfile?.addressText || 'Market Area',
+        createdAt: serverTimestamp(),
+      });
       setShowShopModal(false);
-      setSuccessMsg('Retail shop profile updated successfully!');
+      setNewShopName('');
+      setNewShopArea('');
+      setSuccessMsg(`Retail Store "${newShopName.trim()}" registered successfully!`);
       await loadShelfData();
     } catch (err: unknown) {
-      setError((err as Error)?.message || 'Failed to update shop profile.');
+      setError((err as Error)?.message || 'Failed to create shop.');
+    }
+  };
+
+  // Update Shop
+  const handleUpdateShop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !editingShop || !editingShop.name.trim()) return;
+
+    try {
+      await updateDoc(doc(db, 'shops', editingShop.id), {
+        name: editingShop.name.trim(),
+        area: editingShop.area.trim(),
+        updatedAt: serverTimestamp(),
+      });
+      setShops((prev) =>
+        prev.map((s) => (s.id === editingShop.id ? editingShop : s))
+      );
+      if (selectedShop?.id === editingShop.id) {
+        setSelectedShop(editingShop);
+      }
+      setEditingShop(null);
+      setSuccessMsg(`Retail Store "${editingShop.name.trim()}" updated successfully!`);
+      await loadShelfData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update shop.');
+    }
+  };
+
+  // Delete Shop
+  const handleDeleteShop = async (shopId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete Retail Store "${name}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'shops', shopId));
+      setShops((prev) => prev.filter((s) => s.id !== shopId));
+      if (selectedShop?.id === shopId) {
+        const remaining = shops.filter((s) => s.id !== shopId);
+        setSelectedShop(remaining.length > 0 ? remaining[0] : null);
+      }
+      setSuccessMsg(`Retail Store "${name}" deleted.`);
+      await loadShelfData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete shop.');
     }
   };
 
@@ -324,15 +349,17 @@ export const ShelfPortal: React.FC = () => {
         </div>
 
         <div className="flex items-center flex-wrap gap-2">
-          {!selectedShop && (
-            <button
-              onClick={() => setShowShopModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded-full text-xs font-bold transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Register Shop</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setNewShopName('');
+              setNewShopArea('');
+              setShowShopModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded-full text-xs font-bold transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Store</span>
+          </button>
 
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -372,6 +399,115 @@ export const ShelfPortal: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Registered Retail Stores Management Section - Retailer Direct Control */}
+      <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-purple-500/20 border border-purple-500/30 rounded-xl text-purple-400">
+              <Store className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white">My Registered Retail Stores</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  {shops.length} {shops.length === 1 ? 'Store' : 'Stores'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Retailers have direct control to register, edit location details, or delete retail stores
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setNewShopName('');
+                setNewShopArea('');
+                setShowShopModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Register New Store</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Store Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
+          {shops.length === 0 ? (
+            <div className="col-span-full p-6 text-center text-xs text-slate-400">
+              No retail stores registered yet. Click &ldquo;Register New Store&rdquo; to add your supermarket or grocery outlet.
+            </div>
+          ) : (
+            shops.map((s) => (
+              <div
+                key={s.id}
+                className={`p-3.5 rounded-xl border transition-all ${
+                  selectedShop?.id === s.id
+                    ? 'bg-purple-500/10 border-purple-500/40 shadow-[0_0_15px_rgba(147,51,234,0.15)]'
+                    : 'bg-white/[0.02] hover:bg-white/[0.04] border-white/10'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-white truncate flex items-center gap-1.5">
+                      <span>{s.name}</span>
+                      {selectedShop?.id === s.id && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      📍 {s.area}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingShop(s)}
+                      className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/10 text-xs transition-colors"
+                      title="Edit Store Details"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteShop(s.id, s.name)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 text-xs transition-colors"
+                      title="Delete Store"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedShop(s)}
+                    className={`font-semibold transition-colors ${
+                      selectedShop?.id === s.id
+                        ? 'text-purple-400 cursor-default'
+                        : 'text-slate-400 hover:text-white underline'
+                    }`}
+                  >
+                    {selectedShop?.id === s.id ? '✓ Active Store' : 'Set as Active'}
+                  </button>
+                  <span className="text-[10px] text-slate-400">
+                    {shelfBags.filter((b) => b.shopId === s.id).length} Crates
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Summary Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -599,7 +735,7 @@ export const ShelfPortal: React.FC = () => {
         )}
       </div>
 
-      {/* Shop Profile Modal */}
+      {/* Register Store Modal */}
       {showShopModal && (
         <div
           className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
@@ -610,17 +746,21 @@ export const ShelfPortal: React.FC = () => {
               className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-bold text-base text-white mb-4">Edit Retail Shop Details</h3>
-              <form onSubmit={handleSaveShop} className="space-y-3">
+              <h3 className="font-bold text-base text-white mb-1">Register Retail Store</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Enter your supermarket or grocery store outlet name and location
+              </p>
+              <form onSubmit={handleCreateShop} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Shop Name
+                    Store Business Name
                   </label>
                   <input
                     type="text"
                     required
                     value={newShopName}
                     onChange={(e) => setNewShopName(e.target.value)}
+                    placeholder="e.g. Fresh Basket Supermarket"
                     className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
@@ -634,6 +774,7 @@ export const ShelfPortal: React.FC = () => {
                     required
                     value={newShopArea}
                     onChange={(e) => setNewShopArea(e.target.value)}
+                    placeholder="e.g. Adyar, Chennai"
                     className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
@@ -650,7 +791,70 @@ export const ShelfPortal: React.FC = () => {
                     type="submit"
                     className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold shadow-[0_4px_16px_rgba(147,51,234,0.3)] transition-all"
                   >
-                    Save Profile
+                    Register Store
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Store Modal */}
+      {editingShop && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setEditingShop(null)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-1">Edit Retail Store</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Update store name and locality details
+              </p>
+              <form onSubmit={handleUpdateShop} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Store Business Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingShop.name}
+                    onChange={(e) => setEditingShop({ ...editingShop, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Area / Locality
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingShop.area}
+                    onChange={(e) => setEditingShop({ ...editingShop, area: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingShop(null)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl text-xs font-bold shadow transition-all"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </form>

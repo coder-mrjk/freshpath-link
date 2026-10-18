@@ -8,6 +8,8 @@ import {
   setDoc,
   doc,
   getDoc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -32,6 +34,8 @@ import {
   Sparkles,
   Settings,
   Plus,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 interface Vehicle {
@@ -110,6 +114,9 @@ export const MovePortal: React.FC = () => {
   // Live GPS Status
   const [gpsUnitData, setGpsUnitData] = useState<GPSUnitData | null>(null);
 
+  // Vehicle Management State
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+
   const loadMoveData = async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -124,30 +131,6 @@ export const MovePortal: React.FC = () => {
       vSnap.forEach((d) => {
         vList.push({ id: d.id, ...d.data() } as Vehicle);
       });
-
-      // Auto-provision initial vehicle if driver has none
-      if (vList.length === 0) {
-        const defaultReg = `TN 31 DRV ${currentUser.uid.slice(0, 4).toUpperCase()}`;
-        const defaultVehId = defaultReg.replace(/\s+/g, '').toUpperCase();
-        const autoVeh: Vehicle = {
-          id: defaultVehId,
-          driverUid: currentUser.uid,
-          regNumber: defaultReg,
-          vehicleType: 'Pickup Truck',
-          capacityKg: 1500,
-          gpsUnitId: 'GPS-01',
-          status: 'ACTIVE',
-        };
-        try {
-          await setDoc(doc(db, 'vehicles', defaultVehId), {
-            ...autoVeh,
-            createdAt: serverTimestamp(),
-          });
-          vList.push(autoVeh);
-        } catch (vErr) {
-          console.warn('Auto-provisioning initial vehicle error:', vErr);
-        }
-      }
 
       setVehicles(vList);
 
@@ -193,12 +176,16 @@ export const MovePortal: React.FC = () => {
       setActiveTrip(ongoing || tList[0] || null);
 
       // 5. Fetch GPS Unit
-      const gpsId = activeVeh ? activeVeh.gpsUnitId : 'GPS-01';
+      const gpsId = activeVeh?.gpsUnitId || null;
       if (gpsId) {
         const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
         if (gpsSnap.exists()) {
           setGpsUnitData(gpsSnap.data() as GPSUnitData);
+        } else {
+          setGpsUnitData(null);
         }
+      } else {
+        setGpsUnitData(null);
       }
 
       // 6. Fetch Available Crates ready for pickup from farms
@@ -243,6 +230,52 @@ export const MovePortal: React.FC = () => {
       await loadMoveData();
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to add vehicle.');
+    }
+  };
+
+  // Update Vehicle
+  const handleUpdateVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !editingVehicle || !editingVehicle.regNumber.trim()) return;
+
+    try {
+      await updateDoc(doc(db, 'vehicles', editingVehicle.id), {
+        regNumber: editingVehicle.regNumber.trim().toUpperCase(),
+        vehicleType: editingVehicle.vehicleType,
+        capacityKg: Number(editingVehicle.capacityKg) || 1000,
+        updatedAt: serverTimestamp(),
+      });
+
+      setVehicles((prev) =>
+        prev.map((v) => (v.id === editingVehicle.id ? editingVehicle : v))
+      );
+      if (selectedVehicle?.id === editingVehicle.id) {
+        setSelectedVehicle(editingVehicle);
+      }
+      setEditingVehicle(null);
+      setSuccessMsg(`Vehicle "${editingVehicle.regNumber.toUpperCase()}" updated successfully!`);
+      await loadMoveData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update vehicle.');
+    }
+  };
+
+  // Delete Vehicle
+  const handleDeleteVehicle = async (vehicleId: string, reg: string) => {
+    if (!window.confirm(`Are you sure you want to delete vehicle "${reg}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'vehicles', vehicleId));
+      setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
+      if (selectedVehicle?.id === vehicleId) {
+        const remaining = vehicles.filter((v) => v.id !== vehicleId);
+        setSelectedVehicle(remaining.length > 0 ? remaining[0] : null);
+      }
+      setSuccessMsg(`Vehicle "${reg}" deleted successfully!`);
+      await loadMoveData();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete vehicle.');
     }
   };
 
@@ -699,6 +732,112 @@ export const MovePortal: React.FC = () => {
         </button>
       </div>
 
+      {/* Registered Vehicles Management Section - Driver Direct Control */}
+      <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-400">
+              <Truck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white">My Registered Transport Vehicles</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  {vehicles.length} {vehicles.length === 1 ? 'Vehicle' : 'Vehicles'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Drivers have direct control to register, edit payload specs, or delete transport vehicles
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAddVehicleModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow-md transition-all touch-target"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Register New Vehicle</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Vehicles Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3">
+          {vehicles.length === 0 ? (
+            <div className="col-span-full p-6 text-center text-xs text-slate-400">
+              No vehicles registered yet. Click &ldquo;Register New Vehicle&rdquo; to add your transport truck or van.
+            </div>
+          ) : (
+            vehicles.map((v) => (
+              <div
+                key={v.id}
+                className={`p-3.5 rounded-xl border transition-all ${
+                  selectedVehicle?.id === v.id
+                    ? 'bg-blue-500/10 border-blue-500/40 shadow-[0_0_15px_rgba(59,130,246,0.15)]'
+                    : 'bg-white/[0.02] hover:bg-white/[0.04] border-white/10'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-white truncate flex items-center gap-1.5 font-mono">
+                      <span>{v.regNumber}</span>
+                      {selectedVehicle?.id === v.id && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-sans">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      🚚 {v.vehicleType} • {v.capacityKg} kg capacity
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingVehicle(v)}
+                      className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg border border-white/10 text-xs transition-colors"
+                      title="Edit Vehicle Specs"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteVehicle(v.id, v.regNumber)}
+                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 text-xs transition-colors"
+                      title="Delete Vehicle"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVehicle(v);
+                      setSelectedTripVehicleId(v.id);
+                    }}
+                    className={`font-semibold transition-colors ${
+                      selectedVehicle?.id === v.id
+                        ? 'text-blue-400 cursor-default'
+                        : 'text-slate-400 hover:text-white underline'
+                    }`}
+                  >
+                    {selectedVehicle?.id === v.id ? '✓ Selected for Trips' : 'Set as Active'}
+                  </button>
+                  <span className="text-[10px] text-slate-400 font-mono">GPS: {v.gpsUnitId || 'GPS-01'}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* Active Trip Dashboard */}
       {activeTrip ? (
         <div className="relative backdrop-blur-xl bg-white/[0.03] rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] overflow-hidden mb-8">
@@ -1096,6 +1235,90 @@ export const MovePortal: React.FC = () => {
                     className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow transition-all"
                   >
                     Save Vehicle
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Vehicle Modal */}
+      {editingVehicle && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={() => setEditingVehicle(null)}
+        >
+          <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+            <div
+              className="relative w-full max-w-sm my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 text-left shadow-2xl backdrop-blur-xl transition-all text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-bold text-base text-white mb-1">Edit Vehicle Details</h3>
+              <p className="text-[11px] text-slate-400 mb-4">
+                Update registration number or vehicle specs
+              </p>
+              <form onSubmit={handleUpdateVehicle} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Registration Number
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingVehicle.regNumber}
+                    onChange={(e) =>
+                      setEditingVehicle({ ...editingVehicle, regNumber: e.target.value.toUpperCase() })
+                    }
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-blue-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Vehicle Type
+                  </label>
+                  <select
+                    value={editingVehicle.vehicleType}
+                    onChange={(e) =>
+                      setEditingVehicle({ ...editingVehicle, vehicleType: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                  >
+                    <option value="Pickup Truck">Pickup Truck</option>
+                    <option value="LCV Mini Truck">LCV Mini Truck</option>
+                    <option value="Heavy Truck">Heavy Truck</option>
+                    <option value="Three Wheeler">Three Wheeler</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Payload Capacity (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingVehicle.capacityKg}
+                    onChange={(e) =>
+                      setEditingVehicle({ ...editingVehicle, capacityKg: Number(e.target.value) || 0 })
+                    }
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingVehicle(null)}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold border border-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow transition-all"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </form>
