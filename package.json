@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "seed": "vite-node scripts/seedDemoData.ts",
     "purge-auth": "node scripts/purgeAuthUsers.cjs",
-    "emulators": "firebase emulators:start --only firestore,auth"
+    "emulators": "firebase emulators:start --only firestore,auth",
+    "deploy": "npm run build && firebase deploy --only hosting",
+    "deploy:all": "npm run build && firebase deploy"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",
