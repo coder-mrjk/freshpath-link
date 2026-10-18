@@ -186,9 +186,14 @@ export const PrintLabelPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <span className="text-xs font-bold px-2 py-0.5 bg-gray-100 border border-gray-400 rounded-md text-charcoal">
-                TAMIL NADU
-              </span>
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="text-xs font-black px-2.5 py-0.5 bg-charcoal text-white rounded-md tracking-wider">
+                  {bag.sizeGrade || 'Grade A'}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-gray-700">
+                  ₹{bag.pricePerKg}/kg
+                </span>
+              </div>
             </div>
 
             {/* QR Code Centerpiece */}

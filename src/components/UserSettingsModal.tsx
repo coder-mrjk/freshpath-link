@@ -149,6 +149,17 @@ export const UserSettingsModal: React.FC<Props> = ({
     }
   }, [isOpen, currentUser, userProfile, isOwner]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -299,16 +310,23 @@ export const UserSettingsModal: React.FC<Props> = ({
   const role = isOwner ? 'owner' : userProfile?.role || 'user';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-          aria-label="Close"
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity"
+      onClick={onClose}
+    >
+      <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6 text-center">
+        <div
+          className="relative w-full max-w-2xl my-8 transform overflow-hidden rounded-3xl bg-slate-900/95 border border-white/10 p-6 sm:p-8 text-left shadow-2xl backdrop-blur-xl transition-all"
+          onClick={(e) => e.stopPropagation()}
         >
-          <X className="w-5 h-5" />
-        </button>
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
         {/* Modal Header */}
         <div className="mb-6">
@@ -432,7 +450,14 @@ export const UserSettingsModal: React.FC<Props> = ({
           </div>
 
           {/* Save Profile Button */}
-          <div className="pt-2 flex justify-end">
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-white/5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-colors"
+            >
+              Cancel
+            </button>
             <button
               type="submit"
               disabled={saving}
@@ -709,7 +734,19 @@ export const UserSettingsModal: React.FC<Props> = ({
             </div>
           </div>
         )}
+
+        {/* Bottom Close Action */}
+        <div className="mt-8 pt-4 border-t border-white/10 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-colors"
+          >
+            Close Settings
+          </button>
+        </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

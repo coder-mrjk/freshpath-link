@@ -449,8 +449,24 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               Produce Characteristics
             </h3>
             <div className="space-y-1 text-xs text-slate-300">
-              <div>
-                Grade: <strong className="text-white">{bag.sizeGrade || 'Grade A'}</strong>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Quality Tier:</span>
+                <span
+                  className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
+                    (bag.sizeGrade || '').includes('A+')
+                      ? 'bg-purple-500/20 border-purple-400/40 text-purple-300'
+                      : (bag.sizeGrade || '').includes('A')
+                      ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                      : (bag.sizeGrade || '').includes('B')
+                      ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
+                      : 'bg-slate-700/40 border-slate-600/40 text-slate-300'
+                  }`}
+                >
+                  {bag.sizeGrade || 'Grade A'}
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-300">
+                  ₹{bag.pricePerKg}/kg
+                </span>
               </div>
               {bag.benefitsNote && (
                 <div className="text-slate-400 italic">"{bag.benefitsNote}"</div>

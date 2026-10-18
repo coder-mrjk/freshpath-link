@@ -446,8 +446,18 @@ export const ShelfPortal: React.FC = () => {
                       {fresh.score}% {fresh.label}
                     </span>
                     {bag.sizeGrade && (
-                      <span className="text-[10px] font-bold bg-white/5 border border-white/10 text-slate-300 px-2 py-0.5 rounded-full">
-                        Grade {bag.sizeGrade}
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          bag.sizeGrade.includes('A+')
+                            ? 'bg-purple-500/20 border-purple-400/40 text-purple-300'
+                            : bag.sizeGrade.includes('A')
+                            ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                            : bag.sizeGrade.includes('B')
+                            ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
+                            : 'bg-slate-700/40 border-slate-600/40 text-slate-300'
+                        }`}
+                      >
+                        {bag.sizeGrade}
                       </span>
                     )}
                   </div>

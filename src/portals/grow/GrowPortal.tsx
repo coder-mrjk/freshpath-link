@@ -14,7 +14,13 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { generateBagId } from '../../lib/bagId';
-import { calculateTotalPrice, formatRupees } from '../../lib/price';
+import {
+  calculateTotalPrice,
+  formatRupees,
+  GradePricing,
+  DEFAULT_GRADE_PRICING,
+  getPriceForGrade,
+} from '../../lib/price';
 import { formatIST, timeAgoIST } from '../../lib/time';
 import { calculateFreshness } from '../../lib/freshness';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
@@ -81,6 +87,7 @@ export const GrowPortal: React.FC = () => {
   const [fields, setFields] = useState<Field[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string>('');
   const [ratePerKg, setRatePerKg] = useState<number>(60);
+  const [gradePrices, setGradePrices] = useState<GradePricing>(DEFAULT_GRADE_PRICING);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +102,12 @@ export const GrowPortal: React.FC = () => {
   const [pieces, setPieces] = useState<number>(45);
   const [sizeGrade, setSizeGrade] = useState<string>('Grade A');
   const [benefitsNote, setBenefitsNote] = useState<string>('Naturally ripened Country Tomatoes');
+
+  const handleGradeChange = (newGrade: string) => {
+    setSizeGrade(newGrade);
+    const updatedRate = getPriceForGrade(newGrade, gradePrices);
+    setRatePerKg(updatedRate);
+  };
 
   // Filter State
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -162,10 +175,27 @@ export const GrowPortal: React.FC = () => {
       }
       setStorageMap(newStorageMap);
 
-      // 4. Fetch Product Price
-      const prodSnap = await getDoc(doc(db, 'products', 'tomato'));
-      if (prodSnap.exists()) {
-        setRatePerKg(prodSnap.data().ratePerKg || 60);
+      // 4. Fetch Configured Grade Pricing
+      try {
+        const pricingSnap = await getDoc(doc(db, 'config', 'pricing'));
+        if (pricingSnap.exists()) {
+          const p = pricingSnap.data() as GradePricing;
+          const loaded: GradePricing = {
+            gradeAPlus: p.gradeAPlus ?? DEFAULT_GRADE_PRICING.gradeAPlus,
+            gradeA: p.gradeA ?? DEFAULT_GRADE_PRICING.gradeA,
+            gradeB: p.gradeB ?? DEFAULT_GRADE_PRICING.gradeB,
+            gradeC: p.gradeC ?? DEFAULT_GRADE_PRICING.gradeC,
+          };
+          setGradePrices(loaded);
+          setRatePerKg(getPriceForGrade(sizeGrade, loaded));
+        } else {
+          const prodSnap = await getDoc(doc(db, 'products', 'tomato'));
+          if (prodSnap.exists()) {
+            setRatePerKg(prodSnap.data().ratePerKg || 60);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load grade pricing config:', err);
       }
     } catch (err: unknown) {
       console.warn('Failed to load farmer data:', err);
@@ -676,16 +706,47 @@ export const GrowPortal: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Grade</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Tomato Quality Grade</label>
                   <select
                     value={sizeGrade}
-                    onChange={(e) => setSizeGrade(e.target.value)}
+                    onChange={(e) => handleGradeChange(e.target.value)}
                     className="w-full px-2.5 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500/50"
                   >
-                    <option value="Grade A" className="bg-slate-900 text-white">Grade A (Premium)</option>
-                    <option value="Grade B" className="bg-slate-900 text-white">Grade B (Medium)</option>
-                    <option value="Grade C" className="bg-slate-900 text-white">Grade C (Local)</option>
+                    <option value="Grade A+" className="bg-slate-900 text-purple-300">
+                      Grade A+ (Supreme / Export) • ₹{gradePrices.gradeAPlus}/kg
+                    </option>
+                    <option value="Grade A" className="bg-slate-900 text-emerald-300">
+                      Grade A (Wholesale Premium) • ₹{gradePrices.gradeA}/kg
+                    </option>
+                    <option value="Grade B" className="bg-slate-900 text-amber-300">
+                      Grade B (Standard Market) • ₹{gradePrices.gradeB}/kg
+                    </option>
+                    <option value="Grade C" className="bg-slate-900 text-slate-300">
+                      Grade C (Economy / Puree) • ₹{gradePrices.gradeC}/kg
+                    </option>
                   </select>
+                </div>
+              </div>
+
+              {/* Rate Adjustment */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-300">Rate (₹ per kg)</label>
+                  <span className="text-[10px] text-emerald-400 font-semibold">
+                    Suggested for {sizeGrade}: ₹{getPriceForGrade(sizeGrade, gradePrices)}/kg
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold text-xs">₹</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={ratePerKg}
+                    onChange={(e) => setRatePerKg(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white font-bold focus:outline-none focus:border-emerald-500/50"
+                  />
+                  <span className="text-xs text-slate-400">/kg</span>
                 </div>
               </div>
 
@@ -693,10 +754,10 @@ export const GrowPortal: React.FC = () => {
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-400 block">
-                    Calculated Value
+                    Calculated Crate Total
                   </span>
                   <span className="text-xs text-emerald-200">
-                    {weightKg} kg × ₹{ratePerKg}/kg
+                    {weightKg} kg × ₹{ratePerKg}/kg ({sizeGrade})
                   </span>
                 </div>
                 <span className="text-xl font-black text-emerald-400">

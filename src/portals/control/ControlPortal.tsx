@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { formatIST } from '../../lib/time';
+import { GradePricing, DEFAULT_GRADE_PRICING, formatRupees } from '../../lib/price';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
 import {
   ShieldCheck,
@@ -59,7 +60,7 @@ export const ControlPortal: React.FC = () => {
   const [sensorNodeIdInput, setSensorNodeIdInput] = useState('STORE-01');
 
   // Config State
-  const [ratePerKg, setRatePerKg] = useState(60);
+  const [gradePrices, setGradePrices] = useState<GradePricing>(DEFAULT_GRADE_PRICING);
 
   useEffect(() => {
     if (!authLoading && !isOwner) {
@@ -114,10 +115,22 @@ export const ControlPortal: React.FC = () => {
         setSelectedStorageId(sList[0].id);
       }
 
-      // 5. Product rate
-      const prodDoc = await getDoc(doc(db, 'products', 'tomato'));
-      if (prodDoc.exists()) {
-        setRatePerKg(prodDoc.data().ratePerKg || 60);
+      // 5. Product rate & Grade Pricing
+      const pricingDoc = await getDoc(doc(db, 'config', 'pricing'));
+      if (pricingDoc.exists()) {
+        const pData = pricingDoc.data() as GradePricing;
+        const loadedPricing: GradePricing = {
+          gradeAPlus: pData.gradeAPlus ?? DEFAULT_GRADE_PRICING.gradeAPlus,
+          gradeA: pData.gradeA ?? DEFAULT_GRADE_PRICING.gradeA,
+          gradeB: pData.gradeB ?? DEFAULT_GRADE_PRICING.gradeB,
+          gradeC: pData.gradeC ?? DEFAULT_GRADE_PRICING.gradeC,
+        };
+        setGradePrices(loadedPricing);
+      } else {
+        const prodDoc = await getDoc(doc(db, 'products', 'tomato'));
+        if (prodDoc.exists() && prodDoc.data().ratePerKg) {
+          setGradePrices((prev) => ({ ...prev, gradeA: prodDoc.data().ratePerKg }));
+        }
       }
     } catch (err: unknown) {
       console.warn('Control portal load error:', err);
@@ -280,23 +293,41 @@ export const ControlPortal: React.FC = () => {
     }
   };
 
-  // Update base rate
+  // Update grade pricing matrix
   const handleUpdatePrice = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await setDoc(
+        doc(db, 'config', 'pricing'),
+        {
+          gradeAPlus: Number(gradePrices.gradeAPlus),
+          gradeA: Number(gradePrices.gradeA),
+          gradeB: Number(gradePrices.gradeB),
+          gradeC: Number(gradePrices.gradeC),
+          updatedAt: serverTimestamp(),
+          updatedBy: currentUser?.uid,
+        },
+        { merge: true }
+      );
+
+      await setDoc(
         doc(db, 'products', 'tomato'),
         {
           name: 'Fresh Tomatoes',
-          ratePerKg: Number(ratePerKg),
+          ratePerKg: Number(gradePrices.gradeA),
+          gradePrices,
           active: true,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
-      setMessage({ text: `Base tomato rate updated to ₹${ratePerKg}/kg!`, type: 'success' });
+
+      setMessage({
+        text: `Grade pricing saved: Grade A+ (₹${gradePrices.gradeAPlus}), Grade A (₹${gradePrices.gradeA}), Grade B (₹${gradePrices.gradeB}), Grade C (₹${gradePrices.gradeC})`,
+        type: 'success',
+      });
     } catch (err: unknown) {
-      setMessage({ text: `Failed to update rate: ${(err as Error)?.message}`, type: 'error' });
+      setMessage({ text: `Failed to update pricing: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
@@ -853,40 +884,160 @@ export const ControlPortal: React.FC = () => {
 
       {/* Tab 5: Configuration */}
       {activeTab === 'config' && (
-        <div className="max-w-md relative backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 bg-red-500/15 border border-red-400/30 text-red-400 rounded-xl">
-              <DollarSign className="w-5 h-5" />
+        <div className="max-w-2xl relative backdrop-blur-xl bg-white/[0.03] p-6 sm:p-8 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-red-500/15 border border-red-400/30 text-red-400 rounded-2xl">
+              <DollarSign className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-white">Tomato Base Pricing</h3>
-              <p className="text-xs text-slate-400">Configure base price per kilogram for fresh harvest</p>
+              <h3 className="font-bold text-base text-white">Customizable Grade Pricing Matrix</h3>
+              <p className="text-xs text-slate-400">Configure prices per kilogram based on tomato quality grade. Higher grades yield premium rates; lower grades decrease accordingly.</p>
             </div>
           </div>
 
-          <form onSubmit={handleUpdatePrice} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Rate (₹ per kg)
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={500}
-                value={ratePerKg}
-                onChange={(e) => setRatePerKg(Number(e.target.value))}
-                className="w-full px-3 py-2.5 bg-slate-800/80 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-red-500/50"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Standard FreshPath benchmark: ₹60/kg.
-              </p>
+          <form onSubmit={handleUpdatePrice} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Grade A+ */}
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                    Grade A+ (Supreme / Export)
+                  </span>
+                  <span className="text-[10px] font-semibold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded-full">
+                    Premium Tier
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-2.5">Flawless, highest firmness, uniform size.</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={gradePrices.gradeAPlus}
+                    onChange={(e) =>
+                      setGradePrices((prev) => ({ ...prev, gradeAPlus: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 bg-slate-900/80 border border-purple-500/40 rounded-xl text-sm font-black text-purple-200 focus:outline-none focus:border-purple-400"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">/kg</span>
+                </div>
+              </div>
+
+              {/* Grade A */}
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Grade A (Wholesale Premium)
+                  </span>
+                  <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                    Benchmark
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-2.5">Standard market choice, brilliant red, firm.</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={gradePrices.gradeA}
+                    onChange={(e) =>
+                      setGradePrices((prev) => ({ ...prev, gradeA: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 bg-slate-900/80 border border-emerald-500/40 rounded-xl text-sm font-black text-emerald-200 focus:outline-none focus:border-emerald-400"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">/kg</span>
+                </div>
+              </div>
+
+              {/* Grade B */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    Grade B (Standard Market)
+                  </span>
+                  <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                    Regular
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-2.5">Medium size, minor color variations, local sales.</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={gradePrices.gradeB}
+                    onChange={(e) =>
+                      setGradePrices((prev) => ({ ...prev, gradeB: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 bg-slate-900/80 border border-amber-500/40 rounded-xl text-sm font-black text-amber-200 focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">/kg</span>
+                </div>
+              </div>
+
+              {/* Grade C */}
+              <div className="p-4 rounded-2xl bg-slate-500/10 border border-slate-500/30">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    Grade C (Economy / Puree)
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-500/20 px-2 py-0.5 rounded-full">
+                    Discounted
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-2.5">Ripened, variable size, sauce & juice processing.</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={gradePrices.gradeC}
+                    onChange={(e) =>
+                      setGradePrices((prev) => ({ ...prev, gradeC: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-500/40 rounded-xl text-sm font-black text-slate-200 focus:outline-none focus:border-slate-400"
+                  />
+                  <span className="text-xs text-slate-400 font-medium">/kg</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Calculation Preview */}
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/10 text-xs">
+              <span className="font-bold text-slate-300 block mb-2">Live Standard 25 kg Crate Pricing Preview:</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30">
+                  <span className="text-[10px] text-purple-300 block font-bold">Grade A+ (25kg)</span>
+                  <span className="text-sm font-black text-white">{formatRupees(25 * gradePrices.gradeAPlus)}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
+                  <span className="text-[10px] text-emerald-300 block font-bold">Grade A (25kg)</span>
+                  <span className="text-sm font-black text-white">{formatRupees(25 * gradePrices.gradeA)}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30">
+                  <span className="text-[10px] text-amber-300 block font-bold">Grade B (25kg)</span>
+                  <span className="text-sm font-black text-white">{formatRupees(25 * gradePrices.gradeB)}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                  <span className="text-[10px] text-slate-300 block font-bold">Grade C (25kg)</span>
+                  <span className="text-sm font-black text-white">{formatRupees(25 * gradePrices.gradeC)}</span>
+                </div>
+              </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_16px_rgba(193,18,31,0.3)] touch-target"
+              className="w-full py-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-sm font-bold transition-all shadow-[0_4px_20px_rgba(225,29,72,0.4)] touch-target"
             >
-              Update Pricing
+              Save Grade Pricing Matrix
             </button>
           </form>
         </div>
