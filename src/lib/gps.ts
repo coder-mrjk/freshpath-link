@@ -14,6 +14,7 @@ export interface GPSFix {
   hdop: number;
   valid: boolean;
   fixAt: string | Date | { seconds: number };
+  simulated?: boolean;
 }
 
 export interface GPSUnitData {

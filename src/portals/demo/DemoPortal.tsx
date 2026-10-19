@@ -284,6 +284,7 @@ export const DemoPortal: React.FC = () => {
           mandiPersonUid: ownerUid,
           name: 'Panruti Agro Mandi',
           area: 'Cuddalore Main Road',
+          nodeUnitId: 'STORE-01',
           createdAt: serverTimestamp(),
         },
         { merge: true }
@@ -513,8 +514,8 @@ export const DemoPortal: React.FC = () => {
       // Commit all
       await batch.commit();
 
-      // Seed initial DHT22 reading into STORE-01 readings subcollection
-      const readingRef = doc(collection(db, 'storageUnits', storageUnitId, 'readings'));
+      // Seed initial DHT22 reading into mandis readings subcollection
+      const readingRef = doc(collection(db, 'mandis', mandiId, 'readings'));
       await setDoc(readingRef, {
         tempC: 13.5,
         humidityPct: 88.0,

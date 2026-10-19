@@ -21,6 +21,7 @@ import {
   evaluateMandiClimate,
   formatStorageDuration,
   STORAGE_DEFAULTS,
+  parseReadingDate,
 } from '../../lib/storage';
 import { calculateFreshness } from '../../lib/freshness';
 import { StorageChart } from '../../components/StorageChart';
@@ -203,8 +204,8 @@ export const HubPortal: React.FC = () => {
       const rList: StorageReading[] = [];
       snapshot.forEach((d) => rList.push(d.data() as StorageReading));
       // Sort chronologically for chart
-      rList.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-      setMandiReadings(rList);
+      rList.sort((a, b) => parseReadingDate(a.at).getTime() - parseReadingDate(b.at).getTime());
+      setMandiReadings(rList.slice(-288));
     });
 
     return () => {

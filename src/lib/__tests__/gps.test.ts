@@ -88,4 +88,47 @@ describe('GPS Fix Evaluator', () => {
       expect(res.reason).toBe('STALE');
     }
   });
+
+  it('approves a fix from ESP32 using Firestore Timestamp { seconds: number }', () => {
+    const data: GPSUnitData = {
+      latest: {
+        lat: 11.748,
+        lng: 79.7714,
+        speedKmph: 20.0,
+        sats: 8,
+        hdop: 1.0,
+        valid: true,
+        fixAt: { seconds: Math.floor(baseTime.getTime() / 1000) - 30 }, // 30s old
+      },
+      receivedAt: { seconds: Math.floor(baseTime.getTime() / 1000) },
+    };
+
+    const res = evaluateFix(data, baseTime);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.fix.lat).toBe(11.748);
+      expect(res.fix.lng).toBe(79.7714);
+    }
+  });
+
+  it('allows simulated GPS fixes with simulated: true flag', () => {
+    const simData: GPSUnitData = {
+      latest: {
+        lat: 11.748,
+        lng: 79.7714,
+        speedKmph: 24.5,
+        sats: 8,
+        hdop: 1.1,
+        valid: true,
+        fixAt: baseTime.toISOString(),
+        simulated: true,
+      },
+    };
+
+    const res = evaluateFix(simData, baseTime);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.fix.simulated).toBe(true);
+    }
+  });
 });

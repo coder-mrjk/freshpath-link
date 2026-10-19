@@ -9,6 +9,7 @@ interface GPSPoint {
   sats?: number;
   hdop?: number;
   fixAt?: any;
+  simulated?: boolean;
 }
 
 interface Props {
@@ -88,6 +89,7 @@ export const TripMap: React.FC<Props> = ({
           <strong>Coords:</strong> ${start.lat.toFixed(6)}, ${start.lng.toFixed(6)}<br/>
           <strong>Time:</strong> ${formatIST(start.fixAt)}<br/>
           <strong>Satellites:</strong> ${start.sats || 'N/A'} (HDOP: ${start.hdop || 'N/A'})
+          ${start.simulated ? '<br/><span style="color: #D97706; font-weight: bold;">⚠ Simulated GPS (no live fix)</span>' : ''}
         </div>`
       );
     }
@@ -119,6 +121,7 @@ export const TripMap: React.FC<Props> = ({
           <strong>Coords:</strong> ${end.lat.toFixed(6)}, ${end.lng.toFixed(6)}<br/>
           <strong>Time:</strong> ${formatIST(end.fixAt)}<br/>
           <strong>Satellites:</strong> ${end.sats || 'N/A'} (HDOP: ${end.hdop || 'N/A'})
+          ${end.simulated ? '<br/><span style="color: #D97706; font-weight: bold;">⚠ Simulated GPS (no live fix)</span>' : ''}
         </div>`
       );
     }

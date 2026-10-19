@@ -4,6 +4,7 @@ import {
   getStorageHumidityStatus,
   calculateStorageTelemetryStats,
   formatStorageDuration,
+  parseReadingDate,
   StorageReading,
 } from '../storage';
 
@@ -86,5 +87,26 @@ describe('Milestone M4: Hub (Mandi) Storage Telemetry & Crate Flow', () => {
     expect(receiveEvent.byRole).toBe('mandi');
     expect(dispatchEvent.type).toBe('DISPATCHED_TO_SHOP');
     expect(dispatchEvent.byRole).toBe('mandi');
+  });
+
+  it('correctly parses and sorts mixed date formats (Firestore Timestamp & ISO string)', () => {
+    const isoReading = { tempC: 13.5, humidityPct: 88, at: '2026-10-19T10:00:00Z' };
+    const fsTimestampReading = { tempC: 13.8, humidityPct: 87, at: { seconds: 1792404060 } }; // 2026-10-19T10:01:00Z
+    const toDateReading = {
+      tempC: 14.0,
+      humidityPct: 86,
+      at: { toDate: () => new Date('2026-10-19T10:02:00Z') },
+    };
+
+    expect(parseReadingDate(isoReading.at).getTime()).toBe(new Date('2026-10-19T10:00:00Z').getTime());
+    expect(parseReadingDate(fsTimestampReading.at).getTime()).toBe(1792404060 * 1000);
+    expect(parseReadingDate(toDateReading.at).getTime()).toBe(new Date('2026-10-19T10:02:00Z').getTime());
+
+    const unsorted = [toDateReading, isoReading, fsTimestampReading];
+    unsorted.sort((a, b) => parseReadingDate(a.at).getTime() - parseReadingDate(b.at).getTime());
+
+    expect(unsorted[0]).toBe(isoReading);
+    expect(unsorted[1]).toBe(fsTimestampReading);
+    expect(unsorted[2]).toBe(toDateReading);
   });
 });

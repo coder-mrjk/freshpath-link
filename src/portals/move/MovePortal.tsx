@@ -442,6 +442,10 @@ export const MovePortal: React.FC = () => {
 
       let evalResult = evaluateFix(gpsData);
       if (!evalResult.ok) {
+        if (import.meta.env.VITE_ALLOW_SIMULATED_GPS === 'false') {
+          setError(evalResult.message);
+          return;
+        }
         // Auto-seed valid origin fix so trip starts cleanly
         const originFix: GPSFix = {
           lat: 11.748,
@@ -451,6 +455,7 @@ export const MovePortal: React.FC = () => {
           hdop: 1.1,
           valid: true,
           fixAt: new Date().toISOString(),
+          simulated: true,
         };
         await setDoc(doc(db, 'gpsUnits', gpsId), {
           vehicleId: selectedVehicle?.id || 'TN01FP2026',
@@ -529,6 +534,7 @@ export const MovePortal: React.FC = () => {
           hdop: 0.9,
           valid: true,
           fixAt: new Date().toISOString(),
+          simulated: true,
         };
         await setDoc(doc(db, 'gpsUnits', gpsId), {
           vehicleId: selectedVehicle?.id || 'TN01FP2026',
@@ -850,6 +856,12 @@ export const MovePortal: React.FC = () => {
                 >
                   {activeTrip.status.replace('_', ' ')}
                 </span>
+                {(activeTrip.start?.simulated || activeTrip.end?.simulated) && (
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                    <span>Simulated GPS (no live fix)</span>
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-300">
                 From: <strong className="text-white">{activeTrip.originText}</strong> → To: <strong className="text-white">{activeTrip.destinationMandiName}</strong>
@@ -890,6 +902,14 @@ export const MovePortal: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Simulated GPS Warning Banner */}
+          {(activeTrip.start?.simulated || activeTrip.end?.simulated) && (
+            <div className="mx-4 mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs text-amber-300 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-semibold">Simulated GPS (no live fix)</span>
+            </div>
+          )}
 
           {/* Map Section */}
           <div className="p-4">
@@ -1043,6 +1063,12 @@ export const MovePortal: React.FC = () => {
                     >
                       {t.status}
                     </span>
+                    {(t.start?.simulated || t.end?.simulated) && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-amber-400" />
+                        <span>Simulated GPS (no live fix)</span>
+                      </span>
+                    )}
                   </div>
                   <p className="text-slate-300">
                     {t.originText} → {t.destinationMandiName}

@@ -227,6 +227,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/devices/$(request.auth.uid)).data.type == type;
     }
 
+    function isStorageNodeOf(mandi) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/devices/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/devices/$(request.auth.uid)).data.type == 'storage' &&
+        ('nodeUnitId' in mandi) &&
+        get(/databases/$(database)/documents/devices/$(request.auth.uid)).data.unitId == mandi.nodeUnitId;
+    }
+
     // Helper for bag state transitions across the supply chain
     function isValidBagStatusTransition() {
       let prev = resource.data.status;
@@ -358,6 +366,9 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, update: if isOwner() || isApproved('mandi') || (signedIn() && (request.resource.data.mandiPersonUid == request.auth.uid || resource.data.mandiPersonUid == request.auth.uid));
       allow delete: if isOwner() || (signedIn() && resource.data.mandiPersonUid == request.auth.uid);
+      allow update: if isStorageNodeOf(resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['currentTemp', 'currentHumidity', 'latest', 'updatedAt']);
 
       // Telemetry readings subcollection for Mandi
       match /readings/{readingId} {
