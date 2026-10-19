@@ -23,11 +23,12 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || payload.data?.title || 'FreshPath Alert';
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.body || 'New supply chain event detected.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: '/logo-192.png',
+    badge: '/logo-192.png',
+    image: payload.notification?.image || payload.data?.image || undefined,
     tag: payload.data?.tag || 'freshpath-notification',
     data: {
-      url: payload.data?.url || '/',
+      url: payload.data?.url || payload.fcmOptions?.link || '/',
     },
   };
 

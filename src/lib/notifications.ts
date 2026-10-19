@@ -55,13 +55,16 @@ export async function initMessaging(): Promise<Messaging | null> {
       console.log('Foreground FCM notification received:', payload);
       const title = payload.notification?.title || payload.data?.title || 'FreshPath Alert';
       const body = payload.notification?.body || payload.data?.body || '';
+      const image = payload.notification?.image || payload.data?.image || undefined;
 
       playNotificationChime();
       showLocalNotification(title, {
         body,
         tag: payload.data?.tag,
-        icon: '/icons/icon-192.png',
-      });
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
+        image,
+      } as NotificationOptions);
     });
 
     return messagingInstance;
@@ -146,19 +149,27 @@ export function showLocalNotification(
   }
 
   try {
-    // If Service Worker is ready, use it for rich persistent background notifications
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    // On mobile Android and desktop browsers, ServiceWorkerRegistration.showNotification is required and persistent
+    if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then((reg) => {
         reg.showNotification(title, {
-          icon: '/icons/icon-192.png',
-          badge: '/icons/icon-192.png',
+          icon: '/logo-192.png',
+          badge: '/logo-192.png',
           ...options,
         });
+      }).catch(() => {
+        try {
+          new Notification(title, {
+            icon: '/logo-192.png',
+            ...options,
+          });
+        } catch {
+          // ignore
+        }
       });
-    } else {
-      // Direct native browser notification fallback
+    } else if (typeof Notification !== 'undefined') {
       new Notification(title, {
-        icon: '/icons/icon-192.png',
+        icon: '/logo-192.png',
         ...options,
       });
     }
