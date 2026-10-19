@@ -1,10 +1,10 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.3.0  
+**Version**: 1.3.1  
 **Date**: October 19, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `2c315d0`  
+**Verified Against Commit**: `aaf1fb6`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
@@ -12,10 +12,11 @@
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) have been upgraded to high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
 
-In v1.3.0, the push notification subsystem has been upgraded with:
-- Service Worker absolute URL resolution for app icons (`/logo-192.png`) and badges (`/logo-32.png`), ensuring notification icons render reliably on Android and desktop system trays.
-- In-app **Active Device FCM Push Token Card** with one-click copy in the Settings Modal, allowing administrators and users to directly view and copy device push registration tokens.
-- Support for rich notification media images and web push payload listeners.
+In v1.3.1, the push notification & device management subsystem has been upgraded with:
+- Global device purge and session logout in the Demo Portal (`/demo`), clearing `fcmTokens` and `devices` across all accounts and unregistering client service workers.
+- Per-account "Unlink All" and individual device trash buttons in the Settings modal.
+- Fixed desktop Chrome and Safari OS-level system notifications by invoking `new Notification()` directly with sanitized options and `requireInteraction: true`, accompanied by desktop macOS notification guide.
+- Added Service Worker lifecycle auto-activation (`skipWaiting()`, `clients.claim()`).
 
 ---
 
