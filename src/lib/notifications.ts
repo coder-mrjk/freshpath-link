@@ -90,11 +90,22 @@ export async function requestNotificationPermission(userUid?: string): Promise<s
     const messaging = await initMessaging();
     if (!messaging) return null;
 
+    // Explicitly register /firebase-messaging-sw.js so background push always works reliably
+    let swReg: ServiceWorkerRegistration | undefined;
+    if ('serviceWorker' in navigator) {
+      try {
+        swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      } catch (swErr) {
+        console.warn('Could not register firebase-messaging-sw.js:', swErr);
+      }
+    }
+
     // Get FCM registration token (standard web push)
     let token: string | null = null;
     try {
       token = await getToken(messaging, {
         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY || undefined,
+        serviceWorkerRegistration: swReg,
       });
     } catch (tokenErr) {
       console.info('FCM Token generation note (browser push active):', tokenErr);

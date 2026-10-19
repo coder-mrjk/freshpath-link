@@ -5,12 +5,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.13.1/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-  apiKey: 'dummy-api-key',
+  apiKey: 'AIzaSyD3m_FxkJO-QTGG7MXmYjX_rmi4DDllbmk',
   authDomain: 'freshpath-link.firebaseapp.com',
   projectId: 'freshpath-link',
   storageBucket: 'freshpath-link.firebasestorage.app',
   messagingSenderId: '660502674071',
-  appId: '1:660502674071:web:freshpath',
+  appId: '1:660502674071:web:e59581c52b6059b21c47d2',
 };
 
 firebase.initializeApp(firebaseConfig);
