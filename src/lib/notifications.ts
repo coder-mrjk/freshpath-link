@@ -1,6 +1,7 @@
 import { getMessaging, getToken, onMessage, isSupported, Messaging } from 'firebase/messaging';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { app, db } from './firebase';
+import { DeviceRecord } from '../context/AuthContext';
 
 let messagingInstance: Messaging | null = null;
 let isMessagingInitialized = false;
@@ -78,8 +79,44 @@ export async function initMessaging(): Promise<Messaging | null> {
 }
 
 /**
+ * Detects current device, OS, and browser from userAgent.
+ */
+export function detectDevice(): { name: string; os: string; browser: string; type: 'mobile' | 'tablet' | 'desktop' } {
+  if (typeof window === 'undefined' || !navigator) {
+    return { name: 'Unknown Device', os: 'Unknown', browser: 'Browser', type: 'desktop' };
+  }
+
+  const ua = navigator.userAgent;
+  let os = 'Unknown OS';
+  if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone/i.test(ua)) os = 'iPhone';
+  else if (/iPad/i.test(ua)) os = 'iPad';
+  else if (/Macintosh|Mac OS X/i.test(ua)) os = 'Mac';
+  else if (/Windows NT/i.test(ua)) os = 'Windows PC';
+  else if (/Linux/i.test(ua)) os = 'Linux PC';
+
+  let browser = 'Browser';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua) && !/OPR\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) browser = 'Opera';
+  else if (/SamsungBrowser/i.test(ua)) browser = 'Samsung Internet';
+
+  const isMobile = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isTablet = /iPad|Tablet/i.test(ua);
+  const type: 'mobile' | 'tablet' | 'desktop' = isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop';
+
+  // Construct clean, recognizable device names e.g. "Android Mobile (Chrome)" or "Mac Desktop (Chrome)"
+  const suffix = type === 'mobile' && os !== 'iPhone' ? 'Mobile ' : type === 'desktop' && os === 'Mac' ? 'Desktop ' : '';
+  const name = `${os} ${suffix}(${browser})`.trim();
+
+  return { name, os, browser, type };
+}
+
+/**
  * Requests browser notification permission and retrieves FCM push token.
- * Saves the token to the user document in Firestore.
+ * Saves the token and device name metadata to the user document in Firestore.
  */
 export async function requestNotificationPermission(userUid?: string): Promise<string | null> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -117,15 +154,38 @@ export async function requestNotificationPermission(userUid?: string): Promise<s
       console.info('FCM Token generation note (browser push active):', tokenErr);
     }
 
-    if (token && userUid) {
-      // Save device token to user profile
-      try {
-        await updateDoc(doc(db, 'users', userUid), {
-          fcmTokens: arrayUnion(token),
-          notificationsEnabled: true,
-        });
-      } catch (dbErr) {
-        console.warn('Failed to sync FCM token to user record:', dbErr);
+    if (token) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('freshpath_fcm_token', token);
+      }
+
+      if (userUid) {
+        // Save device token and metadata to user profile
+        try {
+          const userRef = doc(db, 'users', userUid);
+          const userSnap = await getDoc(userRef);
+          const currentDev = detectDevice();
+          const existingDevices: DeviceRecord[] =
+            userSnap.exists() && userSnap.data()?.devices ? userSnap.data()?.devices : [];
+
+          const updatedDevices = existingDevices.filter((d) => d.token !== token);
+          updatedDevices.push({
+            token,
+            name: currentDev.name,
+            os: currentDev.os,
+            browser: currentDev.browser,
+            type: currentDev.type,
+            lastSeen: new Date().toISOString(),
+          });
+
+          await updateDoc(userRef, {
+            devices: updatedDevices,
+            fcmTokens: arrayUnion(token),
+            notificationsEnabled: true,
+          });
+        } catch (dbErr) {
+          console.warn('Failed to sync FCM token to user record:', dbErr);
+        }
       }
     }
 
@@ -133,6 +193,35 @@ export async function requestNotificationPermission(userUid?: string): Promise<s
   } catch (err) {
     console.warn('Error requesting notification permission:', err);
     return null;
+  }
+}
+
+/**
+ * Unlinks and removes a registered device token from user profile in Firestore.
+ */
+export async function removeDeviceToken(userUid: string, tokenToRemove: string): Promise<void> {
+  try {
+    const userRef = doc(db, 'users', userUid);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return;
+    const data = userSnap.data();
+    const existingTokens: string[] = data.fcmTokens || [];
+    const existingDevices: DeviceRecord[] = data.devices || [];
+
+    const updatedTokens = existingTokens.filter((t) => t !== tokenToRemove);
+    const updatedDevices = existingDevices.filter((d) => d.token !== tokenToRemove);
+
+    await updateDoc(userRef, {
+      fcmTokens: updatedTokens,
+      devices: updatedDevices,
+    });
+
+    if (typeof window !== 'undefined' && localStorage.getItem('freshpath_fcm_token') === tokenToRemove) {
+      localStorage.removeItem('freshpath_fcm_token');
+    }
+  } catch (err) {
+    console.warn('Failed to remove device token:', err);
+    throw err;
   }
 }
 

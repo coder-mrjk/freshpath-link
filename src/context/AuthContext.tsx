@@ -25,6 +25,15 @@ export type UserStatus = 'pending' | 'approved' | 'suspended' | 'rejected';
 
 export const OWNER_EMAIL = 'tonightgamermrjk@gmail.com';
 
+export interface DeviceRecord {
+  token: string;
+  name: string;
+  os?: string;
+  browser?: string;
+  type?: 'mobile' | 'tablet' | 'desktop';
+  lastSeen?: string;
+}
+
 export interface UserProfile {
   uid: string;
   role: UserRole;
@@ -36,6 +45,7 @@ export interface UserProfile {
   addressText: string;
   preferredLang: 'en' | 'ta';
   fcmTokens?: string[];
+  devices?: DeviceRecord[];
   notificationsEnabled?: boolean;
   createdAt?: unknown;
   approvedAt?: unknown;

@@ -25,8 +25,17 @@ import {
   Warehouse,
   Copy,
   Check,
+  Smartphone,
+  Laptop,
+  Tablet,
+  Trash2,
 } from 'lucide-react';
-import { requestNotificationPermission, showLocalNotification } from '../lib/notifications';
+import {
+  requestNotificationPermission,
+  showLocalNotification,
+  removeDeviceToken,
+  detectDevice,
+} from '../lib/notifications';
 
 interface Props {
   isOpen: boolean;
@@ -81,18 +90,45 @@ export const UserSettingsModal: React.FC<Props> = ({
   );
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [removingToken, setRemovingToken] = useState<string | null>(null);
+
+  const currentLocalToken = typeof window !== 'undefined' ? localStorage.getItem('freshpath_fcm_token') : null;
+  const currentDevInfo = detectDevice();
 
   useEffect(() => {
     if (userProfile?.fcmTokens && userProfile.fcmTokens.length > 0) {
-      setDeviceToken(userProfile.fcmTokens[userProfile.fcmTokens.length - 1]);
+      if (currentLocalToken && userProfile.fcmTokens.includes(currentLocalToken)) {
+        setDeviceToken(currentLocalToken);
+      } else if (!deviceToken || !userProfile.fcmTokens.includes(deviceToken)) {
+        setDeviceToken(userProfile.fcmTokens[userProfile.fcmTokens.length - 1]);
+      }
     }
-  }, [userProfile]);
+  }, [userProfile, currentLocalToken]);
 
-  const handleCopyToken = () => {
-    if (!deviceToken) return;
-    navigator.clipboard.writeText(deviceToken);
+  const handleCopyToken = (tokenToCopy?: string) => {
+    const target = tokenToCopy || deviceToken;
+    if (!target) return;
+    navigator.clipboard.writeText(target);
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2500);
+  };
+
+  const handleRemoveDevice = async (tokToRemove: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!currentUser) return;
+    setRemovingToken(tokToRemove);
+    try {
+      await removeDeviceToken(currentUser.uid, tokToRemove);
+      if (deviceToken === tokToRemove) {
+        const remaining = (userProfile?.fcmTokens || []).filter((t) => t !== tokToRemove);
+        setDeviceToken(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+      }
+      setMessage({ text: 'Device token removed successfully.', type: 'success' });
+    } catch (err: unknown) {
+      setMessage({ text: (err as Error)?.message || 'Failed to remove device.', type: 'error' });
+    } finally {
+      setRemovingToken(null);
+    }
   };
 
   const handleEnableNotifications = async () => {
@@ -570,59 +606,162 @@ export const UserSettingsModal: React.FC<Props> = ({
               )}
             </div>
 
-            {/* ACTIVE DEVICE PUSH TOKEN CARD */}
-            {(deviceToken || (userProfile?.fcmTokens && userProfile.fcmTokens.length > 0)) && (
-              <div className="mt-3 p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 text-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="font-bold text-emerald-300 text-[11px] uppercase tracking-wider">
-                      Active Device FCM Push Token
+            {/* REGISTERED PUSH DEVICES & TOKENS */}
+            {(deviceToken || (userProfile?.fcmTokens && userProfile.fcmTokens.length > 0)) && (() => {
+              const registeredTokens = userProfile?.fcmTokens || (deviceToken ? [deviceToken] : []);
+              const deviceList = registeredTokens.map((tok, idx) => {
+                const found = userProfile?.devices?.find((d) => d.token === tok);
+                const isThisDevice = tok === currentLocalToken || (idx === registeredTokens.length - 1 && !currentLocalToken && typeof window !== 'undefined');
+
+                let displayName = found?.name;
+                let displayType: 'mobile' | 'tablet' | 'desktop' = found?.type || 'desktop';
+
+                if (!displayName) {
+                  if (isThisDevice) {
+                    displayName = currentDevInfo.name;
+                    displayType = currentDevInfo.type;
+                  } else if (tok.startsWith('djjFb9fTHb')) {
+                    displayName = 'Mac Desktop (Chrome)';
+                    displayType = 'desktop';
+                  } else if (tok.startsWith('eRVN3LOz')) {
+                    displayName = `Android Mobile (Chrome ${idx > 1 ? `#${idx}` : ''})`.trim();
+                    displayType = 'mobile';
+                  } else {
+                    displayName = `Linked Device ${idx + 1}`;
+                  }
+                }
+
+                return {
+                  token: tok,
+                  name: displayName,
+                  type: displayType,
+                  isThisDevice,
+                  lastSeen: found?.lastSeen,
+                  index: idx + 1,
+                };
+              });
+
+              const selectedDevice = deviceList.find((d) => d.token === deviceToken) || deviceList[0];
+
+              return (
+                <div className="mt-4 p-4 rounded-2xl bg-slate-900/95 border border-emerald-500/30 text-xs shadow-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            Registered Push Devices
+                          </span>
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
+                            {deviceList.length} {deviceList.length === 1 ? 'Device' : 'Devices'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Each device receives instant push alerts. Select a device below to copy its token or unlink it.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyToken()}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer shrink-0"
+                    >
+                      {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedToken ? 'Token Copied!' : 'Copy Selected Token'}</span>
+                    </button>
+                  </div>
+
+                  {/* Device Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {deviceList.map((dev) => {
+                      const isSelected = (deviceToken || selectedDevice?.token) === dev.token;
+                      return (
+                        <div
+                          key={dev.token}
+                          onClick={() => setDeviceToken(dev.token)}
+                          className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start justify-between gap-2.5 ${
+                            isSelected
+                              ? 'bg-emerald-950/40 border-emerald-400/60 shadow-md ring-1 ring-emerald-500/40'
+                              : 'bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div className={`p-2 rounded-lg border shrink-0 ${
+                              isSelected
+                                ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                                : 'bg-white/5 border-white/10 text-slate-400'
+                            }`}>
+                              {dev.type === 'mobile' ? (
+                                <Smartphone className="w-4 h-4" />
+                              ) : dev.type === 'tablet' ? (
+                                <Tablet className="w-4 h-4" />
+                              ) : (
+                                <Laptop className="w-4 h-4" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-white text-xs truncate">
+                                  {dev.name}
+                                </span>
+                                {dev.isThisDevice && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">
+                                    This Device
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-mono text-[10px] text-slate-400 truncate mt-1">
+                                {dev.token.slice(0, 16)}...{dev.token.slice(-10)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            title="Unlink and remove this device"
+                            disabled={removingToken === dev.token}
+                            onClick={(e) => handleRemoveDevice(dev.token, e)}
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected Token View */}
+                  {selectedDevice && (
+                    <div className="space-y-1.5 pt-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-300">
+                        <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                          <span>Token for:</span>
+                          <strong className="text-white">{selectedDevice.name}</strong>
+                          {selectedDevice.isThisDevice && (
+                            <span className="text-[10px] text-emerald-300">(This Device)</span>
+                          )}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          {selectedDevice.token.length} chars
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-950/90 rounded-xl border border-white/10 font-mono text-[10px] text-slate-300 break-all select-all leading-relaxed max-h-24 overflow-y-auto">
+                        {selectedDevice.token}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-slate-400 pt-1 flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>
+                      Use this token in Firebase Console &rarr; <strong>Messaging</strong> &rarr; <strong>Send test message</strong> to test push campaigns directly on this device.
                     </span>
-                    {(userProfile?.fcmTokens?.length || 0) > 1 && (
-                      <span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                        {userProfile?.fcmTokens?.length} devices linked
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyToken}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-colors cursor-pointer"
-                  >
-                    {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedToken ? 'Token Copied!' : 'Copy Token'}</span>
-                  </button>
+                  </p>
                 </div>
-
-                {userProfile?.fcmTokens && userProfile.fcmTokens.length > 1 && (
-                  <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1">
-                    {userProfile.fcmTokens.map((tok, idx) => (
-                      <button
-                        key={tok}
-                        type="button"
-                        onClick={() => setDeviceToken(tok)}
-                        className={`px-2 py-1 rounded text-[10px] font-mono transition-colors shrink-0 ${
-                          deviceToken === tok
-                            ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/50 font-bold'
-                            : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
-                        }`}
-                      >
-                        Device {idx + 1} {deviceToken === tok ? '(Selected)' : ''}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="p-2.5 bg-slate-950/80 rounded-lg border border-white/10 font-mono text-[10px] text-slate-300 break-all select-all leading-relaxed max-h-24 overflow-y-auto">
-                  {deviceToken || (userProfile?.fcmTokens && userProfile.fcmTokens[userProfile.fcmTokens.length - 1])}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1.5">
-                  <span>💡</span>
-                  <span>Use this token in Firebase Console &rarr; <strong>Messaging</strong> &rarr; <strong>Send test message</strong> to deliver push notifications directly to this device!</span>
-                </p>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* ROLE-SPECIFIC ENTITY SECTIONS (Only shown for matching non-owner roles) */}
