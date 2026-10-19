@@ -35,6 +35,8 @@ export interface UserProfile {
   phone: string;
   addressText: string;
   preferredLang: 'en' | 'ta';
+  fcmTokens?: string[];
+  notificationsEnabled?: boolean;
   createdAt?: unknown;
   approvedAt?: unknown;
   approvedBy?: string;

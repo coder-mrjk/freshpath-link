@@ -23,6 +23,8 @@ import {
   Bell,
   BellRing,
   Warehouse,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { requestNotificationPermission, showLocalNotification } from '../lib/notifications';
 
@@ -77,18 +79,40 @@ export const UserSettingsModal: React.FC<Props> = ({
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   );
+  const [deviceToken, setDeviceToken] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
+
+  useEffect(() => {
+    if (userProfile?.fcmTokens && userProfile.fcmTokens.length > 0) {
+      setDeviceToken(userProfile.fcmTokens[userProfile.fcmTokens.length - 1]);
+    }
+  }, [userProfile]);
+
+  const handleCopyToken = () => {
+    if (!deviceToken) return;
+    navigator.clipboard.writeText(deviceToken);
+    setCopiedToken(true);
+    setTimeout(() => setCopiedToken(false), 2500);
+  };
 
   const handleEnableNotifications = async () => {
     const token = await requestNotificationPermission(currentUser?.uid);
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setNotifPermission(Notification.permission);
     }
-    if (token) {
+    if (token && token !== 'LOCAL_GRANTED') {
+      setDeviceToken(token);
       showLocalNotification('🔔 FreshPath Notifications Active', {
         body: 'You will receive instant alerts for driver arrivals, crate handovers, and counter payments.',
         tag: 'freshpath-welcome',
       });
-      setMessage({ text: 'Push notifications enabled successfully!', type: 'success' });
+      setMessage({ text: 'Push notifications active! Device token saved.', type: 'success' });
+    } else if (token) {
+      showLocalNotification('🔔 FreshPath Notifications Active', {
+        body: 'Local browser notifications active.',
+        tag: 'freshpath-welcome',
+      });
+      setMessage({ text: 'Notifications enabled in browser.', type: 'success' });
     } else {
       setMessage({ text: 'Notification permission was not granted by your browser.', type: 'error' });
     }
@@ -545,6 +569,60 @@ export const UserSettingsModal: React.FC<Props> = ({
                 </button>
               )}
             </div>
+
+            {/* ACTIVE DEVICE PUSH TOKEN CARD */}
+            {(deviceToken || (userProfile?.fcmTokens && userProfile.fcmTokens.length > 0)) && (
+              <div className="mt-3 p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="font-bold text-emerald-300 text-[11px] uppercase tracking-wider">
+                      Active Device FCM Push Token
+                    </span>
+                    {(userProfile?.fcmTokens?.length || 0) > 1 && (
+                      <span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                        {userProfile?.fcmTokens?.length} devices linked
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyToken}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedToken ? 'Token Copied!' : 'Copy Token'}</span>
+                  </button>
+                </div>
+
+                {userProfile?.fcmTokens && userProfile.fcmTokens.length > 1 && (
+                  <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1">
+                    {userProfile.fcmTokens.map((tok, idx) => (
+                      <button
+                        key={tok}
+                        type="button"
+                        onClick={() => setDeviceToken(tok)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono transition-colors shrink-0 ${
+                          deviceToken === tok
+                            ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/50 font-bold'
+                            : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
+                        }`}
+                      >
+                        Device {idx + 1} {deviceToken === tok ? '(Selected)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="p-2.5 bg-slate-950/80 rounded-lg border border-white/10 font-mono text-[10px] text-slate-300 break-all select-all leading-relaxed max-h-24 overflow-y-auto">
+                  {deviceToken || (userProfile?.fcmTokens && userProfile.fcmTokens[userProfile.fcmTokens.length - 1])}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1.5">
+                  <span>💡</span>
+                  <span>Use this token in Firebase Console &rarr; <strong>Messaging</strong> &rarr; <strong>Send test message</strong> to deliver push notifications directly to this device!</span>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ROLE-SPECIFIC ENTITY SECTIONS (Only shown for matching non-owner roles) */}
