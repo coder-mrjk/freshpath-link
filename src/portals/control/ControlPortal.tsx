@@ -47,6 +47,7 @@ export const ControlPortal: React.FC = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [vehicles, setVehicles] = useState<Array<{ id: string; driverUid: string; regNumber: string; gpsUnitId?: string }>>([]);
   const [mandis, setMandis] = useState<Array<{ id: string; name: string; area: string; mandiPersonUid?: string; nodeUnitId?: string }>>([]);
+  const [devices, setDevices] = useState<Array<{ id: string; unitId: string; type: 'gps' | 'storage' }>>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -57,7 +58,7 @@ export const ControlPortal: React.FC = () => {
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [gpsUnitIdInput, setGpsUnitIdInput] = useState('GPS-01');
   const [selectedMandiId, setSelectedMandiId] = useState('');
-  const [sensorNodeIdInput, setSensorNodeIdInput] = useState('MANDI-DHT22-01');
+  const [sensorNodeIdInput, setSensorNodeIdInput] = useState('STORE-01');
 
   // Config State
   const [gradePrices, setGradePrices] = useState<GradePricing>(DEFAULT_GRADE_PRICING);
@@ -124,6 +125,12 @@ export const ControlPortal: React.FC = () => {
       if (mList.length > 0 && !selectedMandiId) {
         setSelectedMandiId(mList[0].id);
       }
+
+      // 4b. Registered IoT Devices (from /devices)
+      const devSnap = await getDocs(collection(db, 'devices'));
+      const devList: Array<{ id: string; unitId: string; type: 'gps' | 'storage' }> = [];
+      devSnap.forEach((d) => devList.push({ id: d.id, ...d.data() } as any));
+      setDevices(devList);
 
 
       // 5. Product rate & Grade Pricing
@@ -310,6 +317,43 @@ export const ControlPortal: React.FC = () => {
       await loadData();
     } catch (err: unknown) {
       setMessage({ text: `Mandi sensor linking failed: ${(err as Error)?.message}`, type: 'error' });
+    }
+  };
+
+  // Unbind GPS unit from vehicle
+  const handleUnlinkGps = async (vehicleId: string) => {
+    try {
+      const vRef = doc(db, 'vehicles', vehicleId);
+      await updateDoc(vRef, {
+        gpsUnitId: null,
+        status: 'PENDING_GPS',
+      });
+      const targetVehicle = vehicles.find((v) => v.id === vehicleId);
+      setMessage({
+        text: `Unpaired GPS unit from vehicle ${targetVehicle?.regNumber || vehicleId}!`,
+        type: 'success',
+      });
+      await loadData();
+    } catch (err: unknown) {
+      setMessage({ text: `GPS unlinking failed: ${(err as Error)?.message}`, type: 'error' });
+    }
+  };
+
+  // Unbind DHT22 Sensor Node from Mandi
+  const handleUnlinkMandiSensor = async (mandiId: string) => {
+    try {
+      const mRef = doc(db, 'mandis', mandiId);
+      await updateDoc(mRef, {
+        nodeUnitId: null,
+      });
+      const targetMandi = mandis.find((m) => m.id === mandiId);
+      setMessage({
+        text: `Unpaired DHT22 sensor from Mandi "${targetMandi?.name || mandiId}"!`,
+        type: 'success',
+      });
+      await loadData();
+    } catch (err: unknown) {
+      setMessage({ text: `Mandi sensor unlinking failed: ${(err as Error)?.message}`, type: 'error' });
     }
   };
 
@@ -691,115 +735,320 @@ export const ControlPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Hardware Linking */}
+      {/* Tab 3: Hardware Linking & Pairing Management */}
       {activeTab === 'hardware' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Link Vehicle to GPS */}
-          <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-sky-500/15 border border-sky-400/30 text-sky-400 rounded-xl">
-                <Radio className="w-5 h-5" />
+        <div className="space-y-6">
+          {/* Registered Firebase IoT Devices Banner */}
+          <div className="backdrop-blur-xl bg-white/[0.03] p-5 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-red-500/15 border border-red-500/30 text-red-400 rounded-xl">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Registered IoT Hardware Nodes in Firebase</h3>
+                  <p className="text-[11px] text-slate-400">Authenticated ESP32 hardware credentials registered under /devices collection</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-sm text-white">Vehicle GPS Pairing</h3>
-                <p className="text-xs text-slate-400">Bind physical GPS tracker to driver vehicle</p>
-              </div>
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/10 font-mono">
+                {devices.length} Devices Online
+              </span>
             </div>
 
-            <form onSubmit={handleLinkGps} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Select Registered Vehicle
-                </label>
-                <select
-                  value={selectedVehicleId}
-                  onChange={(e) => setSelectedVehicleId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/50"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {devices.map((d) => (
+                <div
+                  key={d.id}
+                  className="p-3.5 bg-slate-900/70 rounded-2xl border border-white/10 flex items-center justify-between"
                 >
-                  {vehicles.length === 0 && <option value="" className="bg-slate-900 text-white">No vehicles registered</option>}
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id} className="bg-slate-900 text-white">
-                      {v.regNumber} ({v.gpsUnitId ? `GPS: ${v.gpsUnitId}` : 'Unlinked'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-black text-white">{d.unitId}</span>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                        d.type === 'gps'
+                          ? 'bg-sky-500/20 border-sky-400/30 text-sky-300'
+                          : 'bg-amber-500/20 border-amber-400/30 text-amber-300'
+                      }`}>
+                        {d.type.toUpperCase()} Node
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-1 truncate max-w-[240px]" title={d.id}>
+                      UID: {d.id}
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  GPS Hardware Unit ID
-                </label>
-                <input
-                  type="text"
-                  value={gpsUnitIdInput}
-                  onChange={(e) => setGpsUnitIdInput(e.target.value)}
-                  placeholder="e.g. GPS-01"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={vehicles.length === 0}
-                className="w-full py-2.5 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(2,132,199,0.3)]"
-              >
-                Pair Vehicle GPS Unit
-              </button>
-            </form>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (d.type === 'gps') {
+                        setGpsUnitIdInput(d.unitId);
+                      } else {
+                        setSensorNodeIdInput(d.unitId);
+                      }
+                    }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 transition-colors"
+                  >
+                    Use ID
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Link Mandi Facility to DHT22 Climate Node */}
-          <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
-                <Cpu className="w-5 h-5" />
+          {/* Pairing Forms: 2 Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Link Vehicle to GPS */}
+            <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 bg-sky-500/15 border border-sky-400/30 text-sky-400 rounded-xl">
+                  <Radio className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Vehicle GPS Pairing</h3>
+                  <p className="text-xs text-slate-400">Bind physical GPS tracker to driver vehicle</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-sm text-white">Mandi Climate Sensor Pairing</h3>
-                <p className="text-xs text-slate-400">Bind DHT22 temperature & humidity sensor directly to Mandi</p>
+
+              <form onSubmit={handleLinkGps} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Select Registered Vehicle
+                  </label>
+                  <select
+                    value={selectedVehicleId}
+                    onChange={(e) => setSelectedVehicleId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/50"
+                  >
+                    {vehicles.length === 0 && <option value="" className="bg-slate-900 text-white">No vehicles registered</option>}
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={v.id} className="bg-slate-900 text-white">
+                        {v.regNumber} ({v.gpsUnitId ? `GPS: ${v.gpsUnitId}` : 'Unlinked'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      GPS Hardware Unit ID
+                    </label>
+                    {devices.filter((d) => d.type === 'gps').length > 0 && (
+                      <div className="flex gap-1">
+                        {devices.filter((d) => d.type === 'gps').map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => setGpsUnitIdInput(d.unitId)}
+                            className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                          >
+                            {d.unitId}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={gpsUnitIdInput}
+                    onChange={(e) => setGpsUnitIdInput(e.target.value)}
+                    placeholder="e.g. GPS-01"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={vehicles.length === 0}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(2,132,199,0.3)]"
+                  >
+                    Pair Vehicle GPS Unit
+                  </button>
+                  {vehicles.find((v) => v.id === selectedVehicleId)?.gpsUnitId && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnlinkGps(selectedVehicleId)}
+                      className="px-3 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl text-xs font-bold transition-colors"
+                      title="Unpair GPS from this vehicle"
+                    >
+                      Unpair
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* Link Mandi Facility to DHT22 Climate Node */}
+            <div className="backdrop-blur-xl bg-white/[0.03] p-6 rounded-3xl border border-white/[0.08] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 bg-amber-500/15 border border-amber-400/30 text-amber-400 rounded-xl">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Mandi Climate Sensor Pairing</h3>
+                  <p className="text-xs text-slate-400">Bind DHT22 temperature & humidity sensor directly to Mandi</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleLinkMandiSensor} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Select Mandi Facility
+                  </label>
+                  <select
+                    value={selectedMandiId}
+                    onChange={(e) => setSelectedMandiId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  >
+                    {mandis.length === 0 && <option value="" className="bg-slate-900 text-white">No mandis registered</option>}
+                    {mandis.map((m) => (
+                      <option key={m.id} value={m.id} className="bg-slate-900 text-white">
+                        {m.name} ({m.area}) — {m.nodeUnitId ? `Node: ${m.nodeUnitId}` : 'Unlinked'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      DHT22 Sensor Node Unit ID
+                    </label>
+                    {devices.filter((d) => d.type === 'storage').length > 0 && (
+                      <div className="flex gap-1">
+                        {devices.filter((d) => d.type === 'storage').map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => setSensorNodeIdInput(d.unitId)}
+                            className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          >
+                            {d.unitId}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={sensorNodeIdInput}
+                    onChange={(e) => setSensorNodeIdInput(e.target.value)}
+                    placeholder="e.g. STORE-01"
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={mandis.length === 0}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(217,119,6,0.3)]"
+                  >
+                    Bind Mandi Climate Sensor
+                  </button>
+                  {mandis.find((m) => m.id === selectedMandiId)?.nodeUnitId && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnlinkMandiSensor(selectedMandiId)}
+                      className="px-3 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl text-xs font-bold transition-colors"
+                      title="Unpair DHT22 sensor from this Mandi"
+                    >
+                      Unpair
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {/* Live Hardware Pairings Status Tables */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Vehicles Pairing Status */}
+            <div className="backdrop-blur-xl bg-white/[0.03] p-5 rounded-3xl border border-white/[0.08] shadow-xl">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300 mb-3 flex items-center justify-between">
+                <span>Vehicle $\leftrightarrow$ GPS Active Links</span>
+                <span className="text-[10px] text-slate-400 font-mono">{vehicles.length} Vehicles</span>
+              </h4>
+              <div className="space-y-2">
+                {vehicles.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-3 text-center">No vehicles found.</p>
+                ) : (
+                  vehicles.map((v) => (
+                    <div
+                      key={v.id}
+                      className="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-mono font-bold text-white">{v.regNumber}</span>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {v.id}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {v.gpsUnitId ? (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                            {v.gpsUnitId}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-400 font-semibold">Unlinked</span>
+                        )}
+                        {v.gpsUnitId && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnlinkGps(v.id)}
+                            className="text-[10px] text-red-400 hover:text-red-300 underline"
+                          >
+                            Unpair
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            <form onSubmit={handleLinkMandiSensor} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Select Mandi Facility
-                </label>
-                <select
-                  value={selectedMandiId}
-                  onChange={(e) => setSelectedMandiId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50"
-                >
-                  {mandis.length === 0 && <option value="" className="bg-slate-900 text-white">No mandis registered</option>}
-                  {mandis.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-slate-900 text-white">
-                      {m.name} ({m.area}) — {m.nodeUnitId ? `Node: ${m.nodeUnitId}` : 'Unlinked'}
-                    </option>
-                  ))}
-                </select>
+            {/* Mandi Pairing Status */}
+            <div className="backdrop-blur-xl bg-white/[0.03] p-5 rounded-3xl border border-white/[0.08] shadow-xl">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300 mb-3 flex items-center justify-between">
+                <span>Mandi $\leftrightarrow$ DHT22 Active Links</span>
+                <span className="text-[10px] text-slate-400 font-mono">{mandis.length} Mandis</span>
+              </h4>
+              <div className="space-y-2">
+                {mandis.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-3 text-center">No mandis found.</p>
+                ) : (
+                  mandis.map((m) => (
+                    <div
+                      key={m.id}
+                      className="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-white">{m.name}</span>
+                        <div className="text-[10px] text-slate-400 mt-0.5">📍 {m.area}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {m.nodeUnitId ? (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            {m.nodeUnitId}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-400 font-semibold">Unlinked</span>
+                        )}
+                        {m.nodeUnitId && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnlinkMandiSensor(m.id)}
+                            className="text-[10px] text-red-400 hover:text-red-300 underline"
+                          >
+                            Unpair
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  DHT22 Sensor Node Unit ID
-                </label>
-                <input
-                  type="text"
-                  value={sensorNodeIdInput}
-                  onChange={(e) => setSensorNodeIdInput(e.target.value)}
-                  placeholder="e.g. MANDI-DHT22-01"
-                  className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={mandis.length === 0}
-                className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all touch-target shadow-[0_4px_16px_rgba(217,119,6,0.3)]"
-              >
-                Bind Mandi Climate Sensor
-              </button>
-            </form>
+            </div>
           </div>
         </div>
       )}
