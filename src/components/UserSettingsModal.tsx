@@ -6,6 +6,7 @@ import {
   where,
   getDocs,
   setDoc,
+  updateDoc,
   doc,
   addDoc,
   serverTimestamp,
@@ -128,6 +129,25 @@ export const UserSettingsModal: React.FC<Props> = ({
       setMessage({ text: (err as Error)?.message || 'Failed to remove device.', type: 'error' });
     } finally {
       setRemovingToken(null);
+    }
+  };
+
+  const handleUnlinkAllDevices = async () => {
+    if (!currentUser) return;
+    if (!window.confirm('Unlink all registered push devices from your account? This will reset your device notifications.')) return;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        fcmTokens: [],
+        devices: [],
+        notificationsEnabled: false,
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('freshpath_fcm_token');
+      }
+      setDeviceToken(null);
+      setMessage({ text: 'All registered devices unlinked successfully.', type: 'success' });
+    } catch (err: unknown) {
+      setMessage({ text: (err as Error)?.message || 'Failed to unlink devices.', type: 'error' });
     }
   };
 
@@ -663,14 +683,26 @@ export const UserSettingsModal: React.FC<Props> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleCopyToken()}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer shrink-0"
-                    >
-                      {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedToken ? 'Token Copied!' : 'Copy Selected Token'}</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleUnlinkAllDevices}
+                        className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-semibold transition-all shadow-sm cursor-pointer"
+                        title="Unlink all devices from this account"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Unlink All</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyToken()}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                      >
+                        {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedToken ? 'Token Copied!' : 'Copy Token'}</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Device Cards Grid */}
@@ -759,6 +791,25 @@ export const UserSettingsModal: React.FC<Props> = ({
                       Use this token in Firebase Console &rarr; <strong>Messaging</strong> &rarr; <strong>Send test message</strong> to test push campaigns directly on this device.
                     </span>
                   </p>
+
+                  {/* Desktop Chrome & Safari Notification Guide */}
+                  <div className="mt-2 p-3 bg-slate-950/80 rounded-xl border border-sky-500/20 text-[11px] text-slate-300 space-y-1.5">
+                    <div className="font-bold text-sky-400 flex items-center gap-1.5">
+                      <Laptop className="w-4 h-4" />
+                      <span>Desktop System-Level Notifications (macOS &amp; Windows)</span>
+                    </div>
+                    <ul className="list-disc pl-4 space-y-1 text-slate-400 text-[10px] leading-relaxed">
+                      <li>
+                        <strong>macOS Chrome &amp; Safari:</strong> Open <em>System Settings &rarr; Notifications &rarr; Google Chrome</em> (or <em>Safari</em>) &rarr; toggle <strong>Allow notifications</strong> ON and select <strong>Banners</strong> or <strong>Alerts</strong>.
+                      </li>
+                      <li>
+                        <strong>Focus / Do Not Disturb:</strong> Ensure macOS Focus Mode is OFF, otherwise banners are silenced by macOS into the Notification Center.
+                      </li>
+                      <li>
+                        Click <strong>&quot;Test Alert Chime&quot;</strong> above to fire a direct OS notification banner to your desktop screen!
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               );
             })()}

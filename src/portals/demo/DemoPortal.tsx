@@ -31,15 +31,17 @@ import {
   Cpu,
   RefreshCw,
   Settings,
+  LogOut,
 } from 'lucide-react';
 
 export const DemoPortal: React.FC = () => {
-  const { isOwner, currentUser } = useAuth();
+  const { isOwner, currentUser, logout } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [showConfirmDevicePurge, setShowConfirmDevicePurge] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [gpsStep, setGpsStep] = useState(0);
 
@@ -153,6 +155,69 @@ export const DemoPortal: React.FC = () => {
     } catch (err: unknown) {
       console.error('Error clearing database:', err);
       setErrorMsg((err as Error)?.message || 'Failed to clear database.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 1b. Global Purge: Remove all registered device push tokens across all accounts and logout
+  const handlePurgeAllDevicesAndLogout = async () => {
+    setShowConfirmDevicePurge(false);
+    setLoading(true);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    try {
+      // 1. Fetch all users from Firestore
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const batch = writeBatch(db);
+      let updatedUsersCount = 0;
+
+      usersSnap.forEach((uDoc) => {
+        batch.update(doc(db, 'users', uDoc.id), {
+          fcmTokens: [],
+          devices: [],
+          notificationsEnabled: false,
+          updatedAt: serverTimestamp(),
+        });
+        updatedUsersCount++;
+      });
+
+      if (updatedUsersCount > 0) {
+        await batch.commit();
+      }
+
+      // 2. Clear local device token in storage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('freshpath_fcm_token');
+      }
+
+      // 3. Unregister all service workers on this client
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
+          }
+        } catch (swErr) {
+          console.warn('Error unregistering service workers:', swErr);
+        }
+      }
+
+      setSuccessMsg(
+        `Successfully purged all registered push devices across ${updatedUsersCount} user accounts and cleared device tokens. Logging out session...`
+      );
+
+      // 4. Logout the session
+      setTimeout(async () => {
+        try {
+          await logout();
+        } catch {
+          // ignore
+        }
+      }, 1500);
+    } catch (err: unknown) {
+      setErrorMsg((err as Error)?.message || 'Failed to purge devices and logout.');
     } finally {
       setLoading(false);
     }
@@ -800,6 +865,61 @@ export const DemoPortal: React.FC = () => {
                 >
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   <span>Yes, Purge Database</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Danger Zone 2: Logout All Accounts & Purge Device Tokens */}
+      <div className="relative backdrop-blur-xl bg-amber-950/20 border border-amber-500/30 rounded-3xl p-6 shadow-2xl mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-amber-400">
+              <LogOut className="w-5 h-5" />
+              <h3 className="font-extrabold text-base text-white">Logout All Accounts &amp; Purge All Device Push Tokens</h3>
+            </div>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+              Unlinks and clears all registered FCM device tokens (<code className="text-amber-300 font-mono text-[11px]">fcmTokens: []</code> and <code className="text-amber-300 font-mono text-[11px]">devices: []</code>) across every user account in Firestore, unregisters active Service Workers, and logs out the current session. Use this to reset cluttered notification device lists.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowConfirmDevicePurge(true)}
+            disabled={loading}
+            className="py-2.5 px-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center gap-2 whitespace-nowrap touch-target"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout &amp; Purge Devices</span>
+          </button>
+        </div>
+
+        {/* Confirmation Modal */}
+        {showConfirmDevicePurge && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="relative backdrop-blur-2xl bg-slate-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <AlertTriangle className="w-10 h-10 text-amber-400 mb-3 mx-auto" />
+              <h4 className="text-base font-extrabold text-white text-center">
+                Confirm Purge of All Device Push Tokens
+              </h4>
+              <p className="text-xs text-slate-300 mt-2 text-center leading-relaxed">
+                This will unregister and delete all device push tokens from all accounts in Firestore, reset browser push registrations, and log out your session. You can re-enable notifications on any device afterwards.
+              </p>
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  onClick={() => setShowConfirmDevicePurge(false)}
+                  className="flex-1 py-2.5 px-4 bg-white/10 hover:bg-white/15 text-slate-300 rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePurgeAllDevicesAndLogout}
+                  disabled={loading}
+                  className="flex-1 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                  <span>Yes, Purge &amp; Logout</span>
                 </button>
               </div>
             </div>

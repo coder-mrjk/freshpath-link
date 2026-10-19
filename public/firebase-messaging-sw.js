@@ -17,6 +17,14 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message: ', payload);
 
@@ -29,12 +37,16 @@ messaging.onBackgroundMessage((payload) => {
     body: payload.notification?.body || payload.data?.body || 'New supply chain event detected.',
     icon: payload.notification?.icon || logoUrl,
     badge: badgeUrl,
-    image: payload.notification?.image || payload.data?.image || undefined,
-    tag: payload.data?.tag || 'freshpath-notification',
+    tag: payload.data?.tag || `freshpath-fcm-${Date.now()}`,
     data: {
       url: payload.data?.url || payload.fcmOptions?.link || '/',
     },
   };
+
+  const img = payload.notification?.image || payload.data?.image;
+  if (img) {
+    notificationOptions.image = img;
+  }
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });

@@ -227,45 +227,69 @@ export async function removeDeviceToken(userUid: string, tokenToRemove: string):
 
 /**
  * Shows an instant native system notification.
- * Works even when offline or before token generation.
+/**
+ * Shows an instant native system notification.
+ * Works across desktop (macOS Chrome, Safari, Windows Edge) and mobile (Android Chrome, PWA).
  */
 export function showLocalNotification(
   title: string,
-  options?: NotificationOptions & { sound?: boolean }
+  options?: NotificationOptions & { sound?: boolean; url?: string; image?: string }
 ) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
+  if (typeof window === 'undefined') return;
 
+  // 1. Play audio chime if requested
   if (options?.sound !== false) {
     playNotificationChime();
   }
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://freshpath-link.web.app';
+  // 2. Permission check
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+
+  const origin = window.location.origin;
   const logoUrl = `${origin}/logo-192.png`;
   const badgeUrl = `${origin}/logo-32.png`;
 
-  const finalOptions: NotificationOptions = {
+  // Sanitize notification options strictly according to W3C specification
+  const cleanOptions: NotificationOptions = {
+    body: options?.body || '',
     icon: options?.icon || logoUrl,
-    badge: options?.badge || badgeUrl,
-    ...options,
+    badge: badgeUrl,
+    tag: options?.tag || `freshpath-${Date.now()}`,
+    requireInteraction: true,
+    silent: false,
   };
 
+  if (options?.image) {
+    (cleanOptions as any).image = options.image;
+  }
+
+  // 3. Desktop Native Notification: Window Notification API (required on macOS Chrome, Safari, Windows)
   try {
-    // On mobile Android and desktop browsers, ServiceWorkerRegistration.showNotification is required and persistent
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.showNotification(title, finalOptions);
-      }).catch(() => {
-        try {
-          new Notification(title, finalOptions);
-        } catch {
-          // ignore
-        }
-      });
-    } else if (typeof Notification !== 'undefined') {
-      new Notification(title, finalOptions);
-    }
-  } catch (e) {
-    console.warn('Could not display native notification:', e);
+    const directNotif = new Notification(title, cleanOptions);
+    directNotif.onclick = (e) => {
+      e.preventDefault();
+      window.focus();
+      if (options?.url) {
+        window.location.href = options.url;
+      }
+      directNotif.close();
+    };
+  } catch (err) {
+    console.info('Window Notification constructor fallback note:', err);
+  }
+
+  // 4. Mobile / PWA / Service Worker notification
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      if (reg && reg.showNotification) {
+        reg.showNotification(title, cleanOptions).catch((swErr) => {
+          console.warn('ServiceWorker showNotification error:', swErr);
+        });
+      }
+    }).catch((err) => {
+      console.warn('Could not get serviceWorker registration for notification:', err);
+    });
   }
 }
