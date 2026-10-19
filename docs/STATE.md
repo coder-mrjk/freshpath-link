@@ -1,16 +1,21 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.2.0  
-**Date**: October 18, 2026  
+**Version**: 1.3.0  
+**Date**: October 19, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `HEAD`  
+**Verified Against Commit**: `2c315d0`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
 
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) have been upgraded to high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
+
+In v1.3.0, the push notification subsystem has been upgraded with:
+- Service Worker absolute URL resolution for app icons (`/logo-192.png`) and badges (`/logo-32.png`), ensuring notification icons render reliably on Android and desktop system trays.
+- In-app **Active Device FCM Push Token Card** with one-click copy in the Settings Modal, allowing administrators and users to directly view and copy device push registration tokens.
+- Support for rich notification media images and web push payload listeners.
 
 ---
 
@@ -24,6 +29,7 @@ All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, C
 | **Shelf (Retail Stores)** | `RETAIL` | `DONE` | Store management, real-time shelf inventory, removed Print Label & self-ratings, and added **Pending Customer Counter Payments Gate** with 1-click **Payment Received** verification. |
 | **Table (Customer / Consumer)** | `CONSUMER` | `DONE` | Live provenance browser with real-time `onSnapshot` sync, store details, "Digital Payments (UPI / Card): Coming Soon" banner, "Pay at Shop Counter" request, instant payment confirmation reveal, and **5-Star Direct Farmer Rating & Review modal**. |
 | **Control Admin** | `ADMIN` | `DONE` | Regulated rate configuration per size grade (A+, A, B, C), user verification approvals, direct Mandi DHT22 sensor node pairing, vehicle registration plate pairing notification fix, SMS verification line cleanup. |
+| **Push Notifications & Tokens** | `ALL` | `DONE` | Web Push Service Worker with absolute logo icons, in-app device token viewer with one-click copy in Settings, and real-time Firestore token sync under `/users/{uid}.fcmTokens`. |
 
 ---
 
