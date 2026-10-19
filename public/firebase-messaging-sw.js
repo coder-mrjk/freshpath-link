@@ -20,11 +20,15 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message: ', payload);
 
+  const origin = self.location.origin;
+  const logoUrl = `${origin}/logo-192.png`;
+  const badgeUrl = `${origin}/logo-32.png`;
+
   const notificationTitle = payload.notification?.title || payload.data?.title || 'FreshPath Alert';
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.body || 'New supply chain event detected.',
-    icon: '/logo-192.png',
-    badge: '/logo-192.png',
+    icon: payload.notification?.icon || logoUrl,
+    badge: badgeUrl,
     image: payload.notification?.image || payload.data?.image || undefined,
     tag: payload.data?.tag || 'freshpath-notification',
     data: {

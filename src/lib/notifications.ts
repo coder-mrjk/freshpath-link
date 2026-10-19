@@ -56,13 +56,16 @@ export async function initMessaging(): Promise<Messaging | null> {
       const title = payload.notification?.title || payload.data?.title || 'FreshPath Alert';
       const body = payload.notification?.body || payload.data?.body || '';
       const image = payload.notification?.image || payload.data?.image || undefined;
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://freshpath-link.web.app';
+      const logoUrl = `${origin}/logo-192.png`;
+      const badgeUrl = `${origin}/logo-32.png`;
 
       playNotificationChime();
       showLocalNotification(title, {
         body,
         tag: payload.data?.tag,
-        icon: '/logo-192.png',
-        badge: '/logo-192.png',
+        icon: payload.notification?.icon || logoUrl,
+        badge: badgeUrl,
         image,
       } as NotificationOptions);
     });
@@ -148,30 +151,30 @@ export function showLocalNotification(
     playNotificationChime();
   }
 
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://freshpath-link.web.app';
+  const logoUrl = `${origin}/logo-192.png`;
+  const badgeUrl = `${origin}/logo-32.png`;
+
+  const finalOptions: NotificationOptions = {
+    icon: options?.icon || logoUrl,
+    badge: options?.badge || badgeUrl,
+    ...options,
+  };
+
   try {
     // On mobile Android and desktop browsers, ServiceWorkerRegistration.showNotification is required and persistent
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then((reg) => {
-        reg.showNotification(title, {
-          icon: '/logo-192.png',
-          badge: '/logo-192.png',
-          ...options,
-        });
+        reg.showNotification(title, finalOptions);
       }).catch(() => {
         try {
-          new Notification(title, {
-            icon: '/logo-192.png',
-            ...options,
-          });
+          new Notification(title, finalOptions);
         } catch {
           // ignore
         }
       });
     } else if (typeof Notification !== 'undefined') {
-      new Notification(title, {
-        icon: '/logo-192.png',
-        ...options,
-      });
+      new Notification(title, finalOptions);
     }
   } catch (e) {
     console.warn('Could not display native notification:', e);
