@@ -181,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 ...synthesizedOwner,
                 email: user.email,
                 createdAt: serverTimestamp(),
-              });
+              }, { merge: true });
               setUserProfile(synthesizedOwner);
             } catch (e) {
               console.warn('Failed to auto-heal owner profile in users collection:', e);
