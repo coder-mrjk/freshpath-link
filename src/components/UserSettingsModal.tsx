@@ -520,18 +520,30 @@ export const UserSettingsModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleEnableNotifications}
-                className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 touch-target ${
-                  notifPermission === 'granted'
-                    ? 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
-                    : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black'
-                }`}
-              >
-                <Bell className="w-3.5 h-3.5" />
-                <span>{notifPermission === 'granted' ? 'Test Alert Chime' : 'Enable Notifications'}</span>
-              </button>
+              {notifPermission === 'denied' ? (
+                <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-left space-y-1.5 w-full">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-red-300">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>Notifications are Blocked in Browser Settings</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    To allow: Click or tap the <strong>Lock / Tune icon (🔒 or 🎛️)</strong> in the top address bar next to <span className="text-amber-300 font-mono text-[10px]">freshpath-link.web.app</span> &rarr; change <strong>Notifications</strong> to <strong>Allow</strong> &rarr; then refresh the page.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleEnableNotifications}
+                  className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 touch-target ${
+                    notifPermission === 'granted'
+                      ? 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
+                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black'
+                  }`}
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>{notifPermission === 'granted' ? 'Test Alert Chime' : 'Enable Notifications'}</span>
+                </button>
+              )}
             </div>
           </div>
 
