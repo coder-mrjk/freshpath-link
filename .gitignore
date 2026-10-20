@@ -10,3 +10,7 @@ secrets.h
 *.log
 .firebase
 *.zip
+
+
+# ESP32 firmware credentials (never commit real passwords)
+firmware/*/config.h
