@@ -72,7 +72,7 @@ export const DemoPortal: React.FC = () => {
     );
   }
 
-  // 1. Reset Database (Clear all data & users except owner)
+  // 1. Reset Database (Clear all demo data & users, strictly preserving hardware devices & owners)
   const handleClearDatabase = async () => {
     setShowConfirmReset(false);
     setLoading(true);
@@ -81,21 +81,36 @@ export const DemoPortal: React.FC = () => {
 
     try {
       let deletedCount = 0;
-      const collectionsToClear = [
-        'bags',
-        'trips',
-        'events',
-        'fields',
-        'vehicles',
-        'mandis',
-        'storageUnits',
-        'shops',
-        'purchases',
-        'counters',
-        'gpsUnits',
-      ];
 
-      // Delete storage unit readings subcollections first
+      // 1. Discover all registered hardware devices to protect
+      const devicesSnap = await getDocs(collection(db, 'devices'));
+      const protectedDeviceUids = new Set<string>([
+        '10Ea8IJb0IcE1vWwuDsH9Wwul4P2', // GPS-01
+        'k8ePyHigtQRcmQe6tSuoY2qIMdd2', // STORE-01
+      ]);
+      const protectedUnitIds = new Set<string>(['GPS-01', 'STORE-01']);
+
+      devicesSnap.forEach((dDoc) => {
+        protectedDeviceUids.add(dDoc.id);
+        const data = dDoc.data();
+        if (data.unitId) protectedUnitIds.add(data.unitId);
+      });
+
+      // 2. Discover registered owners to protect
+      const ownersSnap = await getDocs(collection(db, 'owners'));
+      const protectedOwnerUids = new Set<string>(['oMl0ziVO7aWj9MH26ocPGH41fG12']);
+      ownersSnap.forEach((oDoc) => protectedOwnerUids.add(oDoc.id));
+
+      // 3. Clear readings subcollections under all mandis and storageUnits
+      const mandisSnap = await getDocs(collection(db, 'mandis'));
+      for (const mDoc of mandisSnap.docs) {
+        const readingsSnap = await getDocs(collection(db, 'mandis', mDoc.id, 'readings'));
+        for (const rDoc of readingsSnap.docs) {
+          await deleteDoc(rDoc.ref);
+          deletedCount++;
+        }
+      }
+
       const storageSnap = await getDocs(collection(db, 'storageUnits'));
       for (const sDoc of storageSnap.docs) {
         const readingsSnap = await getDocs(collection(db, 'storageUnits', sDoc.id, 'readings'));
@@ -105,8 +120,19 @@ export const DemoPortal: React.FC = () => {
         }
       }
 
-      // Delete documents from top-level collections
-      for (const colName of collectionsToClear) {
+      // 4. Delete documents from standard temporary collections
+      const standardCollections = [
+        'bags',
+        'trips',
+        'events',
+        'fields',
+        'storageUnits',
+        'shops',
+        'purchases',
+        'counters',
+      ];
+
+      for (const colName of standardCollections) {
         const snap = await getDocs(collection(db, colName));
         for (const d of snap.docs) {
           await deleteDoc(d.ref);
@@ -114,14 +140,89 @@ export const DemoPortal: React.FC = () => {
         }
       }
 
-      // Delete users EXCEPT Owner account
-      const nonOwnerUids: string[] = [];
+      // 5. Selectively clear Mandis (PRESERVE hardware-bound mandis like STORE-01 / mandi-panruti-01)
+      for (const mDoc of mandisSnap.docs) {
+        const mData = mDoc.data();
+        const isHardwareBound =
+          (mData.nodeUnitId && protectedUnitIds.has(mData.nodeUnitId)) ||
+          mDoc.id === 'mandi-panruti-01';
+
+        if (isHardwareBound) {
+          // Reset climate to baseline, but KEEP document intact
+          await setDoc(
+            mDoc.ref,
+            {
+              currentTemp: 14.2,
+              currentHumidity: 88.0,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } else {
+          await deleteDoc(mDoc.ref);
+          deletedCount++;
+        }
+      }
+
+      // 6. Selectively clear Vehicles (PRESERVE hardware-bound vehicles like veh-tn31-01 / GPS-01)
+      const vehiclesSnap = await getDocs(collection(db, 'vehicles'));
+      for (const vDoc of vehiclesSnap.docs) {
+        const vData = vDoc.data();
+        const isHardwareBound =
+          (vData.gpsUnitId && protectedUnitIds.has(vData.gpsUnitId)) ||
+          vDoc.id === 'veh-tn31-01';
+
+        if (!isHardwareBound) {
+          await deleteDoc(vDoc.ref);
+          deletedCount++;
+        }
+      }
+
+      // 7. Selectively clear GPS Units (PRESERVE hardware GPS units like GPS-01)
+      const gpsUnitsSnap = await getDocs(collection(db, 'gpsUnits'));
+      for (const gDoc of gpsUnitsSnap.docs) {
+        const isRegisteredUnit = protectedUnitIds.has(gDoc.id) || gDoc.id === 'GPS-01';
+
+        if (isRegisteredUnit) {
+          // Reset fix status, but KEEP document intact
+          await setDoc(
+            gDoc.ref,
+            {
+              latest: {
+                valid: false,
+                sats: 0,
+                hdop: 99.99,
+                speedKmph: 0.0,
+              },
+              receivedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } else {
+          await deleteDoc(gDoc.ref);
+          deletedCount++;
+        }
+      }
+
+      // 8. Selectively clear Users (PRESERVE owners, admins, and hardware devices)
       const usersSnap = await getDocs(collection(db, 'users'));
       for (const uDoc of usersSnap.docs) {
         const uData = uDoc.data();
+        const email = (uData.email || '').toLowerCase();
+        const uid = uDoc.id;
+
         const isOwnerDoc =
-          (uData.email && uData.email.toLowerCase() === OWNER_EMAIL.toLowerCase()) ||
-          uDoc.id === 'oMl0ziVO7aWj9MH26ocPGH41fG12';
+          email === OWNER_EMAIL.toLowerCase() ||
+          uid === 'oMl0ziVO7aWj9MH26ocPGH41fG12' ||
+          protectedOwnerUids.has(uid) ||
+          uData.role === 'owner' ||
+          uData.role === 'admin';
+
+        const isDeviceDoc =
+          email.endsWith('@freshpath.device') ||
+          email.includes('.device') ||
+          protectedDeviceUids.has(uid) ||
+          uData.role === 'device';
 
         if (isOwnerDoc) {
           // Preserve and ensure clean owner status
@@ -134,15 +235,18 @@ export const DemoPortal: React.FC = () => {
               fullName: uData.fullName || 'System Owner',
               firstName: uData.firstName || 'Owner',
               phone: uData.phone || '9790416096',
-              email: OWNER_EMAIL,
+              email: uData.email || OWNER_EMAIL,
               addressText: uData.addressText || 'FreshPath Central Operations',
               preferredLang: uData.preferredLang || 'en',
               updatedAt: serverTimestamp(),
             },
             { merge: true }
           );
+        } else if (isDeviceDoc) {
+          // Strictly preserve hardware device user document
+          // Do not delete
         } else {
-          nonOwnerUids.push(uDoc.id);
+          // Delete only demo/test users
           await deleteDoc(uDoc.ref);
           deletedCount++;
         }
@@ -150,7 +254,7 @@ export const DemoPortal: React.FC = () => {
 
       setGeneratedCrates([]);
       setSuccessMsg(
-        `Database purged successfully! ${deletedCount} documents deleted. Owner account (${OWNER_EMAIL}) was strictly preserved and kept approved. To remove any extra Firebase Auth credentials created in the Firebase console, run "npm run purge-auth" in your terminal.`
+        `Database purged successfully! ${deletedCount} documents deleted. Hardware Devices (GPS-01, STORE-01), Mandi STORE-01, Vehicle GPS-01, and Owner accounts were strictly preserved. To remove demo user credentials from Firebase Auth, run "npm run purge-auth" in your terminal.`
       );
     } catch (err: unknown) {
       console.error('Error clearing database:', err);
@@ -812,10 +916,10 @@ export const DemoPortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1 text-red-400">
               <Trash2 className="w-5 h-5" />
-              <h3 className="font-extrabold text-base text-white">Database & Auth Reset (Preserves Owner Account)</h3>
+              <h3 className="font-extrabold text-base text-white">Database Reset (Preserves Owner &amp; Hardware Devices)</h3>
             </div>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Wipes all test crates, trips, events, farmer fields, driver vehicles, mandis, cold storage units, retail shops, and non-owner user accounts from Firestore. Your owner account (<span className="text-white font-mono">{OWNER_EMAIL}</span>) is strictly preserved and set to approved status in both Firestore and Firebase Auth.
+              Wipes all test crates, trips, events, farmer fields, purchases, retail shops, and non-owner test users from Firestore. Your owner account (<span className="text-white font-mono">{OWNER_EMAIL}</span>) and registered hardware devices (<span className="text-amber-300 font-mono">GPS-01</span>, <span className="text-amber-300 font-mono">STORE-01</span>) are strictly preserved across Firestore and Firebase Authentication.
             </p>
           </div>
 
@@ -831,14 +935,19 @@ export const DemoPortal: React.FC = () => {
 
         <div className="mt-4 pt-4 border-t border-red-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
           <div>
-            <span className="font-bold text-slate-200">Firebase Auth Clean Command: </span>
+            <span className="font-bold text-slate-200">Terminal CLI Commands (Safe Purge): </span>
             <span className="text-slate-400">
-              Purges all non-owner Auth accounts from the Firebase Authentication console via CLI.
+              Run in your terminal to safely reset database or purge test auth accounts while preserving devices and owners:
             </span>
           </div>
-          <code className="px-3 py-1.5 bg-black/40 border border-red-500/30 text-red-300 rounded-lg font-mono text-[11px] select-all whitespace-nowrap">
-            npm run purge-auth
-          </code>
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="px-3 py-1.5 bg-black/40 border border-red-500/30 text-red-300 rounded-lg font-mono text-[11px] select-all whitespace-nowrap" title="Database purge command">
+              npm run clear-db
+            </code>
+            <code className="px-3 py-1.5 bg-black/40 border border-amber-500/30 text-amber-300 rounded-lg font-mono text-[11px] select-all whitespace-nowrap" title="Firebase auth purge command">
+              npm run purge-auth
+            </code>
+          </div>
         </div>
 
         {/* Confirmation Modal */}
@@ -847,10 +956,10 @@ export const DemoPortal: React.FC = () => {
             <div className="relative backdrop-blur-2xl bg-slate-900 border border-red-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <AlertTriangle className="w-10 h-10 text-red-400 mb-3 mx-auto" />
               <h4 className="text-base font-extrabold text-white text-center">
-                Confirm Complete Database Purge
+                Confirm Safe Database Purge
               </h4>
               <p className="text-xs text-slate-300 mt-2 text-center leading-relaxed">
-                This will delete all test crates, journeys, and simulated users. This action cannot be undone. Your root owner account (<span className="text-red-300 font-mono">{OWNER_EMAIL}</span>) will not be deleted.
+                This will delete all test crates, journeys, events, and simulated users. Your root owner account (<span className="text-red-300 font-mono">{OWNER_EMAIL}</span>) and hardware devices (<span className="text-amber-300 font-mono">GPS-01</span>, <span className="text-amber-300 font-mono">STORE-01</span>) will <strong className="text-white">NOT</strong> be deleted.
               </p>
               <div className="flex items-center gap-3 mt-6">
                 <button

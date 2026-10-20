@@ -1,6 +1,12 @@
 /**
- * FreshPath Link - Purge Non-Owner Firebase Authentication Accounts
+ * FreshPath Link - Purge Non-Owner, Non-Device Firebase Authentication Accounts
  * Run with: npm run purge-auth
+ *
+ * SAFETY GUARD:
+ * - Root Owner account (tonightgamermrjk@gmail.com / oMl0ziVO7aWj9MH26ocPGH41fG12) is STRICTLY PRESERVED.
+ * - Any user in the Firestore `owners` collection or with role 'owner'/'admin' is STRICTLY PRESERVED.
+ * - All hardware device accounts (*@freshpath.device / UIDs registered in `devices`) are STRICTLY PRESERVED.
+ * - Only temporary, non-device demo/test user accounts are deleted.
  */
 
 const fs = require('fs');
@@ -10,23 +16,109 @@ const os = require('os');
 const { execSync } = require('child_process');
 
 const OWNER_EMAIL = 'tonightgamermrjk@gmail.com';
+const ROOT_OWNER_UID = 'oMl0ziVO7aWj9MH26ocPGH41fG12';
 const PROJECT_ID = 'freshpath-link';
 
-async function main() {
-  console.log('\n======================================================');
-  console.log(' 🔐 FreshPath Link - Purging Non-Owner Auth Users');
-  console.log('======================================================\n');
+// Known hardware device accounts as baseline safety
+const KNOWN_DEVICE_UIDS = [
+  '10Ea8IJb0IcE1vWwuDsH9Wwul4P2', // GPS-01
+  'k8ePyHigtQRcmQe6tSuoY2qIMdd2', // STORE-01
+];
 
-  // 1. Export current accounts using firebase-tools
+function firestoreGet(collectionName, accessToken) {
+  return new Promise((resolve) => {
+    const req = https.get(
+      {
+        hostname: 'firestore.googleapis.com',
+        path: `/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collectionName}`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            resolve(data.documents || []);
+          } catch {
+            resolve([]);
+          }
+        });
+      }
+    );
+    req.on('error', () => resolve([]));
+  });
+}
+
+async function main() {
+  console.log('\n=================================================================');
+  console.log(' 🔐 FreshPath Link - Purging Demo Auth Users (Preserving Hardware & Owners)');
+  console.log('=================================================================\n');
+
+  // 1. Read access token from firebase-tools config
+  const configPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
+  if (!fs.existsSync(configPath)) {
+    console.error('❌ Firebase tools config not found at', configPath);
+    console.error('Please run: firebase login');
+    process.exit(1);
+  }
+
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const accessToken = config.tokens?.access_token;
+  if (!accessToken) {
+    console.error('❌ No access token found in firebase-tools config. Please run: firebase login');
+    process.exit(1);
+  }
+
+  // 2. Dynamically fetch registered devices and owners from Firestore
+  console.log('📡 Fetching registered hardware devices and owners from Firestore...');
+  const protectedDeviceUids = new Set(KNOWN_DEVICE_UIDS);
+  const protectedOwnerUids = new Set([ROOT_OWNER_UID]);
+
+  try {
+    const deviceDocs = await firestoreGet('devices', accessToken);
+    deviceDocs.forEach((d) => {
+      const uid = d.name.split('/').pop();
+      if (uid) protectedDeviceUids.add(uid);
+    });
+
+    const ownerDocs = await firestoreGet('owners', accessToken);
+    ownerDocs.forEach((o) => {
+      const uid = o.name.split('/').pop();
+      if (uid) protectedOwnerUids.add(uid);
+    });
+
+    const userDocs = await firestoreGet('users', accessToken);
+    userDocs.forEach((u) => {
+      const uid = u.name.split('/').pop();
+      const fields = u.fields || {};
+      const role = fields.role?.stringValue;
+      const email = fields.email?.stringValue?.toLowerCase() || '';
+
+      if (role === 'owner' || role === 'admin' || email === OWNER_EMAIL.toLowerCase()) {
+        protectedOwnerUids.add(uid);
+      }
+      if (role === 'device' || email.endsWith('@freshpath.device') || email.includes('.device')) {
+        protectedDeviceUids.add(uid);
+      }
+    });
+
+    console.log(`   Found ${protectedDeviceUids.size} protected hardware device UID(s).`);
+    console.log(`   Found ${protectedOwnerUids.size} protected owner/admin UID(s).\n`);
+  } catch (err) {
+    console.warn('⚠️ Could not query Firestore dynamic protection list; using known safe defaults:', err.message);
+  }
+
+  // 3. Export current accounts using firebase-tools
   const tempExportPath = path.join(os.tmpdir(), `freshpath-auth-export-${Date.now()}.json`);
   console.log('⏳ Exporting accounts from Firebase Auth...');
-  
+
   try {
     execSync(`npx firebase auth:export "${tempExportPath}" --project ${PROJECT_ID}`, {
       stdio: 'pipe',
     });
   } catch (err) {
-    console.error('Failed to export auth users via firebase CLI:', err.message);
+    console.error('❌ Failed to export auth users via firebase CLI:', err.message);
     process.exit(1);
   }
 
@@ -37,41 +129,57 @@ async function main() {
 
   const exportData = JSON.parse(fs.readFileSync(tempExportPath, 'utf8'));
   const users = exportData.users || [];
-  fs.unlinkSync(tempExportPath);
+  fs.unlinkSync(tempExportPath); // Zero Secrets: immediately clean up temp file
 
-  const nonOwnerUids = users
-    .filter((u) => u.email !== OWNER_EMAIL && u.localId !== 'oMl0ziVO7aWj9MH26ocPGH41fG12')
-    .map((u) => u.localId);
+  // 4. Classify accounts
+  const preservedOwners = [];
+  const preservedDevices = [];
+  const accountsToDelete = [];
 
-  if (nonOwnerUids.length === 0) {
-    console.log('✅ Firebase Authentication is already clean! Only the Owner account exists:');
-    console.log(` - ${OWNER_EMAIL} (UID: oMl0ziVO7aWj9MH26ocPGH41fG12)\n`);
+  for (const u of users) {
+    const email = (u.email || '').toLowerCase();
+    const uid = u.localId;
+
+    const isOwner =
+      email === OWNER_EMAIL.toLowerCase() ||
+      uid === ROOT_OWNER_UID ||
+      protectedOwnerUids.has(uid);
+
+    const isDevice =
+      email.endsWith('@freshpath.device') ||
+      email.includes('.device') ||
+      protectedDeviceUids.has(uid);
+
+    if (isOwner) {
+      preservedOwners.push(u);
+    } else if (isDevice) {
+      preservedDevices.push(u);
+    } else {
+      accountsToDelete.push(u);
+    }
+  }
+
+  console.log('-----------------------------------------------------------------');
+  console.log(`🛡️  PRESERVED OWNER ACCOUNT(S) (${preservedOwners.length}):`);
+  preservedOwners.forEach((u) => console.log(`   ✓ ${u.email || 'No email'} (UID: ${u.localId})`));
+
+  console.log(`\n📱 PRESERVED HARDWARE DEVICE ACCOUNT(S) (${preservedDevices.length}):`);
+  preservedDevices.forEach((u) => console.log(`   ✓ ${u.email || 'No email'} (UID: ${u.localId})`));
+  console.log('-----------------------------------------------------------------\n');
+
+  if (accountsToDelete.length === 0) {
+    console.log('✅ Firebase Authentication is already clean!');
+    console.log('   All Owner accounts and Hardware Device accounts are strictly preserved.\n');
     process.exit(0);
   }
 
-  console.log(`Found ${nonOwnerUids.length} non-owner account(s) to delete:`);
-  users
-    .filter((u) => nonOwnerUids.includes(u.localId))
-    .forEach((u) => console.log(` - ${u.email || 'No email'} (UID: ${u.localId})`));
+  console.log(`🗑️  Found ${accountsToDelete.length} non-owner, non-device account(s) to delete:`);
+  accountsToDelete.forEach((u) => console.log(`   - ${u.email || 'No email'} (UID: ${u.localId})`));
 
-  // 2. Read access token from firebase-tools config
-  const configPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
-  if (!fs.existsSync(configPath)) {
-    console.error('Firebase tools config not found at', configPath);
-    process.exit(1);
-  }
-
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  const accessToken = config.tokens?.access_token;
-  if (!accessToken) {
-    console.error('No access token found in firebase-tools config. Please run: firebase login');
-    process.exit(1);
-  }
-
-  // 3. Batch delete non-owner accounts via Identity Toolkit API
-  console.log('\n⏳ Deleting non-owner accounts via Google Identity Toolkit API...');
+  // 5. Batch delete only demo/test accounts via Identity Toolkit API
+  console.log('\n⏳ Deleting demo accounts via Google Identity Toolkit API...');
   const postData = JSON.stringify({
-    localIds: nonOwnerUids,
+    localIds: accountsToDelete.map((u) => u.localId),
     force: true,
   });
 
@@ -91,8 +199,9 @@ async function main() {
       res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
         if (res.statusCode === 200) {
-          console.log(`\n✅ SUCCESS! Deleted ${nonOwnerUids.length} account(s) from Firebase Authentication.`);
-          console.log(`Owner account strictly preserved: ${OWNER_EMAIL}\n`);
+          console.log(`\n✅ SUCCESS! Deleted ${accountsToDelete.length} demo account(s) from Firebase Authentication.`);
+          console.log(`   Owner account strictly preserved: ${OWNER_EMAIL}`);
+          console.log(`   Hardware device accounts strictly preserved: ${preservedDevices.map(d => d.email).join(', ')}\n`);
           process.exit(0);
         } else {
           console.error(`\n❌ API error (Status ${res.statusCode}):`, body);

@@ -1,10 +1,10 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.5.0  
+**Version**: 1.6.0  
 **Date**: October 20, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `fe9c0a0`  
+**Verified Against Commit**: `442452b`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
@@ -12,13 +12,11 @@
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) have been upgraded to high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
 
-In v1.5.0, the hardware firmware integration for both ESP32 microcontrollers (u-blox NEO-M8N GPS tracker & Mandi DHT22 climate node) has undergone full production auditing and refinement:
-- **TLS Handshake Robustness**: Replaced broken root CA line-wrapping with `client.setInsecure()` across both sketches, ensuring seamless HTTPS handshakes to Firebase Auth and Firestore REST endpoints without certificate pinning or NTP clock drift failure modes.
-- **TinyGPS++ Fix Validity Fix**: Eliminated the destructive `isUpdated()` flag clearing bug; GPS fix validity is now determined by `location.isValid() && location.age() < FIX_MAX_AGE_MS && satellites >= 4`, ensuring genuine outdoor fixes are reliably recognized.
-- **Firestore REST UpdateMask Safety**: Cleanly separated `updateMask` field paths from `updateTransforms` server timestamps (`REQUEST_TIME`), ensuring full compliance with Google Cloud Firestore REST API commit specification and security rules.
-- **Non-Blocking Telemetry & UART RX Protection**: Configured `gpsSerial.setRxBufferSize(2048)` to eliminate NMEA sentence drop during 1-3s HTTPS calls, and implemented asynchronous non-blocking Wi-Fi reconnect loops.
-- **Dual-LED Status Indication**: Added native support for the ESP32 onboard blue LED (GPIO2) alongside optional external breadboard LEDs (GPIO25/GPIO26).
-- **Comprehensive Hardware Documentation**: Deployed `firmware/HARDWARE_SETUP.md` with complete shopping lists, wiring schematics, and troubleshooting matrices.
+In v1.6.0, enterprise safety guards have been implemented across all database purge and authentication cleanup operations (both in-app via Demo Portal and in terminal via CLI):
+- **Hardware Device & Owner Protection Gate**:
+  - `DemoPortal.tsx` (`handleClearDatabase`): Discovers registered devices (`devices` collection) and owners (`owners` collection). Strictly preserves hardware devices (`devices/{uid}`), hardware GPS units (`gpsUnits/GPS-01`), hardware-bound Mandis (`mandis/mandi-panruti-01` with `STORE-01`), hardware-bound vehicles (`vehicles/veh-tn31-01` with `GPS-01`), device user accounts (`*@freshpath.device`), and owner/admin user profiles in `users`. Cleans only test crates, trips, events, farmer fields, purchases, and unlinked demo entities.
+  - `scripts/purgeAuthUsers.cjs` (`npm run purge-auth`): Automatically discovers all device UIDs and owner UIDs from Firestore, ensuring `@freshpath.device` hardware credentials and root owner accounts are strictly preserved during Auth cleanups.
+  - `scripts/clearDatabase.cjs` (`npm run clear-db`): New terminal CLI command that safely resets the Firestore database while protecting all hardware infrastructure and owner accounts.
 
 ---
 
