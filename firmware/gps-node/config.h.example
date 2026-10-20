@@ -1,29 +1,34 @@
 // ============================================================================
-//  config.h TEMPLATE — Copy to config.h and fill in your real values.
-//  config.h is gitignored; this template is safe to commit.
+//  FreshPath — GPS Tracker Node (ESP32 + u-blox NEO-M8N)
+//  Copy this file to config.h and fill in your credentials.
+//  config.h is git-ignored (firmware/*/config.h) to protect secrets.
 // ============================================================================
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define WIFI_SSID       "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+// ─── Wi-Fi ──────────────────────────────────────────────────────────────────
+#define WIFI_SSID           "YOUR_WIFI_SSID"        // 2.4 GHz network or phone hotspot
+#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"
 
+// ─── Firebase Project ───────────────────────────────────────────────────────
 #define FIREBASE_API_KEY    "YOUR_FIREBASE_WEB_API_KEY"
 #define FIREBASE_PROJECT_ID "freshpath-link"
 
-#define DEVICE_EMAIL    "gps-01@freshpath.device"
-#define DEVICE_PASSWORD "YOUR_DEVICE_PASSWORD"
+// ─── Device Credentials (Firebase Auth email/password) ──────────────────────
+#define DEVICE_EMAIL        "gps-01@freshpath.device"
+#define DEVICE_PASSWORD     "YOUR_DEVICE_PASSWORD"
 
-#define GPS_UNIT_ID     "GPS-01"
+// ─── Hardware & Telemetry Settings ──────────────────────────────────────────
+#define GPS_UNIT_ID         "GPS-01"
 
-#define GPS_RX_PIN      16
-#define GPS_TX_PIN      17
-#define GPS_BAUD        9600
-#define STATUS_LED_PIN  2
+#define GPS_RX_PIN          16      // ESP32 RX2 <- GPS module TX
+#define GPS_TX_PIN          17      // ESP32 TX2 -> GPS module RX
+#define GPS_BAUD            9600    // Default 9600 (use 38400 if your module is silent)
 
-#define REPORT_INTERVAL_MS   60000
-#define TOKEN_REFRESH_MARGIN 300
-#define WIFI_TIMEOUT_MS      15000
-#define GPS_WARM_UP_MS       10000
+#define STATUS_LED_PIN      2       // Built-in blue LED on ESP32 DevKit
+#define PIN_LED_WIFI        25      // Optional external LED for Wi-Fi status
+#define PIN_LED_GPS         26      // Optional external LED for GPS fix status
 
-#endif
+#define REPORT_INTERVAL_MS  60000UL // Telemetry cycle (60 seconds)
+
+#endif // CONFIG_H

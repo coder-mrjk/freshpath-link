@@ -1,10 +1,10 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.4.0  
-**Date**: October 19, 2026  
+**Version**: 1.5.0  
+**Date**: October 20, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `07e8da1`  
+**Verified Against Commit**: `fe9c0a0`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
@@ -12,12 +12,13 @@
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) have been upgraded to high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
 
-In v1.4.0, the hardware telemetry data contracts for dual ESP32 integration (GPS Node "GPS-01" & Mandi DHT22 Node "STORE-01") have been applied across the application and security rules:
-- **Firestore Security Rules**: Added `isStorageNodeOf(mandi)` helper verifying authenticated `storage` devices registered under `devices/{uid}` and matching `mandi.nodeUnitId`, scoped to only permit updates to `currentTemp`, `currentHumidity`, `latest`, and `updatedAt`.
-- **Hub Portal Telemetry Stream**: Integrated `parseReadingDate` to support both Firestore Timestamps (written by ESP32) and ISO string dates, keeping the newest 288 points (~24h) for charting.
-- **Demo Supply Chain Seeding**: Bound `nodeUnitId: 'STORE-01'` to `mandi-panruti-01` and seeded DHT22 readings directly into `mandis/{mandiId}/readings`.
-- **Seed Script Maintenance**: Replaced invalid CLI seed script with clear guidance to utilize the in-app `/demo` suite.
-- **Move Portal & Honest GPS Simulation**: Tagged fallback GPS fixes with `simulated: true` across `trip.start` and `trip.end`, displayed visible amber warning "Simulated GPS (no live fix)" in the trip UI and map popups, and implemented `VITE_ALLOW_SIMULATED_GPS` (default 'true'; blocks trip start when 'false').
+In v1.5.0, the hardware firmware integration for both ESP32 microcontrollers (u-blox NEO-M8N GPS tracker & Mandi DHT22 climate node) has undergone full production auditing and refinement:
+- **TLS Handshake Robustness**: Replaced broken root CA line-wrapping with `client.setInsecure()` across both sketches, ensuring seamless HTTPS handshakes to Firebase Auth and Firestore REST endpoints without certificate pinning or NTP clock drift failure modes.
+- **TinyGPS++ Fix Validity Fix**: Eliminated the destructive `isUpdated()` flag clearing bug; GPS fix validity is now determined by `location.isValid() && location.age() < FIX_MAX_AGE_MS && satellites >= 4`, ensuring genuine outdoor fixes are reliably recognized.
+- **Firestore REST UpdateMask Safety**: Cleanly separated `updateMask` field paths from `updateTransforms` server timestamps (`REQUEST_TIME`), ensuring full compliance with Google Cloud Firestore REST API commit specification and security rules.
+- **Non-Blocking Telemetry & UART RX Protection**: Configured `gpsSerial.setRxBufferSize(2048)` to eliminate NMEA sentence drop during 1-3s HTTPS calls, and implemented asynchronous non-blocking Wi-Fi reconnect loops.
+- **Dual-LED Status Indication**: Added native support for the ESP32 onboard blue LED (GPIO2) alongside optional external breadboard LEDs (GPIO25/GPIO26).
+- **Comprehensive Hardware Documentation**: Deployed `firmware/HARDWARE_SETUP.md` with complete shopping lists, wiring schematics, and troubleshooting matrices.
 
 ---
 

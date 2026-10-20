@@ -1,28 +1,31 @@
 // ============================================================================
-//  config.h TEMPLATE — Copy to config.h and fill in your real values.
-//  config.h is gitignored; this template is safe to commit.
+//  FreshPath — Mandi Climate Sensor Node (ESP32 + DHT22)
+//  Copy this file to config.h and fill in your credentials.
+//  config.h is git-ignored (firmware/*/config.h) to protect secrets.
 // ============================================================================
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define WIFI_SSID       "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+// ─── Wi-Fi ──────────────────────────────────────────────────────────────────
+#define WIFI_SSID           "YOUR_WIFI_SSID"        // 2.4 GHz network or phone hotspot
+#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"
 
+// ─── Firebase Project ───────────────────────────────────────────────────────
 #define FIREBASE_API_KEY    "YOUR_FIREBASE_WEB_API_KEY"
 #define FIREBASE_PROJECT_ID "freshpath-link"
 
-#define DEVICE_EMAIL    "store-01@freshpath.device"
-#define DEVICE_PASSWORD "YOUR_DEVICE_PASSWORD"
+// ─── Device Credentials (Firebase Auth email/password) ──────────────────────
+#define DEVICE_EMAIL        "store-01@freshpath.device"
+#define DEVICE_PASSWORD     "YOUR_DEVICE_PASSWORD"
 
-#define MANDI_DOC_ID    "mandi-panruti-01"
-#define UNIT_ID         "STORE-01"
+// ─── Mandi & Sensor Binding ─────────────────────────────────────────────────
+#define UNIT_ID             "STORE-01"            // Must match devices/<uid>.unitId
+#define MANDI_DOC_ID        "mandi-panruti-01"    // Firestore Mandi document ID
 
-#define DHT_PIN         4
-#define STATUS_LED_PIN  2
+// ─── Hardware & Pin Settings ────────────────────────────────────────────────
+#define DHT_PIN             4                     // GPIO4 connected to DHT22 DATA
+#define STATUS_LED_PIN      2                     // Built-in blue LED on ESP32 DevKit
 
-#define REPORT_INTERVAL_MS   60000
-#define TOKEN_REFRESH_MARGIN 300
-#define WIFI_TIMEOUT_MS      15000
-#define DHT_READ_RETRIES     3
+#define REPORT_INTERVAL_MS  60000UL               // Telemetry cycle (60 seconds)
 
-#endif
+#endif // CONFIG_H
