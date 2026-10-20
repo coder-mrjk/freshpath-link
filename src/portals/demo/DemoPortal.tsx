@@ -72,7 +72,7 @@ export const DemoPortal: React.FC = () => {
     );
   }
 
-  // 1. Reset Database (Clear all demo data & users, strictly preserving hardware devices & owners)
+  // 1. Reset Database (Clear all supply chain data, mandis, vehicles & demo users; strictly preserving hardware devices & owners)
   const handleClearDatabase = async () => {
     setShowConfirmReset(false);
     setLoading(true);
@@ -82,26 +82,19 @@ export const DemoPortal: React.FC = () => {
     try {
       let deletedCount = 0;
 
-      // 1. Discover all registered hardware devices to protect
+      // 1. Discover registered hardware device UIDs and owner UIDs to protect in users
       const devicesSnap = await getDocs(collection(db, 'devices'));
       const protectedDeviceUids = new Set<string>([
         '10Ea8IJb0IcE1vWwuDsH9Wwul4P2', // GPS-01
         'k8ePyHigtQRcmQe6tSuoY2qIMdd2', // STORE-01
       ]);
-      const protectedUnitIds = new Set<string>(['GPS-01', 'STORE-01']);
+      devicesSnap.forEach((dDoc) => protectedDeviceUids.add(dDoc.id));
 
-      devicesSnap.forEach((dDoc) => {
-        protectedDeviceUids.add(dDoc.id);
-        const data = dDoc.data();
-        if (data.unitId) protectedUnitIds.add(data.unitId);
-      });
-
-      // 2. Discover registered owners to protect
       const ownersSnap = await getDocs(collection(db, 'owners'));
       const protectedOwnerUids = new Set<string>(['oMl0ziVO7aWj9MH26ocPGH41fG12']);
       ownersSnap.forEach((oDoc) => protectedOwnerUids.add(oDoc.id));
 
-      // 3. Clear readings subcollections under all mandis and storageUnits
+      // 2. Clear telemetry readings subcollections under all mandis and storageUnits
       const mandisSnap = await getDocs(collection(db, 'mandis'));
       for (const mDoc of mandisSnap.docs) {
         const readingsSnap = await getDocs(collection(db, 'mandis', mDoc.id, 'readings'));
@@ -120,19 +113,22 @@ export const DemoPortal: React.FC = () => {
         }
       }
 
-      // 4. Delete documents from standard temporary collections
-      const standardCollections = [
+      // 3. Delete documents from all supply chain collections (including mandis, vehicles, and gpsUnits)
+      const collectionsToClear = [
         'bags',
         'trips',
         'events',
         'fields',
+        'vehicles',
+        'mandis',
         'storageUnits',
         'shops',
         'purchases',
         'counters',
+        'gpsUnits',
       ];
 
-      for (const colName of standardCollections) {
+      for (const colName of collectionsToClear) {
         const snap = await getDocs(collection(db, colName));
         for (const d of snap.docs) {
           await deleteDoc(d.ref);
@@ -140,71 +136,7 @@ export const DemoPortal: React.FC = () => {
         }
       }
 
-      // 5. Selectively clear Mandis (PRESERVE hardware-bound mandis like STORE-01 / mandi-panruti-01)
-      for (const mDoc of mandisSnap.docs) {
-        const mData = mDoc.data();
-        const isHardwareBound =
-          (mData.nodeUnitId && protectedUnitIds.has(mData.nodeUnitId)) ||
-          mDoc.id === 'mandi-panruti-01';
-
-        if (isHardwareBound) {
-          // Reset climate to baseline, but KEEP document intact
-          await setDoc(
-            mDoc.ref,
-            {
-              currentTemp: 14.2,
-              currentHumidity: 88.0,
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-        } else {
-          await deleteDoc(mDoc.ref);
-          deletedCount++;
-        }
-      }
-
-      // 6. Selectively clear Vehicles (PRESERVE hardware-bound vehicles like veh-tn31-01 / GPS-01)
-      const vehiclesSnap = await getDocs(collection(db, 'vehicles'));
-      for (const vDoc of vehiclesSnap.docs) {
-        const vData = vDoc.data();
-        const isHardwareBound =
-          (vData.gpsUnitId && protectedUnitIds.has(vData.gpsUnitId)) ||
-          vDoc.id === 'veh-tn31-01';
-
-        if (!isHardwareBound) {
-          await deleteDoc(vDoc.ref);
-          deletedCount++;
-        }
-      }
-
-      // 7. Selectively clear GPS Units (PRESERVE hardware GPS units like GPS-01)
-      const gpsUnitsSnap = await getDocs(collection(db, 'gpsUnits'));
-      for (const gDoc of gpsUnitsSnap.docs) {
-        const isRegisteredUnit = protectedUnitIds.has(gDoc.id) || gDoc.id === 'GPS-01';
-
-        if (isRegisteredUnit) {
-          // Reset fix status, but KEEP document intact
-          await setDoc(
-            gDoc.ref,
-            {
-              latest: {
-                valid: false,
-                sats: 0,
-                hdop: 99.99,
-                speedKmph: 0.0,
-              },
-              receivedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-        } else {
-          await deleteDoc(gDoc.ref);
-          deletedCount++;
-        }
-      }
-
-      // 8. Selectively clear Users (PRESERVE owners, admins, and hardware devices)
+      // 4. Selectively clear Users (PRESERVE owners, admins, and hardware device credentials)
       const usersSnap = await getDocs(collection(db, 'users'));
       for (const uDoc of usersSnap.docs) {
         const uData = uDoc.data();
@@ -254,7 +186,7 @@ export const DemoPortal: React.FC = () => {
 
       setGeneratedCrates([]);
       setSuccessMsg(
-        `Database purged successfully! ${deletedCount} documents deleted. Hardware Devices (GPS-01, STORE-01), Mandi STORE-01, Vehicle GPS-01, and Owner accounts were strictly preserved. To remove demo user credentials from Firebase Auth, run "npm run purge-auth" in your terminal.`
+        `Database purged successfully! ${deletedCount} documents deleted. All Mandis, Vehicles, Crates, and test users were deleted. Hardware device registrations (devices collection) and Owner accounts were strictly preserved.`
       );
     } catch (err: unknown) {
       console.error('Error clearing database:', err);
@@ -959,7 +891,7 @@ export const DemoPortal: React.FC = () => {
                 Confirm Safe Database Purge
               </h4>
               <p className="text-xs text-slate-300 mt-2 text-center leading-relaxed">
-                This will delete all test crates, journeys, events, and simulated users. Your root owner account (<span className="text-red-300 font-mono">{OWNER_EMAIL}</span>) and hardware devices (<span className="text-amber-300 font-mono">GPS-01</span>, <span className="text-amber-300 font-mono">STORE-01</span>) will <strong className="text-white">NOT</strong> be deleted.
+                This will delete all test crates, journeys, vehicles, mandis, and simulated users. Your root owner account (<span className="text-red-300 font-mono">{OWNER_EMAIL}</span>) and registered hardware devices (<span className="text-amber-300 font-mono">devices</span> collection) will <strong className="text-white">NOT</strong> be deleted.
               </p>
               <div className="flex items-center gap-3 mt-6">
                 <button

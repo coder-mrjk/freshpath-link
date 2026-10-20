@@ -14,9 +14,9 @@ All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, C
 
 In v1.6.0, enterprise safety guards have been implemented across all database purge and authentication cleanup operations (both in-app via Demo Portal and in terminal via CLI):
 - **Hardware Device & Owner Protection Gate**:
-  - `DemoPortal.tsx` (`handleClearDatabase`): Discovers registered devices (`devices` collection) and owners (`owners` collection). Strictly preserves hardware devices (`devices/{uid}`), hardware GPS units (`gpsUnits/GPS-01`), hardware-bound Mandis (`mandis/mandi-panruti-01` with `STORE-01`), hardware-bound vehicles (`vehicles/veh-tn31-01` with `GPS-01`), device user accounts (`*@freshpath.device`), and owner/admin user profiles in `users`. Cleans only test crates, trips, events, farmer fields, purchases, and unlinked demo entities.
+  - `DemoPortal.tsx` (`handleClearDatabase`): Wipes all supply chain entities—crates (`bags`), journeys (`trips`), events, farmer fields, shops, purchases, counters, as well as all `mandis`, `vehicles`, and `gpsUnits`. Strictly preserves only the core hardware device registry (`devices` collection: `devices/{uid}`), the owner registry (`owners` collection: `owners/{uid}`), and owner/device user accounts in `users`.
   - `scripts/purgeAuthUsers.cjs` (`npm run purge-auth`): Automatically discovers all device UIDs and owner UIDs from Firestore, ensuring `@freshpath.device` hardware credentials and root owner accounts are strictly preserved during Auth cleanups.
-  - `scripts/clearDatabase.cjs` (`npm run clear-db`): New terminal CLI command that safely resets the Firestore database while protecting all hardware infrastructure and owner accounts.
+  - `scripts/clearDatabase.cjs` (`npm run clear-db`): Terminal CLI command that mirrors the Demo Portal purge, clearing all supply chain documents while preserving the `devices` collection, `owners` collection, and their corresponding user credentials.
 
 ---
 

@@ -1,15 +1,12 @@
 /**
- * FreshPath Link - Terminal Database Reset (Preserves Hardware & Owners)
+ * FreshPath Link - Terminal Database Reset (Preserves Hardware Devices & Owners)
  * Run with: npm run clear-db
  *
  * SAFETY GUARD:
  * - Registered Hardware Devices in `devices` are NEVER deleted.
- * - Hardware GPS Unit documents (e.g. `gpsUnits/GPS-01`) are STRICTLY PRESERVED.
- * - Hardware-bound Mandi documents (e.g. `mandis/mandi-panruti-01` with `STORE-01`) are STRICTLY PRESERVED.
- * - Hardware-bound Vehicle documents (e.g. `vehicles/veh-tn31-01` with `GPS-01`) are STRICTLY PRESERVED.
  * - Root Owner account and registered owners/admins in `users` & `owners` are STRICTLY PRESERVED.
  * - Hardware device user accounts (*@freshpath.device) are STRICTLY PRESERVED.
- * - Only demo test crates, trips, events, farmer fields, purchases, retail shops, and non-owner test users are wiped.
+ * - All supply chain entities (crates, trips, events, farmer fields, vehicles, mandis, gpsUnits, storageUnits, shops, purchases) and non-owner test users are wiped clean.
  */
 
 const fs = require('fs');
@@ -22,7 +19,6 @@ const ROOT_OWNER_UID = 'oMl0ziVO7aWj9MH26ocPGH41fG12';
 const PROJECT_ID = 'freshpath-link';
 
 const KNOWN_DEVICE_UIDS = ['10Ea8IJb0IcE1vWwuDsH9Wwul4P2', 'k8ePyHigtQRcmQe6tSuoY2qIMdd2'];
-const KNOWN_DEVICE_UNIT_IDS = ['GPS-01', 'STORE-01'];
 
 function request(method, pathUrl, accessToken, postData = null) {
   return new Promise((resolve, reject) => {
@@ -68,10 +64,6 @@ async function deleteDoc(docPath, accessToken) {
   return request('DELETE', docPath, accessToken);
 }
 
-async function patchDoc(docPath, data, accessToken) {
-  return request('PATCH', docPath, accessToken, JSON.stringify(data));
-}
-
 async function main() {
   console.log('\n=================================================================');
   console.log(' 🧹 FreshPath Link - Database Purge (Preserves Hardware & Owners)');
@@ -91,10 +83,9 @@ async function main() {
     process.exit(1);
   }
 
-  // 2. Discover registered devices and hardware unit IDs
+  // 2. Discover registered devices and owner UIDs to protect in users
   console.log('📡 Discovering hardware devices and owners to protect...');
   const protectedDeviceUids = new Set(KNOWN_DEVICE_UIDS);
-  const protectedUnitIds = new Set(KNOWN_DEVICE_UNIT_IDS);
   const protectedOwnerUids = new Set([ROOT_OWNER_UID]);
 
   try {
@@ -102,8 +93,6 @@ async function main() {
     deviceDocs.forEach((d) => {
       const uid = d.name.split('/').pop();
       if (uid) protectedDeviceUids.add(uid);
-      const unitId = d.fields?.unitId?.stringValue;
-      if (unitId) protectedUnitIds.add(unitId);
     });
 
     const ownerDocs = await listDocs('owners', accessToken);
@@ -116,12 +105,11 @@ async function main() {
   }
 
   console.log(`   Protected Device UIDs: ${Array.from(protectedDeviceUids).join(', ')}`);
-  console.log(`   Protected Unit IDs:    ${Array.from(protectedUnitIds).join(', ')}`);
   console.log(`   Protected Owner UIDs:   ${Array.from(protectedOwnerUids).join(', ')}\n`);
 
   let deletedCount = 0;
 
-  // 3. Purge telemetry readings subcollections under mandis
+  // 3. Purge telemetry readings subcollections under mandis & storageUnits
   console.log('⏳ Purging telemetry reading subcollections...');
   try {
     const mandis = await listDocs('mandis', accessToken);
@@ -138,16 +126,34 @@ async function main() {
     console.warn('   Readings purge note:', err.message);
   }
 
-  // 4. Purge standard temporary collections
+  try {
+    const storageUnits = await listDocs('storageUnits', accessToken);
+    for (const s of storageUnits) {
+      const sId = s.name.split('/').pop();
+      const readings = await listDocs(`storageUnits/${sId}/readings`, accessToken);
+      for (const r of readings) {
+        const rPath = r.name.split('/documents/').pop();
+        await deleteDoc(rPath, accessToken);
+        deletedCount++;
+      }
+    }
+  } catch (err) {
+    console.warn('   Storage readings purge note:', err.message);
+  }
+
+  // 4. Purge all supply chain collections (including mandis, vehicles, and gpsUnits)
   const collectionsToClear = [
     'bags',
     'trips',
     'events',
     'fields',
+    'vehicles',
+    'mandis',
     'storageUnits',
     'shops',
     'purchases',
     'counters',
+    'gpsUnits',
   ];
 
   for (const col of collectionsToClear) {
@@ -166,90 +172,7 @@ async function main() {
     }
   }
 
-  // 5. Selectively handle Mandis (Preserve hardware-bound mandis)
-  try {
-    const mandis = await listDocs('mandis', accessToken);
-    for (const m of mandis) {
-      const mId = m.name.split('/').pop();
-      const nodeUnitId = m.fields?.nodeUnitId?.stringValue;
-      const isBoundToHardware = (nodeUnitId && protectedUnitIds.has(nodeUnitId)) || mId === 'mandi-panruti-01';
-
-      if (isBoundToHardware) {
-        // Reset telemetry baseline but PRESERVE document
-        await patchDoc(`mandis/${mId}`, {
-          fields: {
-            ...m.fields,
-            currentTemp: { doubleValue: 14.2 },
-            currentHumidity: { doubleValue: 88.0 },
-          },
-        }, accessToken);
-        console.log(`   🛡️  Preserved hardware Mandi: "${m.fields?.name?.stringValue || mId}" (nodeUnitId: ${nodeUnitId})`);
-      } else {
-        const relPath = m.name.split('/documents/').pop();
-        await deleteDoc(relPath, accessToken);
-        deletedCount++;
-      }
-    }
-  } catch (err) {
-    console.warn('   Notice checking mandis:', err.message);
-  }
-
-  // 6. Selectively handle Vehicles (Preserve hardware-bound vehicles)
-  try {
-    const vehicles = await listDocs('vehicles', accessToken);
-    for (const v of vehicles) {
-      const vId = v.name.split('/').pop();
-      const gpsUnitId = v.fields?.gpsUnitId?.stringValue;
-      const isBoundToHardware = (gpsUnitId && protectedUnitIds.has(gpsUnitId)) || vId === 'veh-tn31-01';
-
-      if (isBoundToHardware) {
-        console.log(`   🛡️  Preserved hardware Vehicle: "${v.fields?.regNumber?.stringValue || vId}" (gpsUnitId: ${gpsUnitId})`);
-      } else {
-        const relPath = v.name.split('/documents/').pop();
-        await deleteDoc(relPath, accessToken);
-        deletedCount++;
-      }
-    }
-  } catch (err) {
-    console.warn('   Notice checking vehicles:', err.message);
-  }
-
-  // 7. Selectively handle GPS Units (Preserve registered hardware GPS units)
-  try {
-    const gpsUnits = await listDocs('gpsUnits', accessToken);
-    for (const g of gpsUnits) {
-      const gId = g.name.split('/').pop();
-      const isRegisteredUnit = protectedUnitIds.has(gId) || gId === 'GPS-01';
-
-      if (isRegisteredUnit) {
-        // Reset fix status but PRESERVE document
-        await patchDoc(`gpsUnits/${gId}`, {
-          fields: {
-            ...g.fields,
-            latest: {
-              mapValue: {
-                fields: {
-                  valid: { booleanValue: false },
-                  sats: { integerValue: '0' },
-                  hdop: { doubleValue: 99.99 },
-                  speedKmph: { doubleValue: 0.0 },
-                },
-              },
-            },
-          },
-        }, accessToken);
-        console.log(`   🛡️  Preserved hardware GPS Unit: "${gId}"`);
-      } else {
-        const relPath = g.name.split('/documents/').pop();
-        await deleteDoc(relPath, accessToken);
-        deletedCount++;
-      }
-    }
-  } catch (err) {
-    console.warn('   Notice checking gpsUnits:', err.message);
-  }
-
-  // 8. Selectively handle Users (Preserve owners, admins, and hardware devices)
+  // 5. Selectively clear Users (Preserve owners, admins, and hardware devices)
   try {
     const users = await listDocs('users', accessToken);
     for (const u of users) {
@@ -286,7 +209,8 @@ async function main() {
 
   console.log('\n-----------------------------------------------------------------');
   console.log(`✅ SUCCESS! Database purge complete. Deleted ${deletedCount} document(s).`);
-  console.log('   Hardware Devices, Mandi STORE-01, Vehicle GPS-01, and Owner accounts strictly preserved.');
+  console.log('   All Mandis, Vehicles, Crates, and test users were deleted.');
+  console.log('   Hardware Devices (devices collection) and Owner accounts strictly preserved.');
   console.log('-----------------------------------------------------------------\n');
 }
 
