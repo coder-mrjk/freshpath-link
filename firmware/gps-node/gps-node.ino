@@ -1,5 +1,5 @@
 /**
- * FreshPath Truck GPS Node (GPS-01) Firmware  -- v2 (Audited & Production-Ready)
+ * FreshPath Truck GPS Node (GPS-01) Firmware -- v2.1 (Audited & Hardened)
  * Target : ESP32 Dev Module (WROOM-32 recommended) + u-blox NEO-M8N GPS module
  * Contract: docs/04_DEVICE_API_CONTRACT.md
  *
@@ -16,8 +16,11 @@
  *
  * Libraries required (Arduino Library Manager):
  *   - "TinyGPSPlus" by Mikal Hart
- *   (ArduinoJson is NOT needed; payload built via robust stream formatting)
  */
+
+#if !defined(ESP32)
+#error "This sketch supports ESP32 boards only."
+#endif
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -29,6 +32,14 @@
 #include "config.h"   // Copy config.h.example -> config.h and fill in
 
 // ─── Default Pins & Parameters ──────────────────────────────────────────────
+#ifndef GPS_UNIT_ID
+#ifdef UNIT_ID
+#define GPS_UNIT_ID UNIT_ID
+#else
+#define GPS_UNIT_ID "GPS-01"
+#endif
+#endif
+
 #ifndef STATUS_LED_PIN
 #define STATUS_LED_PIN 2         // ESP32 onboard blue LED
 #endif
@@ -51,9 +62,16 @@
 #ifndef REPORT_INTERVAL_MS
 #define REPORT_INTERVAL_MS 60000UL
 #endif
+#ifndef TOKEN_REFRESH_MARGIN
+#define TOKEN_REFRESH_MARGIN 300
+#endif
+#ifndef WIFI_TIMEOUT_MS
+#define WIFI_TIMEOUT_MS 20000UL
+#endif
 
 #define FIX_MAX_AGE_MS 5000UL    // Fix older than 5s is considered stale
 #define MIN_SATS 4               // FreshPath requirement: minimum 4 satellites
+#define MAX_HDOP 15.0            // Reject extreme geometrical dilution
 #define HTTP_TIMEOUT_MS 12000
 
 HardwareSerial gpsSerial(2);
@@ -66,6 +84,25 @@ unsigned long nextAuthTryAt = 0;
 unsigned long lastPublishAt = 0;
 unsigned long lastWifiTryAt = 0;
 bool firstPublishDone = false;
+bool firstValidFixPublished = false;
+
+// ─── Drain UART Buffer Into TinyGPS++ ───────────────────────────────────────
+void pumpGps() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+  }
+}
+
+// ─── Check Whether Current GPS Fix Is Fresh & Valid ─────────────────────────
+bool isFixValid() {
+  if (!gps.location.isValid() || gps.location.age() >= FIX_MAX_AGE_MS) return false;
+  if (!gps.satellites.isValid() || gps.satellites.value() < MIN_SATS) return false;
+  if (!gps.hdop.isValid() || gps.hdop.value() == 0 || gps.hdop.hdop() > MAX_HDOP) return false;
+  double lat = gps.location.lat();
+  double lng = gps.location.lng();
+  if (fabs(lat) < 0.0001 && fabs(lng) < 0.0001) return false; // Guard against (0,0) Null Island
+  return true;
+}
 
 // ─── Fast JSON Value Parser (avoids dynamic memory overhead) ────────────────
 String jsonString(const String &body, const char *key) {
@@ -89,7 +126,7 @@ bool tokenStillValid() {
 int httpsPost(const String &url, const String &body, const char *contentType,
               bool withAuth, String &response) {
   WiFiClientSecure client;
-  client.setInsecure();  // Allows seamless SSL handshake without NTP/CA expiration bugs
+  client.setInsecure();
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   https.setConnectTimeout(HTTP_TIMEOUT_MS);
@@ -99,6 +136,7 @@ int httpsPost(const String &url, const String &body, const char *contentType,
   int code = https.POST(body);
   response = (code > 0) ? https.getString() : String("");
   https.end();
+  pumpGps(); // Drain UART immediately after blocking HTTPS call
   return code;
 }
 
@@ -116,7 +154,7 @@ bool signIn() {
     if (t.length() > 100 && exp > 600) {
       idToken = t;
       refreshTokenStr = r;
-      tokenExpiresAt = millis() + (unsigned long)(exp - 300) * 1000UL;
+      tokenExpiresAt = millis() + (unsigned long)(exp - TOKEN_REFRESH_MARGIN) * 1000UL;
       Serial.println(F("[Auth] Signed in."));
       return true;
     }
@@ -141,7 +179,7 @@ bool refreshIdToken() {
     if (t.length() > 100 && exp > 600) {
       idToken = t;
       if (r.length() > 0) refreshTokenStr = r;
-      tokenExpiresAt = millis() + (unsigned long)(exp - 300) * 1000UL;
+      tokenExpiresAt = millis() + (unsigned long)(exp - TOKEN_REFRESH_MARGIN) * 1000UL;
       Serial.println(F("[Auth] Token refreshed."));
       return true;
     }
@@ -190,9 +228,9 @@ String buildGpsCommitBody(bool valid, double lat, double lng, double speedKmph, 
 
   f += String("\"valid\":{\"booleanValue\":") + (valid ? "true" : "false") + "}";
   f += String(",\"sats\":{\"integerValue\":\"") + String((unsigned long)sats) + "\"}";
-  snprintf(num, sizeof(num), "%.2f", isfinite(hdop) ? hdop : 99.99);
+  snprintf(num, sizeof(num), "%.2f", (isfinite(hdop) && hdop > 0.0) ? hdop : 99.99);
   f += String(",\"hdop\":{\"doubleValue\":") + num + "}";
-  snprintf(num, sizeof(num), "%.2f", isfinite(speedKmph) ? speedKmph : 0.0);
+  snprintf(num, sizeof(num), "%.2f", (valid && isfinite(speedKmph) && speedKmph >= 0.0) ? speedKmph : 0.0);
   f += String(",\"speedKmph\":{\"doubleValue\":") + num + "}";
   if (haveTime) {
     char ts[24];
@@ -206,8 +244,15 @@ String buildGpsCommitBody(bool valid, double lat, double lng, double speedKmph, 
     f += String(",\"lng\":{\"doubleValue\":") + num + "}";
   }
 
+  // Preserve last known lat/lng in Firestore when valid == false by using granular fieldPaths
+  String mask = valid
+    ? "\"latest\""
+    : (haveTime
+        ? "\"latest.valid\",\"latest.sats\",\"latest.hdop\",\"latest.speedKmph\",\"latest.fixAt\""
+        : "\"latest.valid\",\"latest.sats\",\"latest.hdop\",\"latest.speedKmph\"");
+
   String body = "{\"writes\":[{\"update\":{\"name\":\"" + doc + "\",\"fields\":{\"latest\":{\"mapValue\":{\"fields\":{" + f +
-                "}}}}},\"updateMask\":{\"fieldPaths\":[\"latest\"]},"
+                "}}}}},\"updateMask\":{\"fieldPaths\":[" + mask + "]},"
                 "\"updateTransforms\":[{\"fieldPath\":\"receivedAt\",\"setToServerValue\":\"REQUEST_TIME\"}]}]}";
   return body;
 }
@@ -218,14 +263,15 @@ int sendCommit(const String &body, String &resp) {
   return httpsPost(url, body, "application/json", true, resp);
 }
 
-void publishGPSFix() {
-  bool valid = gps.location.isValid() && gps.location.age() < FIX_MAX_AGE_MS &&
-               gps.satellites.isValid() && gps.satellites.value() >= MIN_SATS;
+bool publishGPSFix() {
+  pumpGps(); // Ensure freshest NMEA bytes are decoded right before checking fix age
+  bool valid = isFixValid();
   uint32_t sats = gps.satellites.isValid() ? gps.satellites.value() : 0;
+  double hdopVal = (gps.hdop.isValid() && gps.hdop.value() > 0) ? gps.hdop.hdop() : 99.99;
   bool haveTime = gps.date.isValid() && gps.time.isValid() && gps.date.year() >= 2024;
 
   String body = buildGpsCommitBody(valid, gps.location.lat(), gps.location.lng(), gps.speed.kmph(), sats,
-                                   gps.hdop.hdop(), haveTime, gps.date.year(), gps.date.month(),
+                                   hdopVal, haveTime, gps.date.year(), gps.date.month(),
                                    gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
   String resp;
   int code = sendCommit(body, resp);
@@ -233,20 +279,29 @@ void publishGPSFix() {
   if (code == 401) {
     idToken = "";
     tokenExpiresAt = 0;
-    if (signIn()) code = sendCommit(body, resp);
+    if (signIn()) {
+      pumpGps();
+      code = sendCommit(body, resp);
+    }
   }
 
   if (code == 200) {
+    if (valid) firstValidFixPublished = true;
     Serial.printf("[GPS] Pushed: valid=%d sats=%u hdop=%.1f lat=%.5f lng=%.5f\n", valid, (unsigned)sats,
-                  gps.hdop.hdop(), valid ? gps.location.lat() : 0.0, valid ? gps.location.lng() : 0.0);
+                  hdopVal, valid ? gps.location.lat() : 0.0, valid ? gps.location.lng() : 0.0);
+    return true;
   } else {
     Serial.printf("[GPS] Push failed, HTTP %d: %s\n", code, resp.substring(0, 200).c_str());
+    return false;
   }
 }
 
 // ─── Arduino Entry Points ───────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
+  idToken.reserve(1200);
+  refreshTokenStr.reserve(512);
+
   pinMode(STATUS_LED_PIN, OUTPUT);
   pinMode(PIN_LED_WIFI, OUTPUT);
   pinMode(PIN_LED_GPS, OUTPUT);
@@ -254,14 +309,14 @@ void setup() {
   digitalWrite(PIN_LED_WIFI, LOW);
   digitalWrite(PIN_LED_GPS, LOW);
 
-  // Large UART RX buffer (2048 bytes) prevents NMEA packet loss during 1-3s HTTPS calls
   gpsSerial.setRxBufferSize(2048);
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
 
   Serial.println(F("\n[FreshPath] Truck GPS node " GPS_UNIT_ID " starting"));
   startWiFi();
   unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000UL) {
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < WIFI_TIMEOUT_MS) {
+    pumpGps();
     delay(250);
     Serial.print('.');
   }
@@ -275,11 +330,10 @@ void setup() {
 
 void loop() {
   // 1) Continuously drain the GPS UART buffer into TinyGPS++
-  while (gpsSerial.available() > 0) gps.encode(gpsSerial.read());
+  pumpGps();
 
   // 2) LED feedback: fresh fix with sufficient satellites
-  bool fixOk = gps.location.isValid() && gps.location.age() < FIX_MAX_AGE_MS &&
-               gps.satellites.isValid() && gps.satellites.value() >= MIN_SATS;
+  bool fixOk = isFixValid();
   digitalWrite(PIN_LED_GPS, fixOk ? HIGH : LOW);
   if (WiFi.status() == WL_CONNECTED) {
     digitalWrite(STATUS_LED_PIN, fixOk ? HIGH : LOW);
@@ -288,11 +342,17 @@ void loop() {
   // 3) Non-blocking Wi-Fi maintenance
   maintainWiFi();
 
-  // 4) 60-Second Telemetry Publish Cycle
-  bool due = !firstPublishDone ? (millis() > 8000UL) : (millis() - lastPublishAt >= REPORT_INTERVAL_MS);
-  if (due && WiFi.status() == WL_CONNECTED && ensureToken()) {
-    lastPublishAt = millis();
+  // 4) Telemetry Publish Cycle (also triggers immediately on first valid satellite lock!)
+  bool intervalDue = !firstPublishDone ? (millis() > 8000UL) : (millis() - lastPublishAt >= REPORT_INTERVAL_MS);
+  bool newLockDue = fixOk && !firstValidFixPublished && (millis() - lastPublishAt >= 3000UL);
+
+  if ((intervalDue || newLockDue) && WiFi.status() == WL_CONNECTED && ensureToken()) {
     firstPublishDone = true;
-    publishGPSFix();
+    if (publishGPSFix()) {
+      lastPublishAt = millis();
+    } else {
+      // Retry failed upload in 10 seconds instead of waiting full 60s
+      lastPublishAt = millis() - REPORT_INTERVAL_MS + 10000UL;
+    }
   }
 }

@@ -26,7 +26,7 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, displayN
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="group-hover:scale-105 transition-transform duration-300 drop-shadow-md">
               <img
-                src="/logo192.png"
+                src="/pwa-192x192.png"
                 alt="FreshPath Link"
                 className="w-9 h-9 object-contain drop-shadow-[0_0_12px_rgba(193,18,31,0.35)]"
               />

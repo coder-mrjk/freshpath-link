@@ -14,3 +14,4 @@ secrets.h
 
 # ESP32 firmware credentials (never commit real passwords)
 firmware/*/config.h
+firmware/**/config.h

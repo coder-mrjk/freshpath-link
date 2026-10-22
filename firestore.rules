@@ -350,7 +350,17 @@ service cloud.firestore {
     // GPS hardware units telemetry
     match /gpsUnits/{gpsId} {
       allow read: if signedIn();
-      allow write: if isOwner() || isDevice(gpsId, 'gps') || signedIn();
+      allow create: if isOwner() || isDevice(gpsId, 'gps');
+      allow update: if isOwner() || (
+        isDevice(gpsId, 'gps') &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['latest', 'receivedAt']) &&
+        request.resource.data.latest is map &&
+        request.resource.data.latest.valid is bool &&
+        request.resource.data.latest.sats is int &&
+        request.resource.data.latest.hdop is number &&
+        request.resource.data.latest.speedKmph is number
+      );
+      allow delete: if isOwner();
     }
 
     // Transit trips managed by drivers or owner
@@ -373,7 +383,16 @@ service cloud.firestore {
       // Telemetry readings subcollection for Mandi
       match /readings/{readingId} {
         allow read: if signedIn();
-        allow create: if isDevice(mandiId, 'storage') || isOwner() || isApproved('mandi') || signedIn();
+        allow create: if isOwner() || isApproved('mandi') || (
+          signedIn() &&
+          exists(/databases/$(database)/documents/mandis/$(mandiId)) &&
+          isStorageNodeOf(get(/databases/$(database)/documents/mandis/$(mandiId)).data) &&
+          request.resource.data.keys().hasAll(['tempC', 'humidityPct', 'source', 'at']) &&
+          request.resource.data.tempC is number &&
+          request.resource.data.humidityPct is number &&
+          request.resource.data.source is string &&
+          request.resource.data.at is timestamp
+        );
         allow update, delete: if isOwner();
       }
     }
@@ -387,7 +406,13 @@ service cloud.firestore {
       // Telemetry readings subcollection (DHT22 temp & humidity)
       match /readings/{readingId} {
         allow read: if signedIn();
-        allow create: if isDevice(unitId, 'storage') || isOwner() || isApproved('mandi') || signedIn();
+        allow create: if isOwner() || isApproved('mandi') || (
+          isDevice(unitId, 'storage') &&
+          request.resource.data.keys().hasAll(['tempC', 'humidityPct', 'at']) &&
+          request.resource.data.tempC is number &&
+          request.resource.data.humidityPct is number &&
+          request.resource.data.at is timestamp
+        );
         allow update, delete: if isOwner();
       }
     }

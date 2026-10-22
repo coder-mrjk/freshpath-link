@@ -133,13 +133,23 @@ export async function requestNotificationPermission(userUid?: string): Promise<s
     const messaging = await initMessaging();
     if (!messaging) return null;
 
-    // Explicitly register /firebase-messaging-sw.js so background push always works reliably
+    // Retrieve unified ServiceWorker registration (sw.js imports firebase-messaging-sw.js)
     let swReg: ServiceWorkerRegistration | undefined;
     if ('serviceWorker' in navigator) {
       try {
-        swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        swReg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 2500)),
+        ]);
+        if (!swReg) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          swReg = regs.length > 0 ? regs[0] : undefined;
+        }
+        if (!swReg) {
+          swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        }
       } catch (swErr) {
-        console.warn('Could not register firebase-messaging-sw.js:', swErr);
+        console.warn('ServiceWorker registration lookup note:', swErr);
       }
     }
 

@@ -95,7 +95,7 @@ export const EntrancePage: React.FC = () => {
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
           <div className="inline-block mb-6 hover:scale-105 transition-transform duration-300">
             <img
-              src="/logo192.png"
+              src="/pwa-192x192.png"
               alt="FreshPath Link"
               className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_12px_36px_rgba(193,18,31,0.45)]"
             />

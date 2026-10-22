@@ -1,5 +1,5 @@
 /**
- * FreshPath Mandi Storage Node (STORE-01) Firmware -- v2 (Audited & Production-Ready)
+ * FreshPath Mandi Storage Node (STORE-01) Firmware -- v2.1 (Audited & Hardened)
  * Target : ESP32 Dev Module + DHT22 (AM2302) temperature / humidity sensor
  *
  * Hardware Wiring:
@@ -12,7 +12,6 @@
  * Libraries required (Arduino Library Manager):
  *   - "DHT sensor library" by Adafruit
  *   - "Adafruit Unified Sensor" by Adafruit
- *   (ArduinoJson is NOT needed; payload built via robust stream formatting)
  *
  * Telemetry Contract:
  *   mandis/<MANDI_DOC_ID>                  currentTemp, currentHumidity, latest{tempC,humidityPct,at}, updatedAt
@@ -37,6 +36,9 @@
 #endif
 
 // ─── Default Pins & Parameters ──────────────────────────────────────────────
+#ifndef UNIT_ID
+#define UNIT_ID "STORE-01"
+#endif
 #ifndef DHT_PIN
 #define DHT_PIN 4
 #endif
@@ -46,6 +48,15 @@
 #endif
 #ifndef REPORT_INTERVAL_MS
 #define REPORT_INTERVAL_MS 60000UL   // 60-second telemetry interval
+#endif
+#ifndef TOKEN_REFRESH_MARGIN
+#define TOKEN_REFRESH_MARGIN 300
+#endif
+#ifndef WIFI_TIMEOUT_MS
+#define WIFI_TIMEOUT_MS 20000UL
+#endif
+#ifndef DHT_READ_RETRIES
+#define DHT_READ_RETRIES 3
 #endif
 #define HTTP_TIMEOUT_MS 12000
 
@@ -81,7 +92,7 @@ bool tokenStillValid() {
 int httpsPost(const String &url, const String &body, const char *contentType,
               bool withAuth, String &response) {
   WiFiClientSecure client;
-  client.setInsecure();  // Allows seamless SSL handshake without NTP/CA expiration bugs
+  client.setInsecure();
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   https.setConnectTimeout(HTTP_TIMEOUT_MS);
@@ -108,7 +119,7 @@ bool signIn() {
     if (t.length() > 100 && exp > 600) {
       idToken = t;
       refreshTokenStr = r;
-      tokenExpiresAt = millis() + (unsigned long)(exp - 300) * 1000UL;
+      tokenExpiresAt = millis() + (unsigned long)(exp - TOKEN_REFRESH_MARGIN) * 1000UL;
       Serial.println(F("[Auth] Signed in."));
       return true;
     }
@@ -133,7 +144,7 @@ bool refreshIdToken() {
     if (t.length() > 100 && exp > 600) {
       idToken = t;
       if (r.length() > 0) refreshTokenStr = r;
-      tokenExpiresAt = millis() + (unsigned long)(exp - 300) * 1000UL;
+      tokenExpiresAt = millis() + (unsigned long)(exp - TOKEN_REFRESH_MARGIN) * 1000UL;
       Serial.println(F("[Auth] Token refreshed."));
       return true;
     }
@@ -193,9 +204,9 @@ int sendCommit(const String &body, String &resp) {
   return httpsPost(url, body, "application/json", true, resp);
 }
 
-// ─── DHT22 Sensor Read (retries up to 3 times) ──────────────────────────────
+// ─── DHT22 Sensor Read (retries up to DHT_READ_RETRIES times) ───────────────
 bool readDht(float &tempC, float &hum) {
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < DHT_READ_RETRIES; i++) {
     float h = dht.readHumidity();
     float t = dht.readTemperature();
     if (!isnan(h) && !isnan(t) && t > -40.0f && t < 80.0f && h >= 0.0f && h <= 100.0f) {
@@ -208,11 +219,11 @@ bool readDht(float &tempC, float &hum) {
   return false;
 }
 
-void readAndUpload() {
+bool readAndUpload() {
   float tempC, hum;
   if (!readDht(tempC, hum)) {
-    Serial.println(F("[DHT22] Read failed 3x - check wiring / 10k pull-up / power."));
-    return;
+    Serial.println(F("[DHT22] Read failed - check wiring / 10k pull-up / power."));
+    return false;
   }
   Serial.printf("[DHT22] %.1f C (target 12-15) | %.1f %% RH (target 85-90)\n", tempC, hum);
   if (tempC < 12.0f || tempC > 15.0f) {
@@ -233,28 +244,34 @@ void readAndUpload() {
   if (code == 200) {
     Serial.println(F("[Firestore] Uploaded."));
     digitalWrite(STATUS_LED_PIN, HIGH);
+    return true;
   } else {
     Serial.printf("[Firestore] Upload failed, HTTP %d: %s\n", code, resp.substring(0, 200).c_str());
     for (int i = 0; i < 6; i++) {
       digitalWrite(STATUS_LED_PIN, i % 2);
       delay(120);
     }
+    return false;
   }
 }
 
 // ─── Arduino Entry Points ───────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
+  idToken.reserve(1200);
+  refreshTokenStr.reserve(512);
+
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, LOW);
   Serial.println(F("\n[FreshPath] Storage node " UNIT_ID " -> mandis/" MANDI_DOC_ID));
 
   dht.begin();
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false); // Improves DHT22 1-wire pulse timing stability on ESP32
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000UL) {
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < WIFI_TIMEOUT_MS) {
     digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
     delay(250);
     Serial.print('.');
@@ -271,9 +288,13 @@ void loop() {
 
   bool due = !firstUploadDone || (millis() - lastUploadAt >= REPORT_INTERVAL_MS);
   if (due && WiFi.status() == WL_CONNECTED && ensureToken()) {
-    lastUploadAt = millis();
     firstUploadDone = true;
-    readAndUpload();
+    if (readAndUpload()) {
+      lastUploadAt = millis();
+    } else {
+      // Retry in 10 seconds if sensor read or HTTP commit failed
+      lastUploadAt = millis() - REPORT_INTERVAL_MS + 10000UL;
+    }
   }
   delay(200);
 }

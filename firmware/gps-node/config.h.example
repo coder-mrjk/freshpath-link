@@ -9,6 +9,7 @@
 // ─── Wi-Fi ──────────────────────────────────────────────────────────────────
 #define WIFI_SSID           "YOUR_WIFI_SSID"        // 2.4 GHz network or phone hotspot
 #define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"
+#define WIFI_TIMEOUT_MS     20000UL                 // Boot connect timeout in ms
 
 // ─── Firebase Project ───────────────────────────────────────────────────────
 #define FIREBASE_API_KEY    "YOUR_FIREBASE_WEB_API_KEY"
@@ -23,12 +24,13 @@
 
 #define GPS_RX_PIN          16      // ESP32 RX2 <- GPS module TX
 #define GPS_TX_PIN          17      // ESP32 TX2 -> GPS module RX
-#define GPS_BAUD            9600    // Default 9600 (use 38400 if your module is silent)
+#define GPS_BAUD            9600    // Default 9600 (use 38400 if your module is configured)
 
 #define STATUS_LED_PIN      2       // Built-in blue LED on ESP32 DevKit
 #define PIN_LED_WIFI        25      // Optional external LED for Wi-Fi status
 #define PIN_LED_GPS         26      // Optional external LED for GPS fix status
 
 #define REPORT_INTERVAL_MS  60000UL // Telemetry cycle (60 seconds)
+#define TOKEN_REFRESH_MARGIN 300    // Refresh token 5 mins before expiry
 
 #endif // CONFIG_H

@@ -244,7 +244,7 @@ const AppContent: React.FC = () => {
       <footer className="relative z-10 py-6 border-t border-white/[0.08] backdrop-blur-xl bg-slate-900/60 text-center text-xs text-slate-400 no-print">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <img src="/logo192.png" alt="FreshPath Link" className="w-4 h-4 object-contain opacity-80" />
+            <img src="/pwa-192x192.png" alt="FreshPath Link" className="w-4 h-4 object-contain opacity-80" />
             <span className="font-semibold text-slate-300">FreshPath Link © 2026</span>
           </div>
           <span className="text-slate-500 font-medium">

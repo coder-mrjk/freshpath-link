@@ -9,6 +9,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      workbox: {
+        importScripts: ['/firebase-messaging-sw.js'],
+        globIgnores: [
+          '**/logo-original.png',
+          '**/logo-tomato.png',
+          '**/firebase-messaging-sw.js',
+          '**/*.map'
+        ],
+      },
       manifest: {
         name: 'FreshPath Link',
         short_name: 'FreshPath',
