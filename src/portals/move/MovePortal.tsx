@@ -469,7 +469,7 @@ export const MovePortal: React.FC = () => {
           simulated: true,
         };
         await setDoc(doc(db, 'gpsUnits', gpsId), {
-          vehicleId: selectedVehicle?.id || 'TN01FP2026',
+          vehicleId: selectedVehicle?.id || 'VEHICLE',
           latest: originFix,
           receivedAt: new Date().toISOString(),
         }, { merge: true });
@@ -558,7 +558,7 @@ export const MovePortal: React.FC = () => {
           simulated: true,
         };
         await setDoc(doc(db, 'gpsUnits', gpsId), {
-          vehicleId: selectedVehicle?.id || 'TN01FP2026',
+          vehicleId: selectedVehicle?.id || 'VEHICLE',
           latest: destFix,
           receivedAt: new Date().toISOString(),
         }, { merge: true });

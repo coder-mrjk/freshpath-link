@@ -117,10 +117,10 @@ export function calculateStorageTelemetryStats(readings: StorageReading[]): {
 } {
   if (!readings || readings.length === 0) {
     return {
-      minTemp: 13.5,
-      maxTemp: 13.5,
-      avgTemp: 13.5,
-      avgHumidity: 88.0,
+      minTemp: 0,
+      maxTemp: 0,
+      avgTemp: 0,
+      avgHumidity: 0,
       count: 0,
       hoursAbove30C: 0,
     };

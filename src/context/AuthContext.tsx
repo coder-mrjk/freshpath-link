@@ -336,22 +336,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else if (role === 'mandi') {
       const mName = extras?.mandiName?.trim() || `${effectiveName} Agro Mandi`;
       const mArea = extras?.mandiArea?.trim() || effectiveVillage;
-      const mandiRef = await addDoc(collection(db, 'mandis'), {
+      await addDoc(collection(db, 'mandis'), {
         mandiPersonUid: uid,
         name: mName,
         area: mArea,
         createdAt: serverTimestamp(),
       });
-      const sUnitName = extras?.storageUnitName?.trim() || 'Cold Storage Room 1';
-      await setDoc(doc(db, 'storageUnits', 'STORE-01'), {
-        mandiId: mandiRef.id,
-        name: sUnitName,
-        nodeUnitId: 'STORE-01',
-        currentTemp: 13.5,
-        currentHumidity: 88.0,
-        latest: { tempC: 13.5, humidityPct: 88.0, at: new Date().toISOString() },
-        createdAt: serverTimestamp(),
-      }, { merge: true });
     } else if (role === 'shop') {
       const sName = extras?.shopName?.trim() || `${effectiveName} Fresh Basket`;
       await addDoc(collection(db, 'shops'), {

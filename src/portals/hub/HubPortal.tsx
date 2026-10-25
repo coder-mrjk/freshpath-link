@@ -319,8 +319,8 @@ export const HubPortal: React.FC = () => {
 
       // 2. Append Ledger Event: RECEIVED_STORAGE
       const eventRef = doc(collection(db, 'events'));
-      const currentTemp = selectedMandi.currentTemp || 14.2;
-      const currentHumidity = selectedMandi.currentHumidity || 88.0;
+      const currentTemp = selectedMandi.currentTemp !== undefined ? selectedMandi.currentTemp : null;
+      const currentHumidity = selectedMandi.currentHumidity !== undefined ? selectedMandi.currentHumidity : null;
 
       batch.set(eventRef, {
         bagId,
@@ -333,7 +333,9 @@ export const HubPortal: React.FC = () => {
         place: {
           text: `${selectedMandi.name} (${selectedMandi.area})`,
         },
-        note: `Received into Mandi storage. Climate: ${currentTemp}°C, ${currentHumidity}% RH.`,
+        note: currentTemp !== null
+          ? `Received into Mandi storage. Climate: ${currentTemp}°C, ${currentHumidity}% RH.`
+          : `Received into Mandi storage facility.`,
       });
 
       await batch.commit();
@@ -601,7 +603,7 @@ export const HubPortal: React.FC = () => {
                     {selectedMandi?.id === m.id ? '✓ Active Mandi' : 'Select Mandi'}
                   </button>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    {m.currentTemp ? `${m.currentTemp}°C` : '14.2°C'} | {m.currentHumidity ? `${m.currentHumidity}%` : '88%'}
+                    {m.currentTemp !== undefined && m.currentTemp !== null ? `${m.currentTemp.toFixed(1)}°C` : '–'} | {m.currentHumidity !== undefined && m.currentHumidity !== null ? `${m.currentHumidity.toFixed(0)}%` : '–'}
                   </span>
                 </div>
               </div>

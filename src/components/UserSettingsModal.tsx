@@ -389,13 +389,9 @@ export const UserSettingsModal: React.FC<Props> = ({
         name: newUnit.name,
         nodeUnitId: newUnit.nodeUnitId,
         capacityCrates: newUnit.capacityCrates,
-        currentTemp: 13.5,
-        currentHumidity: 88.0,
-        latest: {
-          tempC: 13.5,
-          humidityPct: 88.0,
-          at: new Date().toISOString(),
-        },
+        currentTemp: null,
+        currentHumidity: null,
+        latest: null,
         createdAt: serverTimestamp(),
       });
 

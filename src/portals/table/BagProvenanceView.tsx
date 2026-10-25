@@ -96,10 +96,10 @@ interface TripData {
 interface StorageInfo {
   name: string;
   nodeUnitId: string;
-  minTemp: number;
-  maxTemp: number;
-  avgTemp: number;
-  avgHumidity: number;
+  minTemp?: number | null;
+  maxTemp?: number | null;
+  avgTemp?: number | null;
+  avgHumidity?: number | null;
 }
 
 interface LedgerEvent {
@@ -191,10 +191,10 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               setStorageInfo({
                 name: mData.name || 'Mandi Facility',
                 nodeUnitId: mData.nodeUnitId || 'Direct Mandi DHT22',
-                minTemp: stats.minTemp,
-                maxTemp: stats.maxTemp,
-                avgTemp: stats.avgTemp,
-                avgHumidity: stats.avgHumidity,
+                minTemp: stats.count > 0 ? stats.minTemp : (mData.currentTemp ?? null),
+                maxTemp: stats.count > 0 ? stats.maxTemp : (mData.currentTemp ?? null),
+                avgTemp: stats.count > 0 ? stats.avgTemp : (mData.currentTemp ?? null),
+                avgHumidity: stats.count > 0 ? stats.avgHumidity : (mData.currentHumidity ?? null),
               });
             }
           } catch (e) {
@@ -215,10 +215,10 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               setStorageInfo({
                 name: uData.name || 'Cold Storage',
                 nodeUnitId: uData.nodeUnitId || 'STORE-01',
-                minTemp: stats.minTemp,
-                maxTemp: stats.maxTemp,
-                avgTemp: stats.avgTemp,
-                avgHumidity: stats.avgHumidity,
+                minTemp: stats.count > 0 ? stats.minTemp : (uData.currentTemp ?? null),
+                maxTemp: stats.count > 0 ? stats.maxTemp : (uData.currentTemp ?? null),
+                avgTemp: stats.count > 0 ? stats.avgTemp : (uData.currentTemp ?? null),
+                avgHumidity: stats.count > 0 ? stats.avgHumidity : (uData.currentHumidity ?? null),
               });
             }
           } catch (e) {
@@ -564,7 +564,7 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               <div className="backdrop-blur-md bg-white/[0.03] p-3.5 rounded-2xl border border-white/[0.08] text-center">
                 <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Avg Temp</div>
                 <div className="text-base font-black text-white font-mono mt-0.5">
-                  {storageInfo.avgTemp}°C
+                  {storageInfo.avgTemp !== null && storageInfo.avgTemp !== undefined ? `${storageInfo.avgTemp.toFixed(1)}°C` : '–'}
                 </div>
               </div>
 
@@ -578,14 +578,14 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
               <div className="backdrop-blur-md bg-white/[0.03] p-3.5 rounded-2xl border border-white/[0.08] text-center">
                 <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Min / Max</div>
                 <div className="text-base font-black text-white font-mono mt-0.5">
-                  {storageInfo.minTemp}° / {storageInfo.maxTemp}°
+                  {storageInfo.minTemp !== null && storageInfo.minTemp !== undefined ? `${storageInfo.minTemp.toFixed(1)}°` : '–'} / {storageInfo.maxTemp !== null && storageInfo.maxTemp !== undefined ? `${storageInfo.maxTemp.toFixed(1)}°` : '–'}
                 </div>
               </div>
 
               <div className="backdrop-blur-md bg-white/[0.03] p-3.5 rounded-2xl border border-white/[0.08] text-center">
                 <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Avg Humidity</div>
                 <div className="text-base font-black text-sky-400 font-mono mt-0.5">
-                  {storageInfo.avgHumidity}%
+                  {storageInfo.avgHumidity !== null && storageInfo.avgHumidity !== undefined ? `${storageInfo.avgHumidity.toFixed(0)}%` : '–'}
                 </div>
               </div>
             </div>
