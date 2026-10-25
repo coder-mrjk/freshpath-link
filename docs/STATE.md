@@ -1,16 +1,28 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.7.1  
+**Version**: 1.7.2  
 **Date**: October 25, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `a820f56`  
+**Verified Against Commit**: `d29a925`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
 
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) run with high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
+
+In v1.7.2:
+- **Real-Time Mandi Climate Telemetry in Grower Portal**:
+  - Replaced legacy `storageUnitId` lookup with direct `mandiId` binding in [`src/portals/grow/GrowPortal.tsx`](file:///Users/karthi/freshpath/src/portals/grow/GrowPortal.tsx).
+  - Completely purged hardcoded "13.5°C" and "Cold Room" references across the Grower portal. Displays live DHT22 temperature and humidity (`30.8°C • 84% RH`) pushed by the hardware node to `mandis/{id}`.
+- **Farmer Live Crop Transport & GPS Route Tracking**:
+  - Added real-time transit telemetry card on crates in `PENDING_PICKUP`, `LOADED`, and `IN_TRANSIT`.
+  - Shows assigned driver name, pass ID, clickable phone number, truck plate number, target Mandi, live u-blox NEO GPS coordinates, satellite count, speed, and an expandable interactive Leaflet `TripMap`.
+- **Shopkeeper Counter Payment Security Rules Fix**:
+  - Delegated to `firestore-rules-author` to update `/purchases/{purchaseId}` rules, authorizing shopkeepers to record purchases on behalf of shoppers for `PAID_COUNTER` payment confirmations. Deployed to live Firebase.
+- **Retail Shelf Portal UX Streamlining**:
+  - Removed redundant "View Consumer Page" redirect button from [`src/portals/shelf/ShelfPortal.tsx`](file:///Users/karthi/freshpath/src/portals/shelf/ShelfPortal.tsx).
 
 In v1.7.1:
 - **Farmer Transport Handover Security Rules Fix**:
