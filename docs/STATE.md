@@ -1,16 +1,24 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.7.0  
+**Version**: 1.7.1  
 **Date**: October 25, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `6ef321c`  
+**Verified Against Commit**: `a820f56`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
 
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) run with high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
+
+In v1.7.1:
+- **Farmer Transport Handover Security Rules Fix**:
+  - Delegated to `firestore-rules-author` to update `/trips/{tripId}` rules. Authorized signed-in farmers to append and update `bagIds` and `updatedAt` during crate handover approval (`affectedKeys().hasOnly(['bagIds', 'updatedAt'])`). Deployed to live Firebase project `freshpath-link`.
+- **Live GPS Real-Time Map & Vehicle Tracking**:
+  - Enhanced [`src/components/TripMap.tsx`](file:///Users/karthi/freshpath/src/components/TripMap.tsx) and [`src/portals/move/MovePortal.tsx`](file:///Users/karthi/freshpath/src/portals/move/MovePortal.tsx) to accept the real-time vehicle GPS telemetry (`current`) and destination Mandi (`destination`).
+  - Completely resolved the map defaulting to Cuddalore coordinates by auto-centering on the live u-blox NEO GPS coordinates (`11.370423, 77.745483` with 12 satellites locked) and displaying a pulsing blue vehicle tracker with real-time speed, accuracy radius, and fix timestamps.
+  - Deployed updated web application build to Firebase Hosting.
 
 In v1.7.0:
 - **Dynamic Cloud Hardware Pairing (STORE-01)**:
