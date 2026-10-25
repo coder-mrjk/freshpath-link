@@ -1,22 +1,32 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.6.0  
-**Date**: October 20, 2026  
+**Version**: 1.7.0  
+**Date**: October 25, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `442452b`  
+**Verified Against Commit**: `6ef321c`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
 
 ## 1. Executive Summary
-All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) have been upgraded to high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
+All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) run with high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
 
-In v1.6.0, enterprise safety guards have been implemented across all database purge and authentication cleanup operations (both in-app via Demo Portal and in terminal via CLI):
-- **Hardware Device & Owner Protection Gate**:
-  - `DemoPortal.tsx` (`handleClearDatabase`): Wipes all supply chain entities—crates (`bags`), journeys (`trips`), events, farmer fields, shops, purchases, counters, as well as all `mandis`, `vehicles`, and `gpsUnits`. Strictly preserves only the core hardware device registry (`devices` collection: `devices/{uid}`), the owner registry (`owners` collection: `owners/{uid}`), and owner/device user accounts in `users`.
-  - `scripts/purgeAuthUsers.cjs` (`npm run purge-auth`): Automatically discovers all device UIDs and owner UIDs from Firestore, ensuring `@freshpath.device` hardware credentials and root owner accounts are strictly preserved during Auth cleanups.
-  - `scripts/clearDatabase.cjs` (`npm run clear-db`): Terminal CLI command that mirrors the Demo Portal purge, clearing all supply chain documents while preserving the `devices` collection, `owners` collection, and their corresponding user credentials.
+In v1.7.0:
+- **Dynamic Cloud Hardware Pairing (STORE-01)**:
+  - The ESP32 DHT22 storage node (`dht22-node.ino`) now queries Firestore dynamically using `documents:runQuery` matching `nodeUnitId == UNIT_ID` ("STORE-01") to discover its paired Mandi. This allows administrators to bind and unbind Mandis from the Control Portal (`/control`) without needing to change code or re-flash the ESP32.
+- **Hardware Binding UX & Dynamic Selectors**:
+  - Replaced raw text inputs in `/control` with clean `<select>` dropdowns loaded directly from registered `devices` (`type === 'gps'` and `type === 'storage'`).
+  - Fixed UI symbols (replaced raw LaTeX `$\leftrightarrow$` with clean `↔`).
+- **Live-Only Data Standard (Zero Hardcoded/Demo Values)**:
+  - Completely purged hardcoded fallback values (e.g. 14.2°C, 88% humidity, default `GPS-01`, and hardcoded Panruti farm).
+  - In Mandi Hub (`/hub`), unlinked facilities or sensors waiting for telemetry display `"-"` instead of fake numbers.
+  - In Driver Move (`/move`), vehicle creation initializes with `gpsUnitId: null`, unlinked vehicles show `"Unlinked"`, and trip origin selection dynamically loads registered farm fields from the `fields` collection.
+  - Trips strictly require a live hardware fix when `VITE_ALLOW_SIMULATED_GPS=false`.
+- **Real-Time Cross-Portal Sync**:
+  - Implemented real-time `onSnapshot` listeners across Control (users, vehicles, mandis, devices, pricing) and Grower (`config/pricing`) so price modifications and user approvals sync instantly without manual browser refreshes.
+- **Firmware Credentials**:
+  - Wi-Fi credentials set to SSID `KARTHI` / password `12345678` across `firmware/dht22-node/config.h` and `firmware/gps-node/config.h` (verified gitignored).
 
 ---
 
