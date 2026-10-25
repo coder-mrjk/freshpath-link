@@ -189,7 +189,9 @@ service cloud.firestore {
     //   - consumerPassId: string (optional)
     //   - price: number (required)
     //   - at: timestamp (required)
-    //   - paymentStatus: string ('NOT_ENABLED')
+    //   - paymentStatus: string ('NOT_ENABLED'|'PAID_COUNTER')
+    //   - shopId: string (optional)
+    //   - shopName: string (optional)
     //
     // ===============================================================
 
@@ -453,8 +455,15 @@ service cloud.firestore {
 
     // Consumer purchases
     match /purchases/{purchaseId} {
-      allow read: if signedIn() && (request.auth.uid == resource.data.consumerUid || isOwner());
-      allow create: if (isApproved('consumer') || signedIn()) && request.resource.data.consumerUid == request.auth.uid;
+      allow read: if signedIn() && (
+        request.auth.uid == resource.data.consumerUid ||
+        isOwner() ||
+        isApproved('shop') ||
+        (resource.data.shopId != null)
+      );
+      allow create: if isOwner() ||
+        ((isApproved('consumer') || signedIn()) && request.resource.data.consumerUid == request.auth.uid) ||
+        ((isApproved('shop') || signedIn()) && request.resource.data.paymentStatus == 'PAID_COUNTER');
       allow update, delete: if isOwner();
     }
 

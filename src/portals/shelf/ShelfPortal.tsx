@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import {
   collection,
   query,
@@ -28,7 +27,6 @@ import {
   QrCode,
   AlertCircle,
   CheckCircle,
-  ExternalLink,
   Search,
   Settings,
   Plus,
@@ -86,7 +84,6 @@ interface ShelfBag {
 
 export const ShelfPortal: React.FC = () => {
   const { userProfile, currentUser, isOwner } = useAuth();
-  const navigate = useNavigate();
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
@@ -891,17 +888,6 @@ export const ShelfPortal: React.FC = () => {
                   <span className="text-[11px] text-slate-400">
                     {bag.pieces} tomatoes in crate • Ready for shopper scan
                   </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => navigate(`/b/${bag.id}`)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-300 rounded-xl text-xs font-bold transition-colors touch-target"
-                      title="Open Consumer Provenance Page"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>View Consumer Page</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             );
