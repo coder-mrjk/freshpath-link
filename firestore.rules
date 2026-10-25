@@ -364,10 +364,13 @@ service cloud.firestore {
     }
 
     // Transit trips managed by drivers or owner
+    // Signed-in parties (e.g. farmers approving handover) can append/update bagIds without modifying operational trip fields
     match /trips/{tripId} {
       allow read: if signedIn();
       allow create: if isOwner() || ((isApproved('driver') || signedIn()) && request.resource.data.driverUid == request.auth.uid);
-      allow update: if isOwner() || ((isApproved('driver') || signedIn()) && resource.data.driverUid == request.auth.uid);
+      allow update: if isOwner() ||
+        ((isApproved('driver') || signedIn()) && resource.data.driverUid == request.auth.uid) ||
+        (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bagIds', 'updatedAt']));
       allow delete: if isOwner();
     }
 

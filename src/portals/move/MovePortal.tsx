@@ -52,6 +52,8 @@ interface Mandi {
   id: string;
   name: string;
   area: string;
+  lat?: number;
+  lng?: number;
 }
 
 interface Trip {
@@ -935,6 +937,11 @@ export const MovePortal: React.FC = () => {
             <TripMap
               start={activeTrip.start}
               end={activeTrip.end}
+              current={gpsEvaluation.ok ? gpsEvaluation.fix : (gpsUnitData?.latest?.valid && gpsUnitData.latest.lat ? gpsUnitData.latest : null)}
+              destination={(() => {
+                const mandi = mandis.find((m) => m.id === activeTrip.destinationMandiId);
+                return mandi ? { lat: mandi.lat, lng: mandi.lng, name: `${mandi.name} (${mandi.area})` } : null;
+              })()}
               distanceKm={activeTrip.distanceKmStraight}
               className="h-72 w-full rounded-2xl overflow-hidden shadow-inner border border-white/[0.08]"
             />
