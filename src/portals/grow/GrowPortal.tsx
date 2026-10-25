@@ -29,6 +29,7 @@ import { calculateFreshness } from '../../lib/freshness';
 import { showLocalNotification } from '../../lib/notifications';
 import { measureAsyncTrace } from '../../lib/performance';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
+import { TripMap } from '../../components/TripMap';
 import {
   Sprout,
   PlusCircle,
@@ -45,6 +46,10 @@ import {
   Edit2,
   Trash2,
   Truck,
+  Radio,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface Field {
@@ -70,6 +75,7 @@ interface Bag {
   tripId?: string;
   storageUnitId?: string;
   mandiId?: string;
+  mandiName?: string;
   shopId?: string;
   handlerUids?: string[];
   pendingPickup?: {
@@ -94,10 +100,40 @@ interface Bag {
   };
 }
 
-interface StorageUnitInfo {
-  tempC?: number;
-  humidityPct?: number;
-  name?: string;
+interface MandiFacilityInfo {
+  id: string;
+  name: string;
+  area: string;
+  currentTemp?: number | null;
+  currentHumidity?: number | null;
+  lat?: number;
+  lng?: number;
+}
+
+interface TripTransitInfo {
+  id: string;
+  driverUid?: string;
+  vehicleId?: string;
+  vehicleReg?: string;
+  gpsUnitId?: string;
+  destinationMandiId?: string;
+  destinationMandiName?: string;
+  originText?: string;
+  status?: string;
+  start?: any;
+  end?: any;
+  distanceKmStraight?: number;
+}
+
+interface LiveGPSFix {
+  lat: number;
+  lng: number;
+  speedKmph?: number;
+  sats?: number;
+  hdop?: number;
+  valid?: boolean;
+  fixAt?: any;
+  simulated?: boolean;
 }
 
 export const GrowPortal: React.FC = () => {
@@ -114,8 +150,20 @@ export const GrowPortal: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Storage telemetry map (storageUnitId -> StorageUnitInfo)
-  const [storageMap, setStorageMap] = useState<Record<string, StorageUnitInfo>>({});
+  // Real-time Mandi facility climate telemetry
+  const [mandiMap, setMandiMap] = useState<Record<string, MandiFacilityInfo>>({});
+
+  // Real-time Crop Transit and GPS telemetry tracking
+  const [tripsMap, setTripsMap] = useState<Record<string, TripTransitInfo>>({});
+  const [gpsMap, setGpsMap] = useState<Record<string, LiveGPSFix>>({});
+  const [expandedMapBagIds, setExpandedMapBagIds] = useState<Record<string, boolean>>({});
+
+  const toggleMapForBag = (bagId: string) => {
+    setExpandedMapBagIds((prev) => ({
+      ...prev,
+      [bagId]: !prev[bagId],
+    }));
+  };
 
   // Form State
   const [showHarvestModal, setShowHarvestModal] = useState(false);
@@ -164,18 +212,22 @@ export const GrowPortal: React.FC = () => {
       });
     });
 
+    const activeListeners: Record<string, () => void> = {};
+
     // 2. Fetch Bags real-time
     const bagsQ = query(collection(db, 'bags'), where('farmerUid', '==', currentUser.uid));
-    const unsubBags = onSnapshot(bagsQ, async (snap) => {
+    const unsubBags = onSnapshot(bagsQ, (snap) => {
       const bagList: Bag[] = [];
-      const unitIdsToFetch = new Set<string>();
+      const mandiIds = new Set<string>();
+      const tripIds = new Set<string>();
 
       snap.forEach((d) => {
         const data = { id: d.id, ...d.data() } as Bag;
         bagList.push(data);
-        if (data.storageUnitId) {
-          unitIdsToFetch.add(data.storageUnitId);
-        }
+        if (data.mandiId) mandiIds.add(data.mandiId);
+        if (data.storageUnitId) mandiIds.add(data.storageUnitId);
+        const tId = data.tripId || data.pendingPickup?.tripId;
+        if (tId) tripIds.add(tId);
       });
 
       bagList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -191,34 +243,90 @@ export const GrowPortal: React.FC = () => {
         });
       }
 
-      // Fetch Mandi / Storage live readings
-      const newStorageMap: Record<string, StorageUnitInfo> = {};
-      for (const unitId of Array.from(unitIdsToFetch)) {
-        try {
-          const uSnap = await getDoc(doc(db, 'mandis', unitId));
-          if (uSnap.exists()) {
-            const uData = uSnap.data();
-            newStorageMap[unitId] = {
-              tempC: uData.currentTemp ?? uData.latest?.tempC,
-              humidityPct: uData.currentHumidity ?? uData.latest?.humidityPct,
-              name: uData.name,
-            };
-          } else {
-            const legacySnap = await getDoc(doc(db, 'storageUnits', unitId));
-            if (legacySnap.exists()) {
-              const lData = legacySnap.data();
-              newStorageMap[unitId] = {
-                tempC: lData.currentTemp ?? lData.latest?.tempC,
-                humidityPct: lData.currentHumidity ?? lData.latest?.humidityPct,
-                name: lData.name,
-              };
+      // Listen to active Mandi facilities real-time (DHT22 climate telemetry)
+      mandiIds.forEach((mId) => {
+        const key = `mandi_${mId}`;
+        if (!activeListeners[key]) {
+          activeListeners[key] = onSnapshot(doc(db, 'mandis', mId), (mSnap) => {
+            if (mSnap.exists()) {
+              const mData = mSnap.data();
+              setMandiMap((prev) => ({
+                ...prev,
+                [mId]: {
+                  id: mSnap.id,
+                  name: mData.name || 'Mandi Facility',
+                  area: mData.area || '',
+                  currentTemp: mData.currentTemp ?? mData.latest?.tempC ?? null,
+                  currentHumidity: mData.currentHumidity ?? mData.latest?.humidityPct ?? null,
+                  lat: mData.lat,
+                  lng: mData.lng,
+                },
+              }));
+            }
+          });
+        }
+      });
+
+      // Listen to active Delivery Trips real-time
+      tripIds.forEach((tId) => {
+        const key = `trip_${tId}`;
+        if (!activeListeners[key]) {
+          activeListeners[key] = onSnapshot(doc(db, 'trips', tId), (tSnap) => {
+            if (tSnap.exists()) {
+              const tData = tSnap.data();
+              setTripsMap((prev) => ({
+                ...prev,
+                [tId]: {
+                  id: tSnap.id,
+                  driverUid: tData.driverUid,
+                  vehicleId: tData.vehicleId,
+                  vehicleReg: tData.vehicleReg || tData.vehicleId,
+                  gpsUnitId: tData.gpsUnitId || 'GPS-01',
+                  destinationMandiId: tData.destinationMandiId,
+                  destinationMandiName: tData.destinationMandiName,
+                  originText: tData.originText,
+                  status: tData.status,
+                  start: tData.start,
+                  end: tData.end,
+                  distanceKmStraight: tData.distanceKmStraight,
+                },
+              }));
+
+              // If trip specifies a GPS unit, listen to it
+              const gpsId = tData.gpsUnitId || 'GPS-01';
+              const gpsKey = `gps_${gpsId}`;
+              if (!activeListeners[gpsKey]) {
+                activeListeners[gpsKey] = onSnapshot(doc(db, 'gpsUnits', gpsId), (gSnap) => {
+                  if (gSnap.exists()) {
+                    const gData = gSnap.data();
+                    if (gData?.latest) {
+                      setGpsMap((prev) => ({
+                        ...prev,
+                        [gpsId]: gData.latest as LiveGPSFix,
+                      }));
+                    }
+                  }
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // Always ensure GPS-01 is actively listened to
+      if (!activeListeners['gps_GPS-01']) {
+        activeListeners['gps_GPS-01'] = onSnapshot(doc(db, 'gpsUnits', 'GPS-01'), (gSnap) => {
+          if (gSnap.exists()) {
+            const gData = gSnap.data();
+            if (gData?.latest) {
+              setGpsMap((prev) => ({
+                ...prev,
+                'GPS-01': gData.latest as LiveGPSFix,
+              }));
             }
           }
-        } catch {
-          // ignore
-        }
+        });
       }
-      setStorageMap(newStorageMap);
     });
 
     // 3. Real-time Live Price Sync from Admin Config
@@ -255,6 +363,7 @@ export const GrowPortal: React.FC = () => {
       unsubFields();
       unsubBags();
       unsubPricing();
+      Object.values(activeListeners).forEach((unsub) => unsub());
     };
   }, [currentUser]);
 
@@ -598,7 +707,7 @@ export const GrowPortal: React.FC = () => {
         <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">In Mandi Storage</div>
           <div className="text-xl font-black text-amber-400 mt-1">{inMandiCount} crates</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Cold room active</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Facility Storage</div>
         </div>
 
         <div className="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-4 rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)]">
@@ -846,7 +955,14 @@ export const GrowPortal: React.FC = () => {
         ) : (
           filteredBags.map((bag) => {
             const fresh = calculateFreshness(bag.harvestAt || bag.createdAt);
-            const storageInfo = bag.storageUnitId ? storageMap[bag.storageUnitId] : null;
+            const mandiId = bag.mandiId || bag.storageUnitId;
+            const mandiInfo = mandiId ? mandiMap[mandiId] : null;
+            const tripId = bag.tripId || bag.pendingPickup?.tripId;
+            const tripInfo = tripId ? tripsMap[tripId] : null;
+            const gpsId = tripInfo?.gpsUnitId || 'GPS-01';
+            const liveGps = gpsMap[gpsId];
+            const isMapExpanded = !!expandedMapBagIds[bag.id];
+            const destMandiInfo = tripInfo?.destinationMandiId ? mandiMap[tripInfo.destinationMandiId] : null;
 
             return (
               <div
@@ -900,20 +1016,147 @@ export const GrowPortal: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Live Storage Telemetry Alert for Crates in Mandi */}
-                {bag.status === 'IN_STORAGE' && (
-                  <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-200 flex items-center justify-between mb-3 backdrop-blur-md">
-                    <div className="flex items-center gap-2">
-                      <Thermometer className="w-4 h-4 text-amber-400" />
-                      <span>
-                        Preserved in <strong className="text-white">{storageInfo?.name || 'Mandi Cold Room'}</strong>:
-                      </span>
-                      <span className="font-mono font-bold text-amber-300">
-                        {storageInfo?.tempC !== undefined ? `${storageInfo.tempC}°C` : '13.5°C'} (Safe Range: 12°–15°C)
-                      </span>
+                {/* Live Crop Transport & Real-Time GPS Tracking */}
+                {(bag.status === 'PENDING_PICKUP' || bag.status === 'LOADED' || bag.status === 'IN_TRANSIT') && (
+                  <div className="p-3.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-xs text-blue-200 mb-3 backdrop-blur-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-blue-500/20">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-sky-400 shrink-0" />
+                        <span className="font-bold text-white text-xs">
+                          Driver: {bag.pendingPickup?.driverName || tripInfo?.driverUid || 'Transport Driver'}
+                        </span>
+                        {bag.pendingPickup?.driverPassId && (
+                          <span className="text-[10px] font-mono text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded border border-sky-500/30">
+                            {bag.pendingPickup.driverPassId}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                            bag.status === 'PENDING_PICKUP'
+                              ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
+                              : bag.status === 'LOADED'
+                              ? 'bg-sky-500/20 border-sky-500/30 text-sky-300'
+                              : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300 animate-pulse'
+                          }`}
+                        >
+                          {bag.status === 'PENDING_PICKUP'
+                            ? 'Awaiting Handover Approval'
+                            : bag.status === 'LOADED'
+                            ? 'Loaded on Truck'
+                            : 'In Transit to Mandi'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleMapForBag(bag.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-100 border border-blue-400/30 rounded-lg text-[10px] font-bold transition-all shadow-sm"
+                        >
+                          <MapPin className="w-3 h-3 text-sky-300" />
+                          <span>{isMapExpanded ? 'Hide Live Map' : 'View Live Map'}</span>
+                          {isMapExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                      Protected
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2.5 text-[11px]">
+                      <div>
+                        <span className="text-slate-400">Transport Truck: </span>
+                        <strong className="text-white font-mono">
+                          {bag.pendingPickup?.vehicleReg || tripInfo?.vehicleReg || tripInfo?.vehicleId || 'Assigned Truck'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Destination Mandi: </span>
+                        <strong className="text-white">
+                          {tripInfo?.destinationMandiName || (mandiInfo?.name ? `${mandiInfo.name} (${mandiInfo.area})` : 'Target Mandi')}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Driver Contact: </span>
+                        {bag.pendingPickup?.driverPhone ? (
+                          <a
+                            href={`tel:${bag.pendingPickup.driverPhone}`}
+                            className="text-sky-300 font-mono font-bold hover:underline"
+                          >
+                            📞 {bag.pendingPickup.driverPhone}
+                          </a>
+                        ) : (
+                          <span className="text-slate-500">Not shared</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Live GPS Telemetry Status */}
+                    <div className="mt-2.5 pt-2 border-t border-blue-500/15 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                        {liveGps?.valid ? (
+                          <span className="text-emerald-300 font-medium">
+                            Live Vehicle GPS: <strong className="font-mono text-white">{liveGps.lat.toFixed(5)}° N, {liveGps.lng.toFixed(5)}° E</strong> ({liveGps.sats || 0} sats locked{liveGps.speedKmph !== undefined ? `, ${liveGps.speedKmph.toFixed(1)} km/h` : ''})
+                          </span>
+                        ) : (
+                          <span className="text-amber-300">
+                            GPS Tracker: {gpsId} – Awaiting satellite fix...
+                          </span>
+                        )}
+                      </div>
+                      {liveGps?.fixAt && (
+                        <span className="text-[10px] text-slate-400">
+                          Updated {timeAgoIST(liveGps.fixAt)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Expandable Live Route Map */}
+                    {isMapExpanded && (
+                      <div className="mt-3 pt-3 border-t border-blue-500/20">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
+                          <span>Real-time GPS Tracking: Farm ➔ Truck ➔ Mandi</span>
+                          <span className="font-mono text-sky-300 text-[9px]">Trip: {tripId || 'N/A'}</span>
+                        </div>
+                        <TripMap
+                          start={tripInfo?.start || null}
+                          end={tripInfo?.end || null}
+                          current={liveGps?.valid ? liveGps : null}
+                          destination={destMandiInfo ? { lat: destMandiInfo.lat, lng: destMandiInfo.lng, name: destMandiInfo.name } : null}
+                          distanceKm={tripInfo?.distanceKmStraight}
+                          className="h-60 w-full rounded-xl overflow-hidden border border-white/10 shadow-inner"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Live Mandi Facility Climate Telemetry */}
+                {bag.status === 'IN_STORAGE' && (
+                  <div className="p-3.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 backdrop-blur-md">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Thermometer className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>
+                        Preserved at <strong className="text-white">{mandiInfo?.name || bag.mandiName || 'Mandi Facility'}</strong>
+                        {mandiInfo?.area ? ` (${mandiInfo.area})` : ''}:
+                      </span>
+                      {mandiInfo?.currentTemp !== undefined && mandiInfo?.currentTemp !== null ? (
+                        <span className="font-mono font-bold text-amber-300">
+                          {mandiInfo.currentTemp.toFixed(1)}°C
+                          {mandiInfo.currentHumidity !== undefined && mandiInfo.currentHumidity !== null
+                            ? ` • ${mandiInfo.currentHumidity.toFixed(0)}% RH`
+                            : ''}
+                          <span className="text-[11px] text-slate-300 font-normal ml-1">
+                            {mandiInfo.currentTemp >= 12 && mandiInfo.currentTemp <= 15
+                              ? '(Optimal Range: 12°–15°C)'
+                              : '(Ambient Climate)'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="font-mono text-slate-400 text-xs font-medium">
+                          – Awaiting live sensor sync
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shrink-0 self-start sm:self-auto">
+                      {mandiInfo?.currentTemp !== undefined && mandiInfo?.currentTemp !== null ? 'Sensor Active' : 'Facility Stored'}
                     </span>
                   </div>
                 )}
