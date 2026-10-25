@@ -58,7 +58,7 @@ interface Trip {
   id: string;
   driverUid: string;
   vehicleId: string;
-  gpsUnitId: string;
+  gpsUnitId?: string | null;
   originText: string;
   destinationMandiId: string;
   destinationMandiName?: string;
@@ -102,7 +102,7 @@ export const MovePortal: React.FC = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNewTripModal, setShowNewTripModal] = useState(false);
   const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
-  const [originText, setOriginText] = useState('Panruti Farm Cluster');
+  const [originText, setOriginText] = useState('');
   const [selectedMandiId, setSelectedMandiId] = useState('');
   const [selectedTripVehicleId, setSelectedTripVehicleId] = useState('');
 
@@ -122,8 +122,11 @@ export const MovePortal: React.FC = () => {
 
   // Real-time listener for Vehicle GPS hardware unit
   useEffect(() => {
-    const gpsId = selectedVehicle?.gpsUnitId || 'GPS-01';
-    const unsubGps = onSnapshot(doc(db, 'gpsUnits', gpsId), (snap) => {
+    if (!selectedVehicle?.gpsUnitId) {
+      setGpsUnitData(null);
+      return;
+    }
+    const unsubGps = onSnapshot(doc(db, 'gpsUnits', selectedVehicle.gpsUnitId), (snap) => {
       if (snap.exists()) {
         setGpsUnitData(snap.data() as GPSUnitData);
       } else {
@@ -235,8 +238,8 @@ export const MovePortal: React.FC = () => {
         regNumber: newRegNumber.trim().toUpperCase(),
         vehicleType: newVehicleType,
         capacityKg: Number(newCapacityKg) || 1000,
-        status: 'ACTIVE',
-        gpsUnitId: 'GPS-01',
+        status: 'PENDING_GPS',
+        gpsUnitId: null,
         createdAt: serverTimestamp(),
       };
 
@@ -313,7 +316,7 @@ export const MovePortal: React.FC = () => {
         id: tripId,
         driverUid: currentUser.uid,
         vehicleId: tripVeh.id,
-        gpsUnitId: tripVeh.gpsUnitId || 'GPS-01',
+        gpsUnitId: tripVeh.gpsUnitId || null,
         originText: originText.trim(),
         destinationMandiId: selectedMandiId || 'default-mandi',
         destinationMandiName: mandi ? `${mandi.name} (${mandi.area})` : 'Mandi Storage',
@@ -436,14 +439,20 @@ export const MovePortal: React.FC = () => {
 
     try {
       // Fetch latest GPS fix
-      const gpsId = activeTrip.gpsUnitId || selectedVehicle?.gpsUnitId || 'GPS-01';
+      const gpsId = activeTrip.gpsUnitId || selectedVehicle?.gpsUnitId;
+      if (!gpsId) {
+        setError('No GPS tracker is linked to this vehicle. Please pair a GPS hardware unit in the Control Portal.');
+        setActionLoading(false);
+        return;
+      }
       const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
       const gpsData = gpsSnap.data() as GPSUnitData;
 
       let evalResult = evaluateFix(gpsData);
       if (!evalResult.ok) {
-        if (import.meta.env.VITE_ALLOW_SIMULATED_GPS === 'false') {
-          setError(evalResult.message);
+        if (import.meta.env.VITE_ALLOW_SIMULATED_GPS !== 'true') {
+          setError(`Cannot start trip without live GPS fix: ${evalResult.message}`);
+          setActionLoading(false);
           return;
         }
         // Auto-seed valid origin fix so trip starts cleanly
@@ -519,12 +528,22 @@ export const MovePortal: React.FC = () => {
     setError(null);
 
     try {
-      const gpsId = activeTrip.gpsUnitId || selectedVehicle?.gpsUnitId || 'GPS-01';
+      const gpsId = activeTrip.gpsUnitId || selectedVehicle?.gpsUnitId;
+      if (!gpsId) {
+        setError('No GPS tracker is linked to this vehicle. Please pair a GPS hardware unit in the Control Portal.');
+        setActionLoading(false);
+        return;
+      }
       const gpsSnap = await getDoc(doc(db, 'gpsUnits', gpsId));
       const gpsData = gpsSnap.data() as GPSUnitData;
 
       let evalResult = evaluateFix(gpsData);
       if (!evalResult.ok) {
+        if (import.meta.env.VITE_ALLOW_SIMULATED_GPS !== 'true') {
+          setError(`Cannot complete trip without live GPS fix: ${evalResult.message}`);
+          setActionLoading(false);
+          return;
+        }
         // Auto-seed destination fix
         const destFix: GPSFix = {
           lat: 11.9338,
@@ -709,7 +728,7 @@ export const MovePortal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-white">
-                GPS Node: {selectedVehicle?.gpsUnitId || 'GPS-01'}
+                GPS Node: {selectedVehicle?.gpsUnitId || 'Unlinked'}
               </span>
               <span
                 className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
@@ -828,7 +847,7 @@ export const MovePortal: React.FC = () => {
                   >
                     {selectedVehicle?.id === v.id ? '✓ Selected for Trips' : 'Set as Active'}
                   </button>
-                  <span className="text-[10px] text-slate-400 font-mono">GPS: {v.gpsUnitId || 'GPS-01'}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">GPS: {v.gpsUnitId || 'Unlinked'}</span>
                 </div>
               </div>
             ))
@@ -1165,14 +1184,19 @@ export const MovePortal: React.FC = () => {
                     )}
                   </>
                 ) : (
-                  <input
-                    type="text"
-                    required
-                    value={originText}
-                    onChange={(e) => setOriginText(e.target.value)}
-                    placeholder="e.g. Panruti Farm Cluster"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
-                  />
+                  <div>
+                    <input
+                      type="text"
+                      required
+                      value={originText}
+                      onChange={(e) => setOriginText(e.target.value)}
+                      placeholder="Enter farm harvest location..."
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      No farm fields registered yet. Farmer can register farm fields in the Grow Portal.
+                    </p>
+                  </div>
                 )}
               </div>
 

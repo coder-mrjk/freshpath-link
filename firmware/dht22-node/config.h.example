@@ -19,9 +19,8 @@
 #define DEVICE_EMAIL        "store-01@freshpath.device"
 #define DEVICE_PASSWORD     "YOUR_DEVICE_PASSWORD"
 
-// ─── Mandi & Sensor Binding ─────────────────────────────────────────────────
+// ─── Hardware Identity & Cloud Binding ──────────────────────────────────────
 #define UNIT_ID             "STORE-01"            // Must match devices/<uid>.unitId
-#define MANDI_DOC_ID        "mandi-panruti-01"    // Firestore Mandi document ID
 
 // ─── Hardware & Pin Settings ────────────────────────────────────────────────
 #define DHT_PIN             4                     // GPIO4 connected to DHT22 DATA

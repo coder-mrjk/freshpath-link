@@ -1,5 +1,5 @@
 /**
- * FreshPath Mandi Storage Node (STORE-01) Firmware -- v2.1 (Audited & Hardened)
+ * FreshPath Mandi Storage Node (STORE-01) Firmware -- v2.2 (Dynamic Cloud Pairing)
  * Target : ESP32 Dev Module + DHT22 (AM2302) temperature / humidity sensor
  *
  * Hardware Wiring:
@@ -9,14 +9,11 @@
  *   Status LED         -> ESP32 onboard blue LED on GPIO2
  *   (3-pin DHT22 breakout modules already include the pull-up resistor: + / OUT / -)
  *
- * Libraries required (Arduino Library Manager):
- *   - "DHT sensor library" by Adafruit
- *   - "Adafruit Unified Sensor" by Adafruit
- *
- * Telemetry Contract:
- *   mandis/<MANDI_DOC_ID>                  currentTemp, currentHumidity, latest{tempC,humidityPct,at}, updatedAt
- *   mandis/<MANDI_DOC_ID>/readings/<auto>  tempC, humidityPct, source, at (server timestamp)
- * Both writes go in ONE atomic Firestore commit.
+ * Cloud Hardware Pairing:
+ *   This node is completely dynamic. You do NOT need to hardcode a Mandi document ID.
+ *   The node signs in with UNIT_ID ("STORE-01") and queries Firestore to discover which
+ *   Mandi is currently paired to it in the Control Portal (/control).
+ *   Pairing/unpairing in the Admin Portal takes effect automatically without re-flashing.
  */
 
 #if !defined(ESP32)
@@ -30,10 +27,6 @@
 #include <math.h>
 
 #include "config.h"   // Copy config.h.example -> config.h and fill in
-
-#ifndef MANDI_DOC_ID
-#error "Add #define MANDI_DOC_ID \"<mandis document id>\" to config.h (see config.h.example)"
-#endif
 
 // ─── Default Pins & Parameters ──────────────────────────────────────────────
 #ifndef UNIT_ID
@@ -69,6 +62,9 @@ unsigned long nextAuthTryAt = 0;
 unsigned long lastUploadAt = 0;
 unsigned long lastWifiTryAt = 0;
 bool firstUploadDone = false;
+
+String activeMandiDocId = "";
+unsigned long lastDiscoveryAt = 0;
 
 // ─── Fast JSON Value Parser (avoids dynamic memory overhead) ────────────────
 String jsonString(const String &body, const char *key) {
@@ -173,9 +169,52 @@ void maintainWiFi() {
   }
 }
 
+// ─── Dynamic Mandi Discovery (Zero Re-flashing Required) ────────────────────
+String discoverPairedMandi() {
+  if (millis() - lastDiscoveryAt < 30000UL && activeMandiDocId.length() > 0) {
+    return activeMandiDocId;
+  }
+
+  String url = String("https://firestore.googleapis.com/v1/projects/") + FIREBASE_PROJECT_ID +
+               "/databases/(default)/documents:runQuery";
+  String body = String("{\"structuredQuery\":{\"from\":[{\"collectionId\":\"mandis\"}],"
+                "\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"nodeUnitId\"},"
+                "\"op\":\"EQUAL\",\"value\":{\"stringValue\":\"") + UNIT_ID + "\"}}},\"limit\":1}}";
+
+  String resp;
+  int code = httpsPost(url, body, "application/json", true, resp);
+  lastDiscoveryAt = millis();
+
+  if (code == 200) {
+    int mandisIdx = resp.indexOf("/documents/mandis/");
+    if (mandisIdx > 0) {
+      int idStart = mandisIdx + strlen("/documents/mandis/");
+      int idEnd = resp.indexOf('\"', idStart);
+      if (idEnd > idStart) {
+        String found = resp.substring(idStart, idEnd);
+        if (found != activeMandiDocId) {
+          activeMandiDocId = found;
+          Serial.printf("[Storage] Paired Mandi detected via Cloud: mandis/%s\n", activeMandiDocId.c_str());
+        }
+        return activeMandiDocId;
+      }
+    }
+    activeMandiDocId = "";
+    Serial.println(F("[Storage] Unpaired: No Mandi is currently bound to " UNIT_ID " in Control Portal."));
+  }
+
+#ifdef MANDI_DOC_ID
+  if (activeMandiDocId.length() == 0) {
+    return String(MANDI_DOC_ID);
+  }
+#endif
+
+  return activeMandiDocId;
+}
+
 // ─── Build Atomic Firestore REST Commit Payload ─────────────────────────────
-String buildStorageCommitBody(double tempC, double humidityPct, const String &readingId) {
-  String base = String("projects/") + FIREBASE_PROJECT_ID + "/databases/(default)/documents/mandis/" + MANDI_DOC_ID;
+String buildStorageCommitBody(double tempC, double humidityPct, const String &mandiId, const String &readingId) {
+  String base = String("projects/") + FIREBASE_PROJECT_ID + "/databases/(default)/documents/mandis/" + mandiId;
   char t[24], h[24];
   snprintf(t, sizeof(t), "%.1f", tempC);
   snprintf(h, sizeof(h), "%.1f", humidityPct);
@@ -220,18 +259,22 @@ bool readDht(float &tempC, float &hum) {
 }
 
 bool readAndUpload() {
+  String targetMandi = discoverPairedMandi();
+  if (targetMandi.length() == 0) {
+    Serial.println(F("[Storage] Waiting for pairing: Open /control -> IoT Hardware Binding and bind STORE-01 to a Mandi."));
+    digitalWrite(STATUS_LED_PIN, (millis() / 250) % 2);
+    return false;
+  }
+
   float tempC, hum;
   if (!readDht(tempC, hum)) {
     Serial.println(F("[DHT22] Read failed - check wiring / 10k pull-up / power."));
     return false;
   }
-  Serial.printf("[DHT22] %.1f C (target 12-15) | %.1f %% RH (target 85-90)\n", tempC, hum);
-  if (tempC < 12.0f || tempC > 15.0f) {
-    Serial.println(F("[ALERT] Temperature outside optimal tomato range."));
-  }
+  Serial.printf("[DHT22] %.1f C | %.1f %% RH -> mandis/%s\n", tempC, hum, targetMandi.c_str());
 
   String readingId = String("r") + String((uint32_t)esp_random(), HEX) + String(millis(), HEX);
-  String body = buildStorageCommitBody(tempC, hum, readingId);
+  String body = buildStorageCommitBody(tempC, hum, targetMandi, readingId);
   String resp;
   int code = sendCommit(body, resp);
 
@@ -242,7 +285,7 @@ bool readAndUpload() {
   }
 
   if (code == 200) {
-    Serial.println(F("[Firestore] Uploaded."));
+    Serial.println(F("[Firestore] Telemetry committed successfully."));
     digitalWrite(STATUS_LED_PIN, HIGH);
     return true;
   } else {
@@ -263,7 +306,7 @@ void setup() {
 
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, LOW);
-  Serial.println(F("\n[FreshPath] Storage node " UNIT_ID " -> mandis/" MANDI_DOC_ID));
+  Serial.println(F("\n[FreshPath] Storage node " UNIT_ID " initialized with dynamic cloud pairing."));
 
   dht.begin();
   WiFi.mode(WIFI_STA);
@@ -292,7 +335,7 @@ void loop() {
     if (readAndUpload()) {
       lastUploadAt = millis();
     } else {
-      // Retry in 10 seconds if sensor read or HTTP commit failed
+      // Retry in 10 seconds if waiting for pairing, sensor read, or HTTP commit
       lastUploadAt = millis() - REPORT_INTERVAL_MS + 10000UL;
     }
   }

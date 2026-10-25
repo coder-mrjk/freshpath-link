@@ -25,7 +25,7 @@ import {
 } from '../../lib/price';
 import { formatIST, timeAgoIST } from '../../lib/time';
 import { calculateFreshness } from '../../lib/freshness';
-import { initRemoteConfig, getRemoteNumber } from '../../lib/remoteConfig';
+
 import { showLocalNotification } from '../../lib/notifications';
 import { measureAsyncTrace } from '../../lib/performance';
 import { UserSettingsModal } from '../../components/UserSettingsModal';
@@ -221,41 +221,40 @@ export const GrowPortal: React.FC = () => {
       setStorageMap(newStorageMap);
     });
 
-    // 3. Fetch Pricing Config (Remote Config 0-cost + Firestore fallback)
-    const loadPricing = async () => {
-      try {
-        await initRemoteConfig();
-        const rcPricing: GradePricing = {
-          gradeAPlus: getRemoteNumber('regulated_price_grade_a_plus') || DEFAULT_GRADE_PRICING.gradeAPlus,
-          gradeA: getRemoteNumber('regulated_price_grade_a') || DEFAULT_GRADE_PRICING.gradeA,
-          gradeB: getRemoteNumber('regulated_price_grade_b') || DEFAULT_GRADE_PRICING.gradeB,
-          gradeC: getRemoteNumber('regulated_price_grade_c') || DEFAULT_GRADE_PRICING.gradeC,
+    // 3. Real-time Live Price Sync from Admin Config
+    const unsubPricing = onSnapshot(doc(db, 'config', 'pricing'), (pricingSnap) => {
+      if (pricingSnap.exists()) {
+        const p = pricingSnap.data() as GradePricing;
+        const loaded: GradePricing = {
+          gradeAPlus: Number(p.gradeAPlus) || DEFAULT_GRADE_PRICING.gradeAPlus,
+          gradeA: Number(p.gradeA) || DEFAULT_GRADE_PRICING.gradeA,
+          gradeB: Number(p.gradeB) || DEFAULT_GRADE_PRICING.gradeB,
+          gradeC: Number(p.gradeC) || DEFAULT_GRADE_PRICING.gradeC,
         };
-
-        const pricingSnap = await getDoc(doc(db, 'config', 'pricing'));
-        if (pricingSnap.exists()) {
-          const p = pricingSnap.data() as GradePricing;
-          const loaded: GradePricing = {
-            gradeAPlus: p.gradeAPlus ?? rcPricing.gradeAPlus,
-            gradeA: p.gradeA ?? rcPricing.gradeA,
-            gradeB: p.gradeB ?? rcPricing.gradeB,
-            gradeC: p.gradeC ?? rcPricing.gradeC,
-          };
-          setGradePrices(loaded);
-          setRatePerKg(getPriceForGrade(sizeGrade, loaded));
-        } else {
-          setGradePrices(rcPricing);
-          setRatePerKg(getPriceForGrade(sizeGrade, rcPricing));
-        }
-      } catch (e) {
-        console.warn('Failed to load pricing config (using defaults):', e);
+        setGradePrices(loaded);
+        setRatePerKg(getPriceForGrade(sizeGrade, loaded));
+      } else {
+        // Fallback to products/tomato if config/pricing not set
+        getDoc(doc(db, 'products', 'tomato')).then((prodSnap) => {
+          if (prodSnap.exists() && prodSnap.data()?.gradePrices) {
+            const p = prodSnap.data().gradePrices;
+            const loaded: GradePricing = {
+              gradeAPlus: Number(p.gradeAPlus) || DEFAULT_GRADE_PRICING.gradeAPlus,
+              gradeA: Number(p.gradeA) || DEFAULT_GRADE_PRICING.gradeA,
+              gradeB: Number(p.gradeB) || DEFAULT_GRADE_PRICING.gradeB,
+              gradeC: Number(p.gradeC) || DEFAULT_GRADE_PRICING.gradeC,
+            };
+            setGradePrices(loaded);
+            setRatePerKg(getPriceForGrade(sizeGrade, loaded));
+          }
+        });
       }
-    };
-    loadPricing();
+    });
 
     return () => {
       unsubFields();
       unsubBags();
+      unsubPricing();
     };
   }, [currentUser]);
 

@@ -225,9 +225,9 @@ export const HubPortal: React.FC = () => {
         mandiPersonUid: currentUser.uid,
         name: newMandiName.trim(),
         area: newMandiArea.trim() || userProfile?.addressText || 'Tamil Nadu',
-        nodeUnitId: `DHT-${newMandiName.trim().slice(0, 4).toUpperCase()}-01`,
-        currentTemp: 14.2,
-        currentHumidity: 88.0,
+        nodeUnitId: null,
+        currentTemp: null,
+        currentHumidity: null,
         createdAt: serverTimestamp(),
       });
 
@@ -403,10 +403,13 @@ export const HubPortal: React.FC = () => {
     );
   }
 
-  // Calculate holistic DHT22 climate metrics
-  const activeTemp = selectedMandi?.currentTemp ?? 14.2;
-  const activeHumidity = selectedMandi?.currentHumidity ?? 88.0;
-  const mandiClimate = evaluateMandiClimate(activeTemp, activeHumidity);
+  // Calculate holistic DHT22 climate metrics (only when live hardware data is present)
+  const hasLiveTelemetry = typeof selectedMandi?.currentTemp === 'number' && typeof selectedMandi?.currentHumidity === 'number';
+  const activeTemp = hasLiveTelemetry ? selectedMandi.currentTemp! : null;
+  const activeHumidity = hasLiveTelemetry ? selectedMandi.currentHumidity! : null;
+  const mandiClimate = (activeTemp !== null && activeHumidity !== null)
+    ? evaluateMandiClimate(activeTemp, activeHumidity)
+    : null;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -614,8 +617,12 @@ export const HubPortal: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-black text-white">{selectedMandi.name} — Direct Climate Monitoring</h2>
-                <span className="text-xs font-mono font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-md">
-                  {selectedMandi.nodeUnitId || 'Fitted DHT22 Hardware'}
+                <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-md border ${
+                  selectedMandi.nodeUnitId
+                    ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                    : 'text-slate-400 bg-white/5 border-white/10'
+                }`}>
+                  {selectedMandi.nodeUnitId ? `Node: ${selectedMandi.nodeUnitId}` : 'No Sensor Linked'}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">
@@ -624,13 +631,25 @@ export const HubPortal: React.FC = () => {
             </div>
 
             {/* Climate Preservation Status Pill */}
-            <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 backdrop-blur-md ${mandiClimate.colorClass}`}>
-              <ShieldCheck className="w-5 h-5 shrink-0" />
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider">Preservation Status</div>
-                <div className="text-xs font-black">{mandiClimate.label}</div>
+            {mandiClimate ? (
+              <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 backdrop-blur-md ${mandiClimate.colorClass}`}>
+                <ShieldCheck className="w-5 h-5 shrink-0" />
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider">Preservation Status</div>
+                  <div className="text-xs font-black">{mandiClimate.label}</div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="px-4 py-2 rounded-2xl border flex items-center gap-2 backdrop-blur-md bg-slate-800/60 border-slate-700 text-slate-400">
+                <AlertCircle className="w-5 h-5 shrink-0 text-slate-400" />
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider">Preservation Status</div>
+                  <div className="text-xs font-bold text-slate-300">
+                    {selectedMandi.nodeUnitId ? 'Waiting for Live Telemetry...' : 'No DHT22 Sensor Linked'}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 5-Metric Physical Telemetry Grid */}
@@ -642,7 +661,7 @@ export const HubPortal: React.FC = () => {
                 <Thermometer className="w-4 h-4 text-amber-400" />
               </div>
               <div className="text-xl font-black font-mono text-white">
-                {activeTemp.toFixed(1)}°C
+                {activeTemp !== null ? `${activeTemp.toFixed(1)}°C` : '-'}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
                 Target: {STORAGE_DEFAULTS.TARGET_TEMP_MIN}°–{STORAGE_DEFAULTS.TARGET_TEMP_MAX}°C
@@ -656,7 +675,7 @@ export const HubPortal: React.FC = () => {
                 <Droplets className="w-4 h-4 text-sky-400" />
               </div>
               <div className="text-xl font-black font-mono text-white">
-                {activeHumidity.toFixed(1)}%
+                {activeHumidity !== null ? `${activeHumidity.toFixed(1)}%` : '-'}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
                 Target: {STORAGE_DEFAULTS.TARGET_HUMIDITY_MIN}%–{STORAGE_DEFAULTS.TARGET_HUMIDITY_MAX}% RH
@@ -670,7 +689,7 @@ export const HubPortal: React.FC = () => {
                 <CloudRain className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="text-xl font-black font-mono text-white">
-                {mandiClimate.dewPoint.toFixed(1)}°C
+                {mandiClimate ? `${mandiClimate.dewPoint.toFixed(1)}°C` : '-'}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
                 Condensation threshold
@@ -684,7 +703,7 @@ export const HubPortal: React.FC = () => {
                 <Wind className="w-4 h-4 text-purple-400" />
               </div>
               <div className="text-xl font-black font-mono text-white">
-                {mandiClimate.vpd.toFixed(2)} kPa
+                {mandiClimate ? `${mandiClimate.vpd.toFixed(2)} kPa` : '-'}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
                 Optimal: 0.40–0.80 kPa
@@ -698,7 +717,7 @@ export const HubPortal: React.FC = () => {
                 <Flame className="w-4 h-4 text-orange-400" />
               </div>
               <div className="text-xl font-black font-mono text-white">
-                {mandiClimate.heatIndex.toFixed(1)}°C
+                {mandiClimate ? `${mandiClimate.heatIndex.toFixed(1)}°C` : '-'}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
                 Apparent thermal load
@@ -711,7 +730,14 @@ export const HubPortal: React.FC = () => {
             <Activity className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
               <span className="font-bold text-white">Storage Guidance: </span>
-              <span>{mandiClimate.advice}</span>
+              <span>
+                {mandiClimate
+                  ? mandiClimate.advice
+                  : (selectedMandi.nodeUnitId
+                      ? `Hardware node "${selectedMandi.nodeUnitId}" is paired. Power on your ESP32 to begin streaming live environmental metrics.`
+                      : 'Link an active DHT22 climate sensor to this Mandi in the Control Portal to monitor real-time temperature and humidity.')
+                }
+              </span>
             </div>
           </div>
 

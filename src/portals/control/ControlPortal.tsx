@@ -5,14 +5,13 @@ import {
   collection,
   query,
   where,
-  getDocs,
   runTransaction,
   doc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
   setDoc,
-  getDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { formatIST } from '../../lib/time';
@@ -77,20 +76,21 @@ export const ControlPortal: React.FC = () => {
     return email === OWNER_EMAIL.toLowerCase() || u.uid === 'oMl0ziVO7aWj9MH26ocPGH41fG12';
   };
 
-  const loadData = async () => {
+  useEffect(() => {
     setLoading(true);
-    try {
-      // 1. Pending Users
-      const qPending = query(collection(db, 'users'), where('status', '==', 'pending'));
-      const pendingSnap = await getDocs(qPending);
-      const pendingList: UserProfile[] = [];
-      pendingSnap.forEach((d) => pendingList.push({ ...d.data(), uid: d.id } as UserProfile));
-      setPendingUsers(pendingList);
 
-      // 2. All Users
-      const allSnap = await getDocs(collection(db, 'users'));
+    // 1. Pending Users Live Stream
+    const qPending = query(collection(db, 'users'), where('status', '==', 'pending'));
+    const unsubPending = onSnapshot(qPending, (snap) => {
+      const pendingList: UserProfile[] = [];
+      snap.forEach((d) => pendingList.push({ ...d.data(), uid: d.id } as UserProfile));
+      setPendingUsers(pendingList);
+    });
+
+    // 2. All Users Live Stream
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       const allList: UserProfile[] = [];
-      allSnap.forEach((d) => {
+      snap.forEach((d) => {
         const data = d.data() as UserProfile;
         const isThisOwner = isRootOwnerUser({ email: (data as any).email, uid: d.id });
         if (isThisOwner) {
@@ -98,7 +98,6 @@ export const ControlPortal: React.FC = () => {
           data.status = 'approved';
           data.passId = 'FP-OWNER-0001';
         } else if (data.role === 'owner') {
-          // Demote any non-owner document falsely marked as owner
           data.role = 'consumer';
           if (data.passId === 'FP-OWNER-0001') {
             data.passId = undefined;
@@ -107,60 +106,74 @@ export const ControlPortal: React.FC = () => {
         allList.push({ ...data, uid: d.id });
       });
       setAllUsers(allList);
+    });
 
-      // 3. Vehicles
-      const vSnap = await getDocs(collection(db, 'vehicles'));
+    // 3. Vehicles Live Stream
+    const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap) => {
       const vList: Array<{ id: string; driverUid: string; regNumber: string; gpsUnitId?: string }> = [];
-      vSnap.forEach((d) => vList.push({ id: d.id, ...d.data() } as any));
+      snap.forEach((d) => vList.push({ id: d.id, ...d.data() } as any));
       setVehicles(vList);
-      if (vList.length > 0 && !selectedVehicleId) {
-        setSelectedVehicleId(vList[0].id);
-      }
+      setSelectedVehicleId((prev) => {
+        if (!prev) return vList[0]?.id || '';
+        return vList.some((v) => v.id === prev) ? prev : vList[0]?.id || '';
+      });
+    });
 
-      // 4. Mandis (for direct Mandi Climate DHT22 sensor binding)
-      const mSnap = await getDocs(collection(db, 'mandis'));
+    // 4. Mandis Live Stream
+    const unsubMandis = onSnapshot(collection(db, 'mandis'), (snap) => {
       const mList: Array<{ id: string; name: string; area: string; mandiPersonUid?: string; nodeUnitId?: string }> = [];
-      mSnap.forEach((d) => mList.push({ id: d.id, ...d.data() } as any));
+      snap.forEach((d) => mList.push({ id: d.id, ...d.data() } as any));
       setMandis(mList);
-      if (mList.length > 0 && !selectedMandiId) {
-        setSelectedMandiId(mList[0].id);
-      }
+      setSelectedMandiId((prev) => {
+        if (!prev) return mList[0]?.id || '';
+        return mList.some((m) => m.id === prev) ? prev : mList[0]?.id || '';
+      });
+    });
 
-      // 4b. Registered IoT Devices (from /devices)
-      const devSnap = await getDocs(collection(db, 'devices'));
+    // 5. Registered IoT Devices Live Stream
+    const unsubDevices = onSnapshot(collection(db, 'devices'), (snap) => {
       const devList: Array<{ id: string; unitId: string; type: 'gps' | 'storage' }> = [];
-      devSnap.forEach((d) => devList.push({ id: d.id, ...d.data() } as any));
+      snap.forEach((d) => devList.push({ id: d.id, ...d.data() } as any));
       setDevices(devList);
+      setGpsUnitIdInput((prev) => {
+        if (prev) return prev;
+        const firstGps = devList.find((d) => d.type === 'gps');
+        return firstGps ? firstGps.unitId : 'GPS-01';
+      });
+      setSensorNodeIdInput((prev) => {
+        if (prev) return prev;
+        const firstStore = devList.find((d) => d.type === 'storage');
+        return firstStore ? firstStore.unitId : 'STORE-01';
+      });
+    });
 
-
-      // 5. Product rate & Grade Pricing
-      const pricingDoc = await getDoc(doc(db, 'config', 'pricing'));
+    // 6. Pricing Live Stream
+    const unsubPricing = onSnapshot(doc(db, 'config', 'pricing'), (pricingDoc) => {
       if (pricingDoc.exists()) {
         const pData = pricingDoc.data() as GradePricing;
-        const loadedPricing: GradePricing = {
+        setGradePrices({
           gradeAPlus: pData.gradeAPlus ?? DEFAULT_GRADE_PRICING.gradeAPlus,
           gradeA: pData.gradeA ?? DEFAULT_GRADE_PRICING.gradeA,
           gradeB: pData.gradeB ?? DEFAULT_GRADE_PRICING.gradeB,
           gradeC: pData.gradeC ?? DEFAULT_GRADE_PRICING.gradeC,
-        };
-        setGradePrices(loadedPricing);
-      } else {
-        const prodDoc = await getDoc(doc(db, 'products', 'tomato'));
-        if (prodDoc.exists() && prodDoc.data().ratePerKg) {
-          setGradePrices((prev) => ({ ...prev, gradeA: prodDoc.data().ratePerKg }));
-        }
+        });
       }
-
-    } catch (err: unknown) {
-      console.warn('Control portal load error:', err);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
 
-  useEffect(() => {
-    loadData();
+    return () => {
+      unsubPending();
+      unsubUsers();
+      unsubVehicles();
+      unsubMandis();
+      unsubDevices();
+      unsubPricing();
+    };
   }, []);
+
+  const loadData = async () => {
+    // Retained for manual refresh trigger if desired
+  };
 
   const getRolePrefix = (role: UserRole) => {
     switch (role) {
@@ -345,13 +358,15 @@ export const ControlPortal: React.FC = () => {
       const mRef = doc(db, 'mandis', mandiId);
       await updateDoc(mRef, {
         nodeUnitId: null,
+        currentTemp: null,
+        currentHumidity: null,
+        latest: null,
       });
       const targetMandi = mandis.find((m) => m.id === mandiId);
       setMessage({
         text: `Unpaired DHT22 sensor from Mandi "${targetMandi?.name || mandiId}"!`,
         type: 'success',
       });
-      await loadData();
     } catch (err: unknown) {
       setMessage({ text: `Mandi sensor unlinking failed: ${(err as Error)?.message}`, type: 'error' });
     }
@@ -829,32 +844,24 @@ export const ControlPortal: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">
-                      GPS Hardware Unit ID
-                    </label>
-                    {devices.filter((d) => d.type === 'gps').length > 0 && (
-                      <div className="flex gap-1">
-                        {devices.filter((d) => d.type === 'gps').map((d) => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => setGpsUnitIdInput(d.unitId)}
-                            className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30"
-                          >
-                            {d.unitId}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Select Available GPS Hardware Unit
+                  </label>
+                  <select
                     value={gpsUnitIdInput}
                     onChange={(e) => setGpsUnitIdInput(e.target.value)}
-                    placeholder="e.g. GPS-01"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50"
-                  />
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white focus:outline-none focus:border-sky-500/50"
+                  >
+                    {devices.filter((d) => d.type === 'gps').length === 0 ? (
+                      <option value="GPS-01" className="bg-slate-900 text-white">GPS-01 (Default)</option>
+                    ) : (
+                      devices.filter((d) => d.type === 'gps').map((d) => (
+                        <option key={d.id} value={d.unitId} className="bg-slate-900 text-white">
+                          {d.unitId} (Hardware UID: {d.id.slice(0, 8)}...)
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
 
                 <div className="flex gap-2">
@@ -911,32 +918,24 @@ export const ControlPortal: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">
-                      DHT22 Sensor Node Unit ID
-                    </label>
-                    {devices.filter((d) => d.type === 'storage').length > 0 && (
-                      <div className="flex gap-1">
-                        {devices.filter((d) => d.type === 'storage').map((d) => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => setSensorNodeIdInput(d.unitId)}
-                            className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                          >
-                            {d.unitId}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Select Available DHT22 Climate Sensor
+                  </label>
+                  <select
                     value={sensorNodeIdInput}
                     onChange={(e) => setSensorNodeIdInput(e.target.value)}
-                    placeholder="e.g. STORE-01"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                  />
+                    className="w-full px-3 py-2 bg-slate-800/80 border border-white/10 rounded-xl text-xs font-mono uppercase text-white focus:outline-none focus:border-amber-500/50"
+                  >
+                    {devices.filter((d) => d.type === 'storage').length === 0 ? (
+                      <option value="STORE-01" className="bg-slate-900 text-white">STORE-01 (Default)</option>
+                    ) : (
+                      devices.filter((d) => d.type === 'storage').map((d) => (
+                        <option key={d.id} value={d.unitId} className="bg-slate-900 text-white">
+                          {d.unitId} (Hardware UID: {d.id.slice(0, 8)}...)
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
 
                 <div className="flex gap-2">
@@ -967,7 +966,7 @@ export const ControlPortal: React.FC = () => {
             {/* Vehicles Pairing Status */}
             <div className="backdrop-blur-xl bg-white/[0.03] p-5 rounded-3xl border border-white/[0.08] shadow-xl">
               <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300 mb-3 flex items-center justify-between">
-                <span>Vehicle $\leftrightarrow$ GPS Active Links</span>
+                <span>Vehicle ↔ GPS Active Links</span>
                 <span className="text-[10px] text-slate-400 font-mono">{vehicles.length} Vehicles</span>
               </h4>
               <div className="space-y-2">
@@ -1010,7 +1009,7 @@ export const ControlPortal: React.FC = () => {
             {/* Mandi Pairing Status */}
             <div className="backdrop-blur-xl bg-white/[0.03] p-5 rounded-3xl border border-white/[0.08] shadow-xl">
               <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300 mb-3 flex items-center justify-between">
-                <span>Mandi $\leftrightarrow$ DHT22 Active Links</span>
+                <span>Mandi ↔ DHT22 Active Links</span>
                 <span className="text-[10px] text-slate-400 font-mono">{mandis.length} Mandis</span>
               </h4>
               <div className="space-y-2">
