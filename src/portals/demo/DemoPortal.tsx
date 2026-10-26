@@ -52,32 +52,23 @@ export const DemoPortal: React.FC = () => {
     Array<{ id: string; stage: string; status: string; link: string }>
   >([]);
 
-  // Safety: Demo Portal is accessible to Root Owner or Competition Judges in Judge Demo Mode
-  if (!isOwner && !judgeDemoMode) {
+  // Safety: Demo Portal and Judge Mode Controls are exclusively for System Owner / Admin
+  if (!isOwner) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <div className="backdrop-blur-xl bg-white/[0.03] border border-amber-500/30 rounded-3xl p-8 shadow-2xl">
-          <Scale className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-          <h2 className="text-xl font-black text-white">Owner & Judge Access</h2>
+        <div className="backdrop-blur-xl bg-white/[0.03] border border-red-500/30 rounded-3xl p-8 shadow-2xl">
+          <ShieldCheck className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-black text-white">Owner Access Restricted</h2>
           <p className="text-xs text-slate-400 mt-2 mb-6">
-            The Demo Simulation Suite is reserved for system administration or competition judges evaluating the prototype.
+            The Demo Simulation Suite and Judge Demo Mode control are reserved exclusively for the system owner (
+            <span className="text-red-300 font-mono">{OWNER_EMAIL}</span>).
           </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => toggleJudgeDemoMode(true)}
-              className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all"
-            >
-              <Power className="w-4 h-4" />
-              <span>Enable Judge Demo Mode (Explore Without Login)</span>
-            </button>
-            <Link
-              to="/auth/control"
-              className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all block"
-            >
-              <ShieldCheck className="w-4 h-4 text-red-400" />
-              <span>Sign in as System Owner</span>
-            </Link>
-          </div>
+          <Link
+            to="/auth/control"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg"
+          >
+            Sign in as System Owner
+          </Link>
         </div>
       </div>
     );
@@ -851,13 +842,13 @@ export const DemoPortal: React.FC = () => {
                       : 'bg-slate-800 text-slate-400 border-slate-700'
                   }`}
                 >
-                  {judgeDemoMode ? 'ACTIVE (Public Access Enabled)' : 'DISABLED (Login Required)'}
+                  {judgeDemoMode ? 'ACTIVE (Public QR Scanning Allowed)' : 'DISABLED (Sign-In & Approval Required)'}
                 </span>
               </div>
               <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
                 {judgeDemoMode
-                  ? 'Judges and evaluators can inspect crate QR provenance (/b/:id), route maps, Mandi telemetry, and role portals without logging in. Anyone visiting role portals is granted evaluation access.'
-                  : 'Strict authentication mode is active. Only signed-in approved users can access role dashboards.'}
+                  ? 'Judge Public QR Access is ON: Judges and shoppers can scan crate QR codes (/b/:id) and view the full provenance story, route map, and Mandi telemetry without signing in.'
+                  : 'Judge Public QR Access is OFF: Scanning or opening any crate QR code (/b/:id) strictly requires authentication and admin approval to view.'}
               </p>
             </div>
           </div>

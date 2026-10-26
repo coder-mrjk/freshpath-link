@@ -119,7 +119,7 @@ interface BagProvenanceViewProps {
 }
 
 export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onBack }) => {
-  const { currentUser, userProfile, isOwner } = useAuth();
+  const { currentUser, userProfile, isOwner, judgeDemoMode } = useAuth();
 
   const [bag, setBag] = useState<BagData | null>(null);
   const [trip, setTrip] = useState<TripData | null>(null);
@@ -333,6 +333,64 @@ export const BagProvenanceView: React.FC<BagProvenanceViewProps> = ({ bagId, onB
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
         <p className="text-xs text-slate-400">Decrypting tamper-evident provenance ledger...</p>
+      </div>
+    );
+  }
+
+  // Case A: When Judge Demo Mode is OFF, unauthenticated visitors scanning bags must sign in
+  if (!judgeDemoMode && !currentUser) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <div className="backdrop-blur-xl bg-slate-900/90 rounded-3xl p-8 shadow-2xl border border-white/10 text-center text-white">
+          <div className="w-16 h-16 bg-red-600/20 text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/30 shadow-inner">
+            <LogIn className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-white">Sign In Required</h2>
+          <p className="text-xs text-slate-400 mt-2 mb-6 leading-relaxed">
+            Judge Public QR Access is currently disabled. Scanning and inspecting crate provenance requires an authenticated account.
+          </p>
+          <div className="space-y-3">
+            <Link
+              to={`/auth/consumer?redirect=${encodeURIComponent(window.location.pathname)}`}
+              className="w-full py-3 px-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center gap-2 touch-target"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In / Register as Consumer</span>
+            </Link>
+            <Link
+              to="/"
+              className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-semibold transition-colors block"
+            >
+              Back to Home Portals
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Case B: When Judge Demo Mode is OFF, pending users awaiting approval cannot inspect provenance
+  if (!judgeDemoMode && currentUser && userProfile?.status === 'pending' && !isOwner) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <div className="backdrop-blur-xl bg-slate-900/90 rounded-3xl p-8 shadow-2xl border border-amber-500/30 text-center text-white">
+          <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/30 shadow-inner">
+            <Clock className="w-8 h-8 animate-pulse" />
+          </div>
+          <h2 className="text-xl font-black text-white">Admin Approval Required</h2>
+          <p className="text-xs text-slate-300 mt-2 mb-2 leading-relaxed">
+            Your account ({userProfile.fullName || userProfile.firstName || userProfile.role}) is currently awaiting supervisor verification.
+          </p>
+          <p className="text-[11px] text-slate-400 mb-6">
+            Admin approval is required to view crate provenance when Judge Demo Mode is disabled.
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center py-2.5 px-6 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors"
+          >
+            Back to Home Portals
+          </Link>
+        </div>
       </div>
     );
   }

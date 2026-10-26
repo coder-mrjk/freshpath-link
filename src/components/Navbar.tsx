@@ -51,13 +51,22 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, displayN
           {/* Right Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
             {judgeDemoMode && (
-              <Link
-                to="/demo"
-                className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-amber-500/20 border border-amber-400/40 text-amber-300 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.3)] hover:bg-amber-500/30 transition-all touch-target"
-                title="Judge Evaluation Mode Active (Click to open Demo Suite)"
-              >
-                <span>⚖️ Judge Mode ON</span>
-              </Link>
+              userRole === 'owner' ? (
+                <Link
+                  to="/demo"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-amber-500/20 border border-amber-400/40 text-amber-300 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.3)] hover:bg-amber-500/30 transition-all touch-target"
+                  title="Judge Demo Mode Active (Click to open Demo Suite)"
+                >
+                  <span>⚖️ Judge Mode ON</span>
+                </Link>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-amber-500/20 border border-amber-400/40 text-amber-300 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+                  title="Judge Evaluation Mode Active (Public Crate Scanning Enabled)"
+                >
+                  <span>⚖️ Judge Mode ON</span>
+                </span>
+              )
             )}
 
             <LanguageToggle />
