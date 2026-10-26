@@ -1,11 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Sprout, Truck, Warehouse, Store, ShoppingBasket, ShieldCheck, ChevronRight } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Sprout, Truck, Warehouse, Store, ShoppingBasket, ShieldCheck, ChevronRight, Scale } from 'lucide-react';
 
 export const EntrancePage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { judgeDemoMode } = useAuth();
 
   const roles = [
     {
@@ -112,6 +114,36 @@ export const EntrancePage: React.FC = () => {
             {t('appTagline')}
           </p>
         </div>
+
+        {/* Judge Mode Evaluation Banner */}
+        {judgeDemoMode && (
+          <div className="mb-10 p-5 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-slate-900/90 to-emerald-950/40 border border-emerald-500/40 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                <Scale className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
+                    Judge Evaluation Mode Active
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+                    Prototype Verification
+                  </span>
+                </div>
+                <div className="text-xs text-slate-300 mt-0.5">
+                  Unauthenticated prototype evaluation is enabled. Explore live crate provenance QR scans and full supply chain testing.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/demo')}
+              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] shrink-0 touch-target"
+            >
+              Open Judge Suite (/demo)
+            </button>
+          </div>
+        )}
 
         {/* Role Selection */}
         <div className="mb-12">

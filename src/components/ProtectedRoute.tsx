@@ -7,6 +7,7 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles: UserRole[];
   allowOwner?: boolean;
+  allowJudgeMode?: boolean;
   portalName: string;
   portalDescription: string;
   portalIcon: React.ComponentType<{ className?: string }>;
@@ -17,12 +18,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,
   allowOwner = true,
+  allowJudgeMode = false,
   portalName,
   portalDescription,
   portalIcon: Icon,
   targetRole,
 }) => {
-  const { currentUser, userProfile, isOwner, loading, logout } = useAuth();
+  const { currentUser, userProfile, isOwner, loading, judgeDemoMode, logout } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -34,16 +36,41 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
+  // Judge Demo Mode bypass for permitted portals (e.g. /demo)
+  if (!currentUser && allowJudgeMode && judgeDemoMode) {
+    return <>{children}</>;
+  }
+
   // Case 1: Unauthenticated -> Show prompt to Sign In or Register
   if (!currentUser) {
     return (
       <div className="max-w-md mx-auto px-4 py-16">
-        <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 text-center">
-          <div className="w-16 h-16 bg-tomato-50 text-tomato-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-tomato-100 shadow-inner">
+        <div className="backdrop-blur-xl bg-slate-900/90 rounded-3xl p-8 shadow-2xl border border-white/10 text-center text-white">
+          {judgeDemoMode && (
+            <div className="mb-6 p-4 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 text-left">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-lg">⚖️</span>
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                  Judge Demo Mode Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                Unauthenticated prototype evaluation is active. You can explore all live supply chain stages and hardware telemetry in the Demo Suite without creating an account.
+              </p>
+              <Link
+                to="/demo"
+                className="block w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-xs font-bold text-center shadow-lg transition-all"
+              >
+                Launch Demo Suite & QR Testing (/demo)
+              </Link>
+            </div>
+          )}
+
+          <div className="w-16 h-16 bg-red-600/20 text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/30 shadow-inner">
             <Icon className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-black text-charcoal">{portalName}</h2>
-          <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed">
+          <h2 className="text-xl font-black text-white">{portalName}</h2>
+          <p className="text-xs text-slate-400 mt-2 mb-6 leading-relaxed">
             {portalDescription}
           </p>
 

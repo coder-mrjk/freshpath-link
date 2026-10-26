@@ -75,6 +75,8 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   isOwner: boolean;
   loading: boolean;
+  judgeDemoMode: boolean;
+  toggleJudgeDemoMode: (enabled?: boolean) => Promise<void>;
   login: (email: string, pass: string) => Promise<void>;
   loginWithGoogle: (targetRole?: UserRole | 'control') => Promise<{ isNewUser?: boolean; user: User }>;
   register: (
@@ -103,6 +105,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [judgeDemoMode, setJudgeDemoMode] = useState<boolean>(() => {
+    return localStorage.getItem('freshpath_judge_demo_mode') === 'true';
+  });
+
+  // Listen to config/demo in Firestore for global judgeDemoMode sync
+  useEffect(() => {
+    const demoConfigRef = doc(db, 'config', 'demo');
+    const unsubDemo = onSnapshot(
+      demoConfigRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (typeof data.judgeDemoMode === 'boolean') {
+            setJudgeDemoMode(data.judgeDemoMode);
+            localStorage.setItem('freshpath_judge_demo_mode', String(data.judgeDemoMode));
+          }
+        }
+      },
+      (err) => {
+        console.warn('config/demo listener notice:', err);
+      }
+    );
+
+    return () => unsubDemo();
+  }, []);
+
+  const toggleJudgeDemoMode = async (enabled?: boolean) => {
+    const nextState = enabled !== undefined ? enabled : !judgeDemoMode;
+    setJudgeDemoMode(nextState);
+    localStorage.setItem('freshpath_judge_demo_mode', String(nextState));
+
+    try {
+      await setDoc(
+        doc(db, 'config', 'demo'),
+        {
+          judgeDemoMode: nextState,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Could not persist judgeDemoMode to Firestore (persisted locally):', err);
+    }
+  };
 
   // Helper to ensure owner records are synchronized in Firestore
   const syncOwnerStatus = async (user: User): Promise<boolean> => {
@@ -396,6 +442,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userProfile,
         isOwner,
         loading,
+        judgeDemoMode,
+        toggleJudgeDemoMode,
         login,
         loginWithGoogle,
         register,

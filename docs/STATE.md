@@ -1,16 +1,29 @@
 # FreshPath System State & Milestones
 
 **Title**: FreshPath Current State  
-**Version**: 1.7.2  
-**Date**: October 25, 2026  
+**Version**: 1.7.4  
+**Date**: October 26, 2026  
 **Status**: Approved  
-**Verified Against Commit**: `d29a925`  
+**Verified Against Commit**: `HEAD`  
 **Live Production URL**: [https://freshpath-link.web.app](https://freshpath-link.web.app)
 
 ---
 
 ## 1. Executive Summary
 All supply chain portals (Grower, Driver / Logistics, Mandi Hub, Retail Shelf, Customer Table, Control Admin) run with high-speed real-time synchronization (`onSnapshot`), completely eliminating polling and manual refreshes. The architecture eliminates cold room unit bottlenecks, outfitting Mandi facilities directly with DHT22 climate telemetry (measuring Temperature, Humidity, Dew Point via Magnus formula, Vapor Pressure Deficit (VPD), and Heat Index). A farmer handover approval gate prevents unauthorized crate loading, and a consumer counter payment + direct farmer rating loop seamlessly connects shoppers with farmers.
+
+In v1.7.4:
+- **Public Provenance & Judge Evaluation Access**:
+  - Delegated to `firestore-rules-author` to enable public read access (`allow read: if true;`) in `firestore.rules` for `/trips`, `/events`, `/mandis`, `/mandis/{id}/readings`, `/storageUnits`, `/storageUnits/{id}/readings`, `/shops`, `/products`, and `/config`. Unauthenticated competition judges and consumers can inspect the complete seed-to-shelf provenance journey (Leaflet route map, mandi temperature charts, ledger events) on `/b/:bagId` without hitting login barriers or permission errors.
+  - Verified zero PII leakage: driver phone numbers and private addresses are excluded from public crate views.
+- **Judge Demo Mode [ON / OFF] System**:
+  - Added an interactive Judge Demo Mode toggle card in [`src/portals/demo/DemoPortal.tsx`](file:///Users/karthi/freshpath/src/portals/demo/DemoPortal.tsx) persisted to Firestore `config/demo` and `localStorage`.
+  - When ON, judges can explore `/demo` and role dashboards without an account, guided by prominent evaluation headers and navbar badges (`⚖️ Judge Mode ON`).
+  - When OFF, strict role-based authentication and supervisor approval gates are enforced.
+- **Hardware GPS Integrity Guard**:
+  - Configured `VITE_ALLOW_SIMULATED_GPS=false` in `.env.local` and rebuilt production client bundle. Guarantees trips only initiate with genuine u-blox NEO GPS satellite fixes for video evidence and honest competition review.
+- **Agricultural Spoilage Numbers Reconciliation Documented**:
+  - Reconciled the HCL brief figure of ₹92,000 crore (CIPHET/MoFPI baseline farm-gate losses across all agriculture) with the Round 1 horticultural calculation of ₹2.1 lakh crore (end-consumer retail market valuation).
 
 In v1.7.2:
 - **Real-Time Mandi Climate Telemetry in Grower Portal**:

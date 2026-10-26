@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { LanguageToggle } from './LanguageToggle';
 import { LogOut, User, Settings } from 'lucide-react';
 import { UserSettingsModal } from './UserSettingsModal';
@@ -16,6 +17,7 @@ interface Props {
 export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, displayName, onLogout }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { judgeDemoMode } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
 
   return (
@@ -48,6 +50,16 @@ export const Navbar: React.FC<Props> = ({ portalName, userRole, passId, displayN
 
           {/* Right Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {judgeDemoMode && (
+              <Link
+                to="/demo"
+                className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-amber-500/20 border border-amber-400/40 text-amber-300 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.3)] hover:bg-amber-500/30 transition-all touch-target"
+                title="Judge Evaluation Mode Active (Click to open Demo Suite)"
+              >
+                <span>⚖️ Judge Mode ON</span>
+              </Link>
+            )}
+
             <LanguageToggle />
 
             {userRole && (

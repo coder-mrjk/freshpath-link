@@ -323,13 +323,13 @@ service cloud.firestore {
 
     // Products catalog & pricing
     match /products/{prodId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow write: if isOwner();
     }
 
     // System configuration (e.g. freshness decay parameters)
     match /config/{docId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow write: if isOwner();
     }
 
@@ -368,7 +368,7 @@ service cloud.firestore {
     // Transit trips managed by drivers or owner
     // Signed-in parties (e.g. farmers approving handover) can append/update bagIds without modifying operational trip fields
     match /trips/{tripId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if isOwner() || ((isApproved('driver') || signedIn()) && request.resource.data.driverUid == request.auth.uid);
       allow update: if isOwner() ||
         ((isApproved('driver') || signedIn()) && resource.data.driverUid == request.auth.uid) ||
@@ -378,7 +378,7 @@ service cloud.firestore {
 
     // Mandi warehouse locations
     match /mandis/{mandiId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, update: if isOwner() || isApproved('mandi') || (signedIn() && (request.resource.data.mandiPersonUid == request.auth.uid || resource.data.mandiPersonUid == request.auth.uid));
       allow delete: if isOwner() || (signedIn() && resource.data.mandiPersonUid == request.auth.uid);
       allow update: if isStorageNodeOf(resource.data) &&
@@ -387,7 +387,7 @@ service cloud.firestore {
 
       // Telemetry readings subcollection for Mandi
       match /readings/{readingId} {
-        allow read: if signedIn();
+        allow read: if true;
         allow create: if isOwner() || isApproved('mandi') || (
           signedIn() &&
           exists(/databases/$(database)/documents/mandis/$(mandiId)) &&
@@ -404,13 +404,13 @@ service cloud.firestore {
 
     // Cold storage units within mandis (retained for backward compatibility)
     match /storageUnits/{unitId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, update: if isApproved('mandi') || isOwner() || signedIn() || isDevice(unitId, 'storage');
       allow delete: if isOwner() || isApproved('mandi') || signedIn();
 
       // Telemetry readings subcollection (DHT22 temp & humidity)
       match /readings/{readingId} {
-        allow read: if signedIn();
+        allow read: if true;
         allow create: if isOwner() || isApproved('mandi') || (
           isDevice(unitId, 'storage') &&
           request.resource.data.keys().hasAll(['tempC', 'humidityPct', 'at']) &&
@@ -424,7 +424,7 @@ service cloud.firestore {
 
     // Retail shops
     match /shops/{shopId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if isApproved('shop') || isOwner() || (signedIn() && request.resource.data.shopPersonUid == request.auth.uid);
       allow update: if isOwner() || isApproved('shop') || (signedIn() && (request.resource.data.shopPersonUid == request.auth.uid || resource.data.shopPersonUid == request.auth.uid));
       allow delete: if isOwner() || (signedIn() && resource.data.shopPersonUid == request.auth.uid);
@@ -447,7 +447,7 @@ service cloud.firestore {
 
     // Append-only tamper-evident audit ledger (owner can purge during demo reset)
     match /events/{eventId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create: if signedIn() && request.resource.data.byUid == request.auth.uid;
       allow update: if false;
       allow delete: if isOwner();

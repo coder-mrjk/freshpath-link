@@ -109,6 +109,7 @@ const AppContent: React.FC = () => {
               <ProtectedRoute
                 allowedRoles={[]}
                 allowOwner={true}
+                allowJudgeMode={true}
                 portalName="Testing & Simulation Suite"
                 portalDescription="Owner simulation suite for generating supply chain test data, injecting hardware telemetry, and managing database state."
                 portalIcon={Cpu}

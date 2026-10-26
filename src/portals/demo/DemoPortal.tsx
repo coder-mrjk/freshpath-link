@@ -32,10 +32,12 @@ import {
   RefreshCw,
   Settings,
   LogOut,
+  Scale,
+  Power,
 } from 'lucide-react';
 
 export const DemoPortal: React.FC = () => {
-  const { isOwner, currentUser, logout } = useAuth();
+  const { isOwner, currentUser, logout, judgeDemoMode, toggleJudgeDemoMode } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -50,23 +52,32 @@ export const DemoPortal: React.FC = () => {
     Array<{ id: string; stage: string; status: string; link: string }>
   >([]);
 
-  // Safety: Demo Portal is exclusively for Root Owner
-  if (!isOwner) {
+  // Safety: Demo Portal is accessible to Root Owner or Competition Judges in Judge Demo Mode
+  if (!isOwner && !judgeDemoMode) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <div className="backdrop-blur-xl bg-white/[0.03] border border-red-500/30 rounded-3xl p-8 shadow-2xl">
-          <ShieldCheck className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-black text-white">Owner Access Restricted</h2>
+        <div className="backdrop-blur-xl bg-white/[0.03] border border-amber-500/30 rounded-3xl p-8 shadow-2xl">
+          <Scale className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+          <h2 className="text-xl font-black text-white">Owner & Judge Access</h2>
           <p className="text-xs text-slate-400 mt-2 mb-6">
-            The Demo Simulation Suite is reserved exclusively for the system owner (
-            <span className="text-red-300 font-mono">{OWNER_EMAIL}</span>).
+            The Demo Simulation Suite is reserved for system administration or competition judges evaluating the prototype.
           </p>
-          <Link
-            to="/auth/control"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all"
-          >
-            Sign in as System Owner
-          </Link>
+          <div className="space-y-3">
+            <button
+              onClick={() => toggleJudgeDemoMode(true)}
+              className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all"
+            >
+              <Power className="w-4 h-4" />
+              <span>Enable Judge Demo Mode (Explore Without Login)</span>
+            </button>
+            <Link
+              to="/auth/control"
+              className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all block"
+            >
+              <ShieldCheck className="w-4 h-4 text-red-400" />
+              <span>Sign in as System Owner</span>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -808,6 +819,60 @@ export const DemoPortal: React.FC = () => {
             <ShieldCheck className="w-4 h-4" />
             <span>Control Portal</span>
           </Link>
+        </div>
+      </div>
+
+      {/* Judge Demo Mode Toggle Banner */}
+      <div
+        className={`p-6 rounded-3xl border transition-all duration-300 shadow-2xl backdrop-blur-2xl mb-8 ${
+          judgeDemoMode
+            ? 'bg-gradient-to-r from-emerald-950/40 via-slate-900/90 to-emerald-950/40 border-emerald-500/40 shadow-[0_0_30px_rgba(16,185,129,0.2)]'
+            : 'bg-slate-900/80 border-white/10'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div
+              className={`p-3 rounded-2xl shrink-0 ${
+                judgeDemoMode
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}
+            >
+              <Scale className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h3 className="text-base font-extrabold text-white">Competition Judge Evaluation Mode</h3>
+                <span
+                  className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                    judgeDemoMode
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 animate-pulse'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}
+                >
+                  {judgeDemoMode ? 'ACTIVE (Public Access Enabled)' : 'DISABLED (Login Required)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                {judgeDemoMode
+                  ? 'Judges and evaluators can inspect crate QR provenance (/b/:id), route maps, Mandi telemetry, and role portals without logging in. Anyone visiting role portals is granted evaluation access.'
+                  : 'Strict authentication mode is active. Only signed-in approved users can access role dashboards.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => toggleJudgeDemoMode()}
+            className={`px-6 py-3 rounded-2xl text-xs font-black tracking-wider uppercase transition-all duration-300 flex items-center justify-center gap-2 shrink-0 shadow-lg touch-target ${
+              judgeDemoMode
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.4)]'
+                : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+            }`}
+          >
+            <Power className="w-4 h-4" />
+            <span>{judgeDemoMode ? 'Turn Judge Mode OFF' : 'Turn Judge Mode ON'}</span>
+          </button>
         </div>
       </div>
 
