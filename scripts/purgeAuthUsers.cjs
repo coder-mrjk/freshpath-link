@@ -25,13 +25,42 @@ const KNOWN_DEVICE_UIDS = [
   'k8ePyHigtQRcmQe6tSuoY2qIMdd2', // STORE-01
 ];
 
+function getFirebaseTools() {
+  const candidates = [];
+  try {
+    const globalRoot = execSync('npm root -g').toString().trim();
+    candidates.push(path.join(globalRoot, 'firebase-tools'));
+  } catch {}
+
+  candidates.push(path.join(os.homedir(), '.nvm/versions/node', process.version, 'lib/node_modules/firebase-tools'));
+
+  try {
+    candidates.push(path.dirname(require.resolve('firebase-tools/package.json')));
+  } catch {}
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      try {
+        const auth = require(path.join(c, 'lib/auth.js'));
+        const { Client, setAccessToken } = require(path.join(c, 'lib/apiv2.js'));
+        const { identityOrigin } = require(path.join(c, 'lib/api.js'));
+        return { auth, Client, setAccessToken, identityOrigin };
+      } catch {}
+    }
+  }
+  return null;
+}
+
 function firestoreGet(collectionName, accessToken) {
   return new Promise((resolve) => {
     const req = https.get(
       {
         hostname: 'firestore.googleapis.com',
         path: `/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collectionName}`,
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'x-goog-user-project': PROJECT_ID,
+        },
       },
       (res) => {
         let body = '';
@@ -55,19 +84,39 @@ async function main() {
   console.log(' 🔐 FreshPath Link - Purging Demo Auth Users (Preserving Hardware & Owners)');
   console.log('=================================================================\n');
 
-  // 1. Read access token from firebase-tools config
-  const configPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
-  if (!fs.existsSync(configPath)) {
-    console.error('❌ Firebase tools config not found at', configPath);
-    console.error('Please run: firebase login');
-    process.exit(1);
+  // 1. Resolve access token & API client from firebase-tools
+  const fbTools = getFirebaseTools();
+  let accessToken = null;
+  let apiClient = null;
+
+  if (fbTools) {
+    const defaultAccount = fbTools.auth.getGlobalDefaultAccount();
+    if (defaultAccount?.tokens?.refresh_token) {
+      try {
+        const tokenData = await fbTools.auth.getAccessToken(defaultAccount.tokens.refresh_token, []);
+        accessToken = tokenData.access_token;
+        fbTools.setAccessToken(accessToken);
+        apiClient = new fbTools.Client({ urlPrefix: fbTools.identityOrigin() });
+      } catch (err) {
+        console.warn('⚠️ Could not refresh token via firebase-tools:', err.message);
+      }
+    }
   }
 
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  const accessToken = config.tokens?.access_token;
   if (!accessToken) {
-    console.error('❌ No access token found in firebase-tools config. Please run: firebase login');
-    process.exit(1);
+    const configPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
+    if (!fs.existsSync(configPath)) {
+      console.error('❌ Firebase tools config not found at', configPath);
+      console.error('Please run: firebase login');
+      process.exit(1);
+    }
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    accessToken = config.tokens?.access_token;
+    if (!accessToken) {
+      console.error('❌ No access token found in firebase-tools config. Please run: firebase login');
+      process.exit(1);
+    }
   }
 
   // 2. Dynamically fetch registered devices and owners from Firestore
@@ -178,46 +227,75 @@ async function main() {
 
   // 5. Batch delete only demo/test accounts via Identity Toolkit API
   console.log('\n⏳ Deleting demo accounts via Google Identity Toolkit API...');
-  const postData = JSON.stringify({
-    localIds: accountsToDelete.map((u) => u.localId),
-    force: true,
-  });
+  const uidsToDelete = accountsToDelete.map((u) => u.localId);
 
-  const req = https.request(
-    {
-      hostname: 'identitytoolkit.googleapis.com',
-      path: `/v1/projects/${PROJECT_ID}/accounts:batchDelete`,
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-      },
-    },
-    (res) => {
-      let body = '';
-      res.on('data', (chunk) => (body += chunk));
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          console.log(`\n✅ SUCCESS! Deleted ${accountsToDelete.length} demo account(s) from Firebase Authentication.`);
-          console.log(`   Owner account strictly preserved: ${OWNER_EMAIL}`);
-          console.log(`   Hardware device accounts strictly preserved: ${preservedDevices.map(d => d.email).join(', ')}\n`);
-          process.exit(0);
-        } else {
-          console.error(`\n❌ API error (Status ${res.statusCode}):`, body);
-          process.exit(1);
+  if (apiClient) {
+    try {
+      const resp = await apiClient.post(
+        `/v1/projects/${PROJECT_ID}/accounts:batchDelete`,
+        {
+          localIds: uidsToDelete,
+          force: true,
+        },
+        {
+          headers: { 'x-goog-user-project': PROJECT_ID },
         }
-      });
+      );
+      if (resp.status === 200) {
+        console.log(`\n✅ SUCCESS! Deleted ${accountsToDelete.length} demo account(s) from Firebase Authentication.`);
+        console.log(`   Owner account strictly preserved: ${OWNER_EMAIL}`);
+        console.log(`   Hardware device accounts strictly preserved: ${preservedDevices.map(d => d.email).join(', ')}\n`);
+        process.exit(0);
+      } else {
+        console.error(`\n❌ API error (Status ${resp.status}):`, resp.body);
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error('\n❌ Batch delete request failed:', err.message, err.context?.body);
+      process.exit(1);
     }
-  );
-
-  req.on('error', (e) => {
-    console.error('Request failed:', e.message);
-    process.exit(1);
-  });
-
-  req.write(postData);
-  req.end();
+  } else {
+    // Fallback: direct HTTP with user project header
+    const postData = JSON.stringify({
+      localIds: uidsToDelete,
+      force: true,
+    });
+    const req = https.request(
+      {
+        hostname: 'identitytoolkit.googleapis.com',
+        path: `/v1/projects/${PROJECT_ID}/accounts:batchDelete`,
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'x-goog-user-project': PROJECT_ID,
+          'User-Agent': 'FirebaseCLI/13.x',
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => (body += chunk));
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            console.log(`\n✅ SUCCESS! Deleted ${accountsToDelete.length} demo account(s) from Firebase Authentication.`);
+            console.log(`   Owner account strictly preserved: ${OWNER_EMAIL}`);
+            console.log(`   Hardware device accounts strictly preserved: ${preservedDevices.map(d => d.email).join(', ')}\n`);
+            process.exit(0);
+          } else {
+            console.error(`\n❌ API error (Status ${res.statusCode}):`, body);
+            process.exit(1);
+          }
+        });
+      }
+    );
+    req.on('error', (e) => {
+      console.error('Request failed:', e.message);
+      process.exit(1);
+    });
+    req.write(postData);
+    req.end();
+  }
 }
 
 main().catch((err) => {
